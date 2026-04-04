@@ -1,0 +1,300 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { useF1Game } from '@/hooks/useF1Game'
+import { submitPick } from '@/services/firebase/firestore'
+import { validatePick } from '@/services/gameEngine/survivorEngine'
+import { DRIVER_MAP, DRIVERS_2026 } from '@/data/drivers2026'
+import { RACES_2026, isRaceLocked } from '@/data/calendar2026'
+import { format } from 'date-fns'
+import ColumnPick from './ColumnPick'
+import DriverPanel from './DriverPanel'
+import {
+  CheckCircle2, AlertCircle, Lock, Timer, ChevronRight, ChevronLeft, Trophy,
+} from 'lucide-react'
+
+function RaceSelector({ selectedRace, onChange, picks }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      {RACES_2026.map((race) => {
+        const pick = picks.find((p) => p.raceId === race.id)
+        const locked = isRaceLocked(race.id)
+        const isSelected = selectedRace?.id === race.id
+        const hasPick = !!pick
+
+        return (
+          <button
+            key={race.id}
+            onClick={() => onChange(race)}
+            className={`
+              flex-shrink-0 px-3 py-2 rounded-xl text-center transition-all border
+              ${isSelected
+                ? 'bg-f1red border-f1red text-white'
+                : locked
+                  ? 'bg-f1dark border-f1light text-gray-500 cursor-default'
+                  : 'bg-f1gray border-f1light text-gray-300 hover:border-gray-500'
+              }
+            `}
+          >
+            <div className="text-lg leading-none">{race.flag}</div>
+            <div className="text-xs font-bold mt-0.5">{race.shortName}</div>
+            <div className="text-xs text-gray-500">R{race.round}</div>
+            {hasPick && !locked && (
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 mx-auto mt-1" />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function PickSubmissionPage() {
+  const { user } = useAuth()
+  const { currentRace, usedDrivers, myPicks, myPlayer, gameId, refreshPicks } = useF1Game()
+
+  const [selectedRace, setSelectedRace] = useState(null)
+  const [pickedA, setPickedA] = useState(null)
+  const [pickedB, setPickedB] = useState(null)
+  const [inspectedDriver, setInspectedDriver] = useState(null)
+  const [inspectedColumn, setInspectedColumn] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+
+  // Default to current race
+  useEffect(() => {
+    if (currentRace && !selectedRace) setSelectedRace(currentRace)
+  }, [currentRace])
+
+  // Restore existing pick when switching races
+  useEffect(() => {
+    if (!selectedRace) return
+    const existing = myPicks.find((p) => p.raceId === selectedRace.id)
+    setPickedA(existing?.columnA ? DRIVER_MAP[existing.columnA.driverId] : null)
+    setPickedB(existing?.columnB ? DRIVER_MAP[existing.columnB.driverId] : null)
+    setSubmitSuccess(false)
+    setSubmitError(null)
+  }, [selectedRace, myPicks])
+
+  const locked = selectedRace ? isRaceLocked(selectedRace.id) : true
+  const raceDate = selectedRace ? new Date(selectedRace.raceDate) : null
+  const lockTime = selectedRace ? new Date(selectedRace.lockTime) : null
+
+  const usedInA = usedDrivers.usedA
+  const usedInB = usedDrivers.usedB
+
+  // When changing picks, exclude current race from constraint (editing allowed)
+  const prevPickForRace = myPicks.find((p) => p.raceId === selectedRace?.id)
+  const effectiveUsedA = new Set([...usedInA].filter((id) => id !== prevPickForRace?.columnA?.driverId))
+  const effectiveUsedB = new Set([...usedInB].filter((id) => id !== prevPickForRace?.columnB?.driverId))
+
+  const handleSubmit = async () => {
+    if (!pickedA || !pickedB) {
+      setSubmitError('Please select a driver for both columns.')
+      return
+    }
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const validation = await validatePick({
+      gameId,
+      userId: user.uid,
+      raceId: selectedRace.id,
+      columnA: { driverId: pickedA.id, driverName: pickedA.name },
+      columnB: { driverId: pickedB.id, driverName: pickedB.name },
+    })
+
+    if (!validation.valid) {
+      setSubmitError(validation.reason)
+      setSubmitting(false)
+      return
+    }
+
+    try {
+      await submitPick({
+        gameId,
+        userId: user.uid,
+        raceId: selectedRace.id,
+        columnA: { driverId: pickedA.id, driverName: pickedA.name },
+        columnB: { driverId: pickedB.id, driverName: pickedB.name },
+      })
+      await refreshPicks()
+      setSubmitSuccess(true)
+    } catch (err) {
+      setSubmitError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!user) return null
+
+  if (myPlayer?.status === 'eliminated') {
+    return (
+      <div className="card text-center py-16">
+        <div className="text-5xl mb-4">🏁</div>
+        <h2 className="text-2xl font-black text-white mb-2">Eliminated</h2>
+        <p className="text-gray-400">You were eliminated in race {myPlayer.eliminatedAt}.</p>
+        <p className="text-gray-400 mt-1">Check the leaderboard to see who's still racing.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Race selector */}
+      <div className="card">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Select Race Week</p>
+        <RaceSelector selectedRace={selectedRace} onChange={setSelectedRace} picks={myPicks} />
+      </div>
+
+      {selectedRace && (
+        <>
+          {/* Race info bar */}
+          <div className="flex flex-wrap items-center gap-3 bg-f1gray/60 border border-f1light rounded-xl px-4 py-3">
+            <span className="text-2xl">{selectedRace.flag}</span>
+            <div>
+              <p className="font-bold text-white">{selectedRace.name}</p>
+              <p className="text-xs text-gray-400">{selectedRace.circuit} — Round {selectedRace.round}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              {locked ? (
+                <span className="badge-eliminated flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Locked
+                </span>
+              ) : (
+                <>
+                  <Timer className="w-4 h-4 text-f1accent" />
+                  <span className="text-xs text-f1accent font-semibold">
+                    Locks {format(lockTime, 'MMM d, HH:mm')} UTC
+                  </span>
+                </>
+              )}
+              {raceDate && (
+                <span className="text-xs text-gray-400 ml-2">
+                  Race: {format(raceDate, 'MMM d')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 3-column grid: ColA | ColB | DriverPanel */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Column A */}
+            <ColumnPick
+              column="A"
+              label="Podium Pick"
+              description="Driver must finish Top 3"
+              selectedDriver={pickedA}
+              usedDriverIds={effectiveUsedA}
+              onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
+              onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
+            />
+
+            {/* Column B */}
+            <ColumnPick
+              column="B"
+              label="Top 10 Pick"
+              description="Driver must finish Top 10"
+              selectedDriver={pickedB}
+              usedDriverIds={effectiveUsedB}
+              onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
+              onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
+            />
+
+            {/* Driver Panel */}
+            <DriverPanel
+              driverId={inspectedDriver}
+              raceId={selectedRace?.id}
+              column={inspectedColumn}
+              onClose={() => setInspectedDriver(null)}
+            />
+          </div>
+
+          {/* Survival logic reminder */}
+          <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-sm text-gray-400">
+            <strong className="text-white">Survival rule:</strong> You advance if at least one pick succeeds.
+            Both succeed → earn 1 bonus point. Both fail → eliminated.{' '}
+            <span className="text-gray-500">Each driver can be used once per column, all season.</span>
+          </div>
+
+          {/* Submit area */}
+          {!locked && (
+            <div className="card">
+              {submitSuccess ? (
+                <div className="flex items-center gap-3 text-green-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <div>
+                    <p className="font-semibold">Picks saved!</p>
+                    <p className="text-xs text-gray-400">
+                      {pickedA?.name} (Podium) · {pickedB?.name} (Top 10)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="text-sm text-gray-300">
+                    {pickedA && pickedB ? (
+                      <>
+                        <span className="text-f1gold font-semibold">{pickedA.name}</span>
+                        <span className="text-gray-500 mx-1">·</span>
+                        <span className="text-green-400 font-semibold">{pickedB.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500">Select both drivers to submit</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!pickedA || !pickedB || submitting}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    {submitting ? 'Saving…' : 'Submit Picks'}
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              {submitError && (
+                <div className="mt-3 flex items-start gap-2 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2 text-sm text-red-300">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  {submitError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {locked && prevPickForRace && (
+            <div className="card bg-f1dark/50">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Your Pick (Locked)</p>
+              <div className="flex gap-4">
+                <div>
+                  <p className="text-xs text-gray-400">Column A — Podium</p>
+                  <p className="font-bold text-f1gold">{prevPickForRace.columnA?.driverName || '—'}</p>
+                  {prevPickForRace.resultA && (
+                    <span className={`text-xs ${prevPickForRace.resultA === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                      {prevPickForRace.resultA === 'success' ? '✓ Podium!' : '✗ Missed'}
+                    </span>
+                  )}
+                </div>
+                <div className="border-l border-f1light pl-4">
+                  <p className="text-xs text-gray-400">Column B — Top 10</p>
+                  <p className="font-bold text-green-400">{prevPickForRace.columnB?.driverName || '—'}</p>
+                  {prevPickForRace.resultB && (
+                    <span className={`text-xs ${prevPickForRace.resultB === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                      {prevPickForRace.resultB === 'success' ? '✓ Top 10!' : '✗ Missed'}
+                    </span>
+                  )}
+                </div>
+                {prevPickForRace.pointEarned && (
+                  <div className="ml-auto flex items-center gap-1 text-f1gold font-bold">
+                    <Trophy className="w-4 h-4" /> +1 Point
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
