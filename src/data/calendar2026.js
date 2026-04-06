@@ -326,12 +326,6 @@ export const TRACK_HISTORY = {
     BOT: [19, 19, 19, 19, 19], ALB: [20, 20, 20, 20, 20], BEA: [20, 20, 20, 20, 20],
     STR: [20, 20, 20, 20, 20],
   },
-  R06: { // Monaco — seed data
-    NOR: [1, 2, 1, 2, 1], LEC: [2, 1, 2, 1, 2], VER: [3, 3, 3, 3, 3],
-    ALO: [4, 4, 5, 4, 5], SAI: [5, 5, 4, 5, 4], HAM: [6, 6, 6, 6, 6],
-    RUS: [7, 7, 7, 7, 7], PIA: [8, 8, 8, 8, 8], STR: [9, 9, 9, 9, 9],
-    GAS: [10, 10, 10, 10, 10],
-  },
 }
 
 export function getRaceById(raceId) {

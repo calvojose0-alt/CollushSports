@@ -4,7 +4,7 @@ import { useF1Game } from '@/hooks/useF1Game'
 import { submitPick } from '@/services/firebase/firestore'
 import { validatePick } from '@/services/gameEngine/survivorEngine'
 import { DRIVER_MAP, DRIVERS_2026 } from '@/data/drivers2026'
-import { RACES_2026, isRaceLocked } from '@/data/calendar2026'
+import { RACES_2026, TRACK_HISTORY, isRaceLocked } from '@/data/calendar2026'
 import { format } from 'date-fns'
 import ColumnPick from './ColumnPick'
 import DriverPanel from './DriverPanel'
@@ -44,6 +44,102 @@ function RaceSelector({ selectedRace, onChange, picks }) {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' }
+
+function RaceFinishingOrder({ raceId }) {
+  const trackData = TRACK_HISTORY[raceId]
+  if (!trackData) return null
+
+  // Build sorted finishing order from TRACK_HISTORY (last value = actual 2026 result)
+  const order = Object.entries(trackData)
+    .map(([driverId, positions]) => ({ driverId, pos: positions[positions.length - 1] }))
+    .filter(({ pos }) => pos < 20)
+    .sort((a, b) => a.pos - b.pos)
+
+  const dnf = Object.entries(trackData)
+    .map(([driverId, positions]) => ({ driverId, pos: positions[positions.length - 1] }))
+    .filter(({ pos }) => pos >= 20)
+
+  return (
+    <div className="card col-span-1 lg:col-span-3">
+      <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Race Result</p>
+      <div className="grid grid-cols-2 gap-3">
+        {/* Left column: P1–P10 */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-f1gold uppercase tracking-wider mb-2">Top 10</p>
+          {order.filter(({ pos }) => pos <= 10).map(({ driverId, pos }) => {
+            const driver = DRIVER_MAP[driverId]
+            if (!driver) return null
+            const isPodium = pos <= 3
+            return (
+              <div
+                key={driverId}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-xl ${isPodium ? 'bg-f1gold/10 border border-f1gold/30' : 'bg-f1dark'}`}
+              >
+                <span className="w-7 text-center font-black text-sm flex-shrink-0" style={{ color: isPodium ? '#FFD700' : '#6b7280' }}>
+                  {MEDAL[pos] ?? `P${pos}`}
+                </span>
+                <div
+                  className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-black text-white"
+                  style={{ background: driver.teamColor }}
+                >
+                  {driver.number}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${isPodium ? 'text-white' : 'text-gray-300'}`}>{driver.name}</p>
+                  <p className="text-xs truncate" style={{ color: driver.teamColor }}>{driver.team}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Right column: P11+ and DNF/DNS */}
+        <div className="space-y-1.5">
+          {order.filter(({ pos }) => pos > 10).map(({ driverId, pos }) => {
+            const driver = DRIVER_MAP[driverId]
+            if (!driver) return null
+            return (
+              <div key={driverId} className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-f1dark">
+                <span className="w-6 text-center font-black text-xs flex-shrink-0 text-gray-500">P{pos}</span>
+                <div
+                  className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black text-white"
+                  style={{ background: driver.teamColor }}
+                >
+                  {driver.number}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate text-gray-300">{driver.name}</p>
+                  <p className="text-xs truncate" style={{ color: driver.teamColor }}>{driver.team}</p>
+                </div>
+              </div>
+            )
+          })}
+          {dnf.length > 0 && (
+            <div className="pt-2 mt-1 border-t border-f1light space-y-1.5">
+              <p className="text-xs text-gray-500 uppercase tracking-wider">DNF / DNS</p>
+              {dnf.map(({ driverId }) => {
+                const driver = DRIVER_MAP[driverId]
+                if (!driver) return null
+                return (
+                  <div key={driverId} className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-f1dark opacity-50">
+                    <span className="w-6 text-center text-xs text-gray-600 flex-shrink-0">—</span>
+                    <div className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: driver.teamColor }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate text-gray-400">{driver.name}</p>
+                      <p className="text-xs truncate" style={{ color: driver.teamColor }}>{driver.team}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -178,37 +274,43 @@ export default function PickSubmissionPage() {
             </div>
           </div>
 
-          {/* 3-column grid: ColA | ColB | DriverPanel */}
+          {/* Completed race: show finishing order. Upcoming: show pick columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Column A */}
-            <ColumnPick
-              column="A"
-              label="Podium Pick"
-              description="Driver must finish Top 3"
-              selectedDriver={pickedA}
-              usedDriverIds={effectiveUsedA}
-              onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
-              onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
-            />
+            {TRACK_HISTORY[selectedRace.id] ? (
+              <RaceFinishingOrder raceId={selectedRace.id} />
+            ) : (
+              <>
+                {/* Podium Pick */}
+                <ColumnPick
+                  column="A"
+                  label="Podium Pick"
+                  description="Driver must finish Top 3"
+                  selectedDriver={pickedA}
+                  usedDriverIds={effectiveUsedA}
+                  onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
+                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
+                />
 
-            {/* Column B */}
-            <ColumnPick
-              column="B"
-              label="Top 10 Pick"
-              description="Driver must finish Top 10"
-              selectedDriver={pickedB}
-              usedDriverIds={effectiveUsedB}
-              onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
-              onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
-            />
+                {/* Top 10 Pick */}
+                <ColumnPick
+                  column="B"
+                  label="Top 10 Pick"
+                  description="Driver must finish Top 10"
+                  selectedDriver={pickedB}
+                  usedDriverIds={effectiveUsedB}
+                  onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
+                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
+                />
 
-            {/* Driver Panel */}
-            <DriverPanel
-              driverId={inspectedDriver}
-              raceId={selectedRace?.id}
-              column={inspectedColumn}
-              onClose={() => setInspectedDriver(null)}
-            />
+                {/* Driver Analysis Panel */}
+                <DriverPanel
+                  driverId={inspectedDriver}
+                  raceId={selectedRace?.id}
+                  column={inspectedColumn}
+                  onClose={() => setInspectedDriver(null)}
+                />
+              </>
+            )}
           </div>
 
           {/* Survival logic reminder */}

@@ -46,7 +46,7 @@ export default function F1SurvivorLayout() {
           <div className="w-6 h-6 bg-f1red rounded flex items-center justify-center">
             <Flag className="w-3 h-3 text-white" />
           </div>
-          <span className="font-bold text-white text-sm">F1 Survivor Pool 2026</span>
+          <span className="font-bold text-gray-800 text-sm">F1 Survivor Pool 2026</span>
         </div>
         {myPlayer && (
           <div className="ml-auto">

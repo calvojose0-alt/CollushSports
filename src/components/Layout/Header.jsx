@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Flag, LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 export default function Header() {
@@ -27,9 +27,25 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 bg-f1red rounded-lg flex items-center justify-center group-hover:bg-red-700 transition-colors">
-            <Flag className="w-4 h-4 text-white" />
-          </div>
+          {/* CS logo mark */}
+          <svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg"
+            className="group-hover:scale-105 transition-transform">
+            <rect width="34" height="34" rx="8" fill="#FF8000" />
+            {/* C */}
+            <path
+              d="M10 12.5 C10 9.5 12.5 7.5 15.5 7.5 L18 7.5"
+              stroke="white" strokeWidth="2.2" strokeLinecap="round" fill="none"
+            />
+            <path
+              d="M10 12.5 L10 21.5 C10 24.5 12.5 26.5 15.5 26.5 L18 26.5"
+              stroke="white" strokeWidth="2.2" strokeLinecap="round" fill="none"
+            />
+            {/* S */}
+            <path
+              d="M21 8.5 C21 8.5 25.5 8 25.5 11.5 C25.5 14.5 21 15.5 21 18.5 C21 21.5 25.5 21.5 25.5 25.5"
+              stroke="#000000" strokeWidth="2.2" strokeLinecap="round" fill="none"
+            />
+          </svg>
           <div>
             <span className="font-black text-white text-sm tracking-tight">COLLUSH</span>
             <span className="text-f1accent font-bold text-xs ml-1">SPORTS</span>

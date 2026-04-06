@@ -39,11 +39,17 @@ export default function ColumnPick({ column, label, description, selectedDriver,
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
-  const filtered = DRIVERS_2026.filter(
-    (d) =>
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.team.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = DRIVERS_2026
+    .filter(
+      (d) =>
+        d.name.toLowerCase().includes(search.toLowerCase()) ||
+        d.team.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aBottom = usedDriverIds.has(a.id) || selectedDriver?.id === a.id
+      const bBottom = usedDriverIds.has(b.id) || selectedDriver?.id === b.id
+      return aBottom - bBottom
+    })
 
   const handleSelect = (driver) => {
     onSelect(driver)

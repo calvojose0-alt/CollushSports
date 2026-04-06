@@ -27,19 +27,19 @@ const GAMES = [
     features: ['Survivor Rules', '22 Races', 'Driver Constraints', 'Leaderboard'],
   },
   {
-    id: 'nfl-survivor',
-    title: 'NFL Survivor Pool',
-    subtitle: '2025–26 Season',
+    id: 'world-cup-quiniela',
+    title: '2026 World Cup Quiniela',
+    subtitle: 'FIFA World Cup 2026',
     description:
-      "Pick one NFL team to win each week. Lose once and you're out. Classic survivor format across the full NFL season.",
-    icon: Trophy,
-    color: 'from-blue-900/40 to-blue-800/10',
-    borderColor: 'border-blue-700/30',
-    accentColor: 'text-blue-400',
-    badgeColor: 'bg-blue-600',
+      'Predict group stage and knockout results in the classic Quiniela format for the USA–Canada–Mexico World Cup.',
+    icon: Globe,
+    color: 'from-yellow-900/40 to-yellow-800/10',
+    borderColor: 'border-yellow-700/30',
+    accentColor: 'text-yellow-400',
+    badgeColor: 'bg-yellow-600',
     status: 'coming-soon',
     path: null,
-    features: ['Weekly Picks', '18 Weeks', 'One Life', 'Tiebreakers'],
+    features: ['48 Group Games', 'Knockout Bracket', 'Bonus Points', '2026 Only'],
   },
   {
     id: 'nfl-win-league',
@@ -57,19 +57,19 @@ const GAMES = [
     features: ['All 18 Weeks', 'Points System', 'Weekly Rankings', 'Groups'],
   },
   {
-    id: 'world-cup-quiniela',
-    title: '2026 World Cup Quiniela',
-    subtitle: 'FIFA World Cup 2026',
+    id: 'nfl-survivor',
+    title: 'NFL Survivor Pool',
+    subtitle: '2025–26 Season',
     description:
-      'Predict group stage and knockout results in the classic Quiniela format for the USA–Canada–Mexico World Cup.',
-    icon: Globe,
-    color: 'from-yellow-900/40 to-yellow-800/10',
-    borderColor: 'border-yellow-700/30',
-    accentColor: 'text-yellow-400',
-    badgeColor: 'bg-yellow-600',
+      "Pick one NFL team to win each week. Lose once and you're out. Classic survivor format across the full NFL season.",
+    icon: Trophy,
+    color: 'from-blue-900/40 to-blue-800/10',
+    borderColor: 'border-blue-700/30',
+    accentColor: 'text-blue-400',
+    badgeColor: 'bg-blue-600',
     status: 'coming-soon',
     path: null,
-    features: ['48 Group Games', 'Knockout Bracket', 'Bonus Points', '2026 Only'],
+    features: ['Weekly Picks', '18 Weeks', 'One Life', 'Tiebreakers'],
   },
 ]
 
@@ -147,6 +147,7 @@ export default function HomePage() {
   const { user } = useAuth()
 
   return (
+    <div className="min-h-screen bg-f1dark">
     <div className="max-w-7xl mx-auto px-4 py-10">
       {/* Hero */}
       <div className="text-center mb-12">
@@ -156,7 +157,7 @@ export default function HomePage() {
           </span>
         </div>
         <h1 className="text-4xl md:text-5xl font-black text-white mb-4 leading-tight">
-          Choose Your <span className="text-f1red">Arena</span>
+          Choose Your <span className="text-f1accent">Arena</span>
         </h1>
         <p className="text-gray-400 text-lg max-w-xl mx-auto">
           Compete with friends across the world's biggest sporting events. Pick your game and prove you know sports better than anyone.
@@ -192,6 +193,7 @@ export default function HomePage() {
       <p className="text-center text-xs text-gray-600 mt-10">
         Collush Sports is a fan-made competition platform. Not affiliated with F1, NFL, or FIFA.
       </p>
+    </div>
     </div>
   )
 }
