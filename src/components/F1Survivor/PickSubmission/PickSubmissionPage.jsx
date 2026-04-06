@@ -268,7 +268,7 @@ export default function PickSubmissionPage() {
               <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Your Pick (Locked)</p>
               <div className="flex gap-4">
                 <div>
-                  <p className="text-xs text-gray-400">Column A — Podium</p>
+                  <p className="text-xs text-gray-400">Podium Pick</p>
                   <p className="font-bold text-f1gold">{prevPickForRace.columnA?.driverName || '—'}</p>
                   {prevPickForRace.resultA && (
                     <span className={`text-xs ${prevPickForRace.resultA === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -277,7 +277,7 @@ export default function PickSubmissionPage() {
                   )}
                 </div>
                 <div className="border-l border-f1light pl-4">
-                  <p className="text-xs text-gray-400">Column B — Top 10</p>
+                  <p className="text-xs text-gray-400">Top 10 Pick</p>
                   <p className="font-bold text-green-400">{prevPickForRace.columnB?.driverName || '—'}</p>
                   {prevPickForRace.resultB && (
                     <span className={`text-xs ${prevPickForRace.resultB === 'success' ? 'text-green-400' : 'text-red-400'}`}>

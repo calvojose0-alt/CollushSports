@@ -157,13 +157,13 @@ export async function validatePick({ gameId, userId, raceId, columnA, columnB })
   if (columnA && prevUsedInA.has(columnA.driverId)) {
     return {
       valid: false,
-      reason: `${columnA.driverName} has already been used in Column A (Podium). Choose a different driver.`,
+      reason: `${columnA.driverName} has already been used in Podium Pick. Choose a different driver.`,
     }
   }
   if (columnB && prevUsedInB.has(columnB.driverId)) {
     return {
       valid: false,
-      reason: `${columnB.driverName} has already been used in Column B (Top 10). Choose a different driver.`,
+      reason: `${columnB.driverName} has already been used in Top 10 Pick. Choose a different driver.`,
     }
   }
 

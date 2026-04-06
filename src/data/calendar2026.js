@@ -1,6 +1,5 @@
 // 2026 Formula 1 Race Calendar
-// Lock time = Saturday 15:00 local → converted to UTC offset (approximate)
-// All dates are UTC ISO strings
+// Lock time = 5 minutes before race start (raceDate − 5 min), all in UTC
 // Notable: 22 races (no Bahrain/Saudi Arabia), new Madrid GP added,
 // Cadillac joins as 11th team. Season opened Mar 8 in Melbourne.
 
@@ -15,7 +14,7 @@ export const RACES_2026 = [
     country: 'Australia',
     flag: '🇦🇺',
     raceDate: '2026-03-08T04:00:00Z',
-    lockTime: '2026-03-07T04:00:00Z',
+    lockTime: '2026-03-08T03:55:00Z',
     trackImage: null,
   },
   {
@@ -28,7 +27,7 @@ export const RACES_2026 = [
     country: 'China',
     flag: '🇨🇳',
     raceDate: '2026-03-15T07:00:00Z',
-    lockTime: '2026-03-14T07:00:00Z',
+    lockTime: '2026-03-15T06:55:00Z',
     trackImage: null,
   },
   {
@@ -41,7 +40,7 @@ export const RACES_2026 = [
     country: 'Japan',
     flag: '🇯🇵',
     raceDate: '2026-03-29T05:00:00Z',
-    lockTime: '2026-03-28T05:00:00Z',
+    lockTime: '2026-03-29T04:55:00Z',
     trackImage: null,
   },
   {
@@ -54,7 +53,7 @@ export const RACES_2026 = [
     country: 'USA',
     flag: '🇺🇸',
     raceDate: '2026-05-03T20:00:00Z',
-    lockTime: '2026-05-02T19:00:00Z',
+    lockTime: '2026-05-03T19:55:00Z',
     trackImage: null,
   },
   {
@@ -67,7 +66,7 @@ export const RACES_2026 = [
     country: 'Canada',
     flag: '🇨🇦',
     raceDate: '2026-05-24T20:00:00Z',
-    lockTime: '2026-05-23T19:00:00Z',
+    lockTime: '2026-05-24T19:55:00Z',
     trackImage: null,
   },
   {
@@ -80,7 +79,7 @@ export const RACES_2026 = [
     country: 'Monaco',
     flag: '🇲🇨',
     raceDate: '2026-06-07T13:00:00Z',
-    lockTime: '2026-06-06T12:00:00Z',
+    lockTime: '2026-06-07T12:55:00Z',
     trackImage: null,
   },
   {
@@ -93,7 +92,7 @@ export const RACES_2026 = [
     country: 'Spain',
     flag: '🇪🇸',
     raceDate: '2026-06-14T13:00:00Z',
-    lockTime: '2026-06-13T12:00:00Z',
+    lockTime: '2026-06-14T12:55:00Z',
     trackImage: null,
   },
   {
@@ -106,7 +105,7 @@ export const RACES_2026 = [
     country: 'Austria',
     flag: '🇦🇹',
     raceDate: '2026-06-28T13:00:00Z',
-    lockTime: '2026-06-27T12:00:00Z',
+    lockTime: '2026-06-28T12:55:00Z',
     trackImage: null,
   },
   {
@@ -119,7 +118,7 @@ export const RACES_2026 = [
     country: 'United Kingdom',
     flag: '🇬🇧',
     raceDate: '2026-07-05T14:00:00Z',
-    lockTime: '2026-07-04T13:00:00Z',
+    lockTime: '2026-07-05T13:55:00Z',
     trackImage: null,
   },
   {
@@ -132,7 +131,7 @@ export const RACES_2026 = [
     country: 'Belgium',
     flag: '🇧🇪',
     raceDate: '2026-07-19T13:00:00Z',
-    lockTime: '2026-07-18T12:00:00Z',
+    lockTime: '2026-07-19T12:55:00Z',
     trackImage: null,
   },
   {
@@ -145,7 +144,7 @@ export const RACES_2026 = [
     country: 'Hungary',
     flag: '🇭🇺',
     raceDate: '2026-07-26T13:00:00Z',
-    lockTime: '2026-07-25T12:00:00Z',
+    lockTime: '2026-07-26T12:55:00Z',
     trackImage: null,
   },
   {
@@ -158,7 +157,7 @@ export const RACES_2026 = [
     country: 'Netherlands',
     flag: '🇳🇱',
     raceDate: '2026-08-23T13:00:00Z',
-    lockTime: '2026-08-22T12:00:00Z',
+    lockTime: '2026-08-23T12:55:00Z',
     trackImage: null,
   },
   {
@@ -171,7 +170,7 @@ export const RACES_2026 = [
     country: 'Italy',
     flag: '🇮🇹',
     raceDate: '2026-09-06T13:00:00Z',
-    lockTime: '2026-09-05T12:00:00Z',
+    lockTime: '2026-09-06T12:55:00Z',
     trackImage: null,
   },
   {
@@ -184,7 +183,7 @@ export const RACES_2026 = [
     country: 'Spain',
     flag: '🇪🇸',
     raceDate: '2026-09-13T13:00:00Z',
-    lockTime: '2026-09-12T12:00:00Z',
+    lockTime: '2026-09-13T12:55:00Z',
     trackImage: null,
   },
   {
@@ -197,7 +196,7 @@ export const RACES_2026 = [
     country: 'Azerbaijan',
     flag: '🇦🇿',
     raceDate: '2026-09-26T11:00:00Z',
-    lockTime: '2026-09-25T10:00:00Z',
+    lockTime: '2026-09-26T10:55:00Z',
     trackImage: null,
   },
   {
@@ -210,7 +209,7 @@ export const RACES_2026 = [
     country: 'Singapore',
     flag: '🇸🇬',
     raceDate: '2026-10-11T12:00:00Z',
-    lockTime: '2026-10-10T11:00:00Z',
+    lockTime: '2026-10-11T11:55:00Z',
     trackImage: null,
   },
   {
@@ -223,7 +222,7 @@ export const RACES_2026 = [
     country: 'USA',
     flag: '🇺🇸',
     raceDate: '2026-10-25T20:00:00Z',
-    lockTime: '2026-10-24T19:00:00Z',
+    lockTime: '2026-10-25T19:55:00Z',
     trackImage: null,
   },
   {
@@ -236,7 +235,7 @@ export const RACES_2026 = [
     country: 'Mexico',
     flag: '🇲🇽',
     raceDate: '2026-11-01T20:00:00Z',
-    lockTime: '2026-10-31T19:00:00Z',
+    lockTime: '2026-11-01T19:55:00Z',
     trackImage: null,
   },
   {
@@ -249,7 +248,7 @@ export const RACES_2026 = [
     country: 'Brazil',
     flag: '🇧🇷',
     raceDate: '2026-11-08T17:00:00Z',
-    lockTime: '2026-11-07T16:00:00Z',
+    lockTime: '2026-11-08T16:55:00Z',
     trackImage: null,
   },
   {
@@ -262,7 +261,7 @@ export const RACES_2026 = [
     country: 'USA',
     flag: '🇺🇸',
     raceDate: '2026-11-22T04:00:00Z',
-    lockTime: '2026-11-21T03:00:00Z',
+    lockTime: '2026-11-22T03:55:00Z',
     trackImage: null,
   },
   {
@@ -275,7 +274,7 @@ export const RACES_2026 = [
     country: 'Qatar',
     flag: '🇶🇦',
     raceDate: '2026-11-29T16:00:00Z',
-    lockTime: '2026-11-28T15:00:00Z',
+    lockTime: '2026-11-29T15:55:00Z',
     trackImage: null,
   },
   {
@@ -288,21 +287,46 @@ export const RACES_2026 = [
     country: 'UAE',
     flag: '🇦🇪',
     raceDate: '2026-12-06T13:00:00Z',
-    lockTime: '2026-12-05T12:00:00Z',
+    lockTime: '2026-12-06T12:55:00Z',
     trackImage: null,
   },
 ]
 
 // Per-track driver performance history (seed — replaced by OpenF1 API when connected)
-// Format: { driverId: [p1finish, p2finish, ...] } — DNF represented as 20
+// Format: { driverId: [p1finish, p2finish, ...] } — DNF/DNS/NC represented as 20
+// R01, R02, R03 populated with actual 2026 race results
 export const TRACK_HISTORY = {
-  R01: { // Australia
-    NOR: [1, 2, 1, 2, 3], VER: [2, 1, 3, 1, 1], LEC: [3, 3, 2, 3, 2],
-    HAM: [4, 4, 4, 5, 4], PIA: [5, 5, 5, 4, 5], RUS: [6, 6, 6, 6, 6],
-    SAI: [7, 7, 7, 7, 7], ALO: [8, 8, 8, 8, 8], HAD: [9, 10, 11, 9, 12],
-    GAS: [10, 9, 10, 10, 10],
+  R01: { // Australia 2026 — actual results
+    RUS: [1, 1, 1, 1, 1], ANT: [2, 2, 2, 2, 2], LEC: [3, 3, 3, 3, 3],
+    HAM: [4, 4, 4, 4, 4], NOR: [5, 5, 5, 5, 5], VER: [6, 6, 6, 6, 6],
+    BEA: [7, 7, 7, 7, 7], LIN: [8, 8, 8, 8, 8], BOR: [9, 9, 9, 9, 9],
+    GAS: [10, 10, 10, 10, 10], OCO: [11, 11, 11, 11, 11], ALB: [12, 12, 12, 12, 12],
+    LAW: [13, 13, 13, 13, 13], COL: [14, 14, 14, 14, 14], SAI: [15, 15, 15, 15, 15],
+    PER: [16, 16, 16, 16, 16], HAD: [20, 20, 20, 20, 20], PIA: [20, 20, 20, 20, 20],
+    HUL: [20, 20, 20, 20, 20], BOT: [20, 20, 20, 20, 20], ALO: [20, 20, 20, 20, 20],
+    STR: [20, 20, 20, 20, 20],
   },
-  R06: { // Monaco
+  R02: { // China 2026 — actual results
+    ANT: [1, 1, 1, 1, 1], RUS: [2, 2, 2, 2, 2], HAM: [3, 3, 3, 3, 3],
+    LEC: [4, 4, 4, 4, 4], BEA: [5, 5, 5, 5, 5], GAS: [6, 6, 6, 6, 6],
+    LAW: [7, 7, 7, 7, 7], HAD: [8, 8, 8, 8, 8], SAI: [9, 9, 9, 9, 9],
+    COL: [10, 10, 10, 10, 10], HUL: [11, 11, 11, 11, 11], LIN: [12, 12, 12, 12, 12],
+    BOT: [13, 13, 13, 13, 13], OCO: [14, 14, 14, 14, 14], PER: [15, 15, 15, 15, 15],
+    NOR: [20, 20, 20, 20, 20], PIA: [20, 20, 20, 20, 20], ALB: [20, 20, 20, 20, 20],
+    BOR: [20, 20, 20, 20, 20], VER: [20, 20, 20, 20, 20], ALO: [20, 20, 20, 20, 20],
+    STR: [20, 20, 20, 20, 20],
+  },
+  R03: { // Japan 2026 — actual results
+    ANT: [1, 1, 1, 1, 1], PIA: [2, 2, 2, 2, 2], LEC: [3, 3, 3, 3, 3],
+    RUS: [4, 4, 4, 4, 4], NOR: [5, 5, 5, 5, 5], HAM: [6, 6, 6, 6, 6],
+    GAS: [7, 7, 7, 7, 7], VER: [8, 8, 8, 8, 8], LAW: [9, 9, 9, 9, 9],
+    OCO: [10, 10, 10, 10, 10], HUL: [11, 11, 11, 11, 11], HAD: [12, 12, 12, 12, 12],
+    BOR: [13, 13, 13, 13, 13], LIN: [14, 14, 14, 14, 14], SAI: [15, 15, 15, 15, 15],
+    COL: [16, 16, 16, 16, 16], PER: [17, 17, 17, 17, 17], ALO: [18, 18, 18, 18, 18],
+    BOT: [19, 19, 19, 19, 19], ALB: [20, 20, 20, 20, 20], BEA: [20, 20, 20, 20, 20],
+    STR: [20, 20, 20, 20, 20],
+  },
+  R06: { // Monaco — seed data
     NOR: [1, 2, 1, 2, 1], LEC: [2, 1, 2, 1, 2], VER: [3, 3, 3, 3, 3],
     ALO: [4, 4, 5, 4, 5], SAI: [5, 5, 4, 5, 4], HAM: [6, 6, 6, 6, 6],
     RUS: [7, 7, 7, 7, 7], PIA: [8, 8, 8, 8, 8], STR: [9, 9, 9, 9, 9],

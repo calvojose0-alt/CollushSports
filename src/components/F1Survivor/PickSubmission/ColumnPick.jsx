@@ -61,9 +61,8 @@ export default function ColumnPick({ column, label, description, selectedDriver,
       {/* Column header */}
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className={`text-xs font-black ${labelColor} tracking-widest`}>COLUMN {column}</span>
+          <span className={`text-xs font-black ${labelColor} tracking-widest`}>{column === 'A' ? 'PODIUM PICK' : 'TOP 10 PICK'}</span>
         </div>
-        <p className="font-bold text-white">{label}</p>
         <p className="text-xs text-gray-400">{description}</p>
       </div>
 

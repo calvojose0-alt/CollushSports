@@ -2,7 +2,7 @@
 // Uses OpenF1 API (https://openf1.org/) — free, no API key required
 // Falls back to local seed data when API is unavailable or in demo mode
 
-import { DRIVER_STATS, DRIVER_MAP } from '@/data/drivers2026'
+import { DRIVER_STATS, DRIVER_MAP, RECENT_RACE_LABELS } from '@/data/drivers2026'
 import { RACES_2026, TRACK_HISTORY } from '@/data/calendar2026'
 
 const BASE_URL = import.meta.env.VITE_OPENF1_API_URL || 'https://api.openf1.org/v1'
@@ -70,6 +70,7 @@ function buildDriverStats(driverId, raceId) {
     podiumProbability: Math.round(seed.podiumRate * 100),
     top10Probability: Math.round(seed.top10Rate * 100),
     recentFinishes: seed.recentFinishes,
+    recentRaceLabels: RECENT_RACE_LABELS,
     trackHistory: getTrackHistoryForDriver(driverId, raceId),
     dataSource: 'Seed',
   }

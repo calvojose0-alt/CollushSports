@@ -129,7 +129,7 @@ export default function HistoryPage() {
                     {/* Pick details */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-f1dark rounded-lg px-3 py-2">
-                        <p className="text-xs text-gray-500 mb-1">Column A — Podium</p>
+                        <p className="text-xs text-gray-500 mb-1">Podium Pick</p>
                         <StatusRow
                           label=""
                           result={item.resultA}
@@ -137,7 +137,7 @@ export default function HistoryPage() {
                         />
                       </div>
                       <div className="bg-f1dark rounded-lg px-3 py-2">
-                        <p className="text-xs text-gray-500 mb-1">Column B — Top 10</p>
+                        <p className="text-xs text-gray-500 mb-1">Top 10 Pick</p>
                         <StatusRow
                           label=""
                           result={item.resultB}

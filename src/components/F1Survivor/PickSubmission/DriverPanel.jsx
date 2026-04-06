@@ -1,7 +1,6 @@
 // Driver Panel — right-side panel showing stats when a driver is selected
 import { useDriverStats } from '@/hooks/useF1Data'
 import { DRIVER_MAP } from '@/data/drivers2026'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { TrendingUp, Clock, MapPin, X } from 'lucide-react'
 
 function positionColor(pos) {
@@ -80,7 +79,7 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
             <MapPin className="w-3 h-3" />
             Analyzing for{' '}
             <strong className="text-white">
-              {column === 'A' ? 'Column A (Podium — Top 3)' : 'Column B (Top 10)'}
+              {column === 'A' ? 'Podium Pick (Top 3)' : 'Top 10 Pick'}
             </strong>
           </div>
 
@@ -106,28 +105,56 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
           {/* Recent Finishes Chart */}
           {stats.recentFinishes?.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Last {stats.recentFinishes.length} Races
               </p>
-              <ResponsiveContainer width="100%" height={90}>
-                <BarChart
-                  data={stats.recentFinishes.map((pos, i) => ({ race: `R-${stats.recentFinishes.length - i}`, pos }))}
-                  margin={{ top: 4, right: 0, left: -20, bottom: 0 }}
-                >
-                  <XAxis dataKey="race" tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis reversed domain={[1, 20]} tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: '#15151E', border: '1px solid #38383F', borderRadius: 8, fontSize: 11 }}
-                    formatter={(v) => [`P${v}`, 'Finish']}
-                  />
-                  <Bar dataKey="pos" radius={[3, 3, 0, 0]}>
-                    {stats.recentFinishes.map((pos, i) => (
-                      <Cell key={i} fill={positionColor(pos)} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex gap-3 mt-1 justify-end">
+              {/* CSS bar chart — labels row then bars row */}
+              {/* Labels row — fixed height, never overlaps title */}
+              <div className="flex gap-1.5 mb-1">
+                {stats.recentFinishes.map((pos, i) => {
+                  const label = pos >= 20 ? 'Ret' : `P${pos}`
+                  return (
+                    <div key={i} className="flex-1 flex justify-center items-center" style={{ height: 22 }}>
+                      {pos === 1 ? (
+                        <div style={{
+                          width: 20, height: 20, borderRadius: '50%',
+                          border: '1.5px solid #FFD700', background: '#FFD70022',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <span style={{ color: '#FFD700', fontSize: 8, fontWeight: 'bold' }}>{label}</span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#d1d5db', fontSize: 9, fontWeight: 'bold' }}>{label}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {/* Bars row — bottom aligned */}
+              <div className="flex items-end gap-1.5" style={{ height: 60 }}>
+                {stats.recentFinishes.map((pos, i) => {
+                  const color = positionColor(pos)
+                  const heightPct = pos >= 20 ? 3 : Math.max(((20 - pos) / 19) * 100, 6)
+                  return (
+                    <div key={i} style={{
+                      flex: 1,
+                      height: `${heightPct}%`,
+                      background: color,
+                      borderRadius: '2px 2px 0 0',
+                    }} />
+                  )
+                })}
+              </div>
+              {/* Race name labels */}
+              <div className="flex gap-1.5 mt-1.5">
+                {stats.recentFinishes.map((_, i) => (
+                  <div key={i} className="flex-1 text-center" style={{ color: '#6b7280', fontSize: 8 }}>
+                    {(stats.recentRaceLabels?.[i] ?? `R-${stats.recentFinishes.length - i}`)}
+                  </div>
+                ))}
+              </div>
+              {/* Legend */}
+              <div className="flex gap-3 mt-2 justify-end">
                 {[['#FFD700', 'Podium'], ['#22c55e', 'Top 10'], ['#6b7280', 'Other']].map(([c, l]) => (
                   <span key={l} className="flex items-center gap-1 text-xs text-gray-500">
                     <span className="w-2 h-2 rounded-sm" style={{ background: c }} /> {l}

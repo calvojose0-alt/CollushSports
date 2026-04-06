@@ -153,7 +153,7 @@ export default function LeaderboardPage() {
       {/* Points explanation */}
       <div className="text-xs text-gray-500 bg-f1dark border border-f1light rounded-xl px-4 py-3">
         <strong className="text-gray-400">Points:</strong> Earn 1 point when <em>both</em> your picks
-        succeed in the same race (Column A podium + Column B Top 10). Points don't affect survival —
+        succeed in the same race (Podium Pick + Top 10 Pick). Points don't affect survival —
         they break ties when 2 or fewer players remain.
       </div>
     </div>
