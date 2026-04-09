@@ -188,6 +188,15 @@ export async function getPicksForPlayer(gameId, userId) {
     .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))
 }
 
+export async function getPicksForGame(gameId) {
+  if (isFirebaseConfigured && db) {
+    const q = query(collection(db, 'picks'), where('gameId', '==', gameId))
+    const snap = await getDocs(q)
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  }
+  return LS.getAll('picks').filter((p) => p.gameId === gameId)
+}
+
 export async function updatePick(pickId, updates) {
   if (isFirebaseConfigured && db) {
     await updateDoc(doc(db, 'picks', pickId), updates)

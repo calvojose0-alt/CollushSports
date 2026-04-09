@@ -5,9 +5,9 @@ import { useF1Game } from '@/hooks/useF1Game'
 import { saveRaceResult, getRaceResult } from '@/services/firebase/firestore'
 import { processRaceResults } from '@/services/gameEngine/survivorEngine'
 import { fetchRaceResults } from '@/services/api/f1Api'
-import { RACES_2026 } from '@/data/calendar2026'
+import { RACES_2026, TRACK_HISTORY } from '@/data/calendar2026'
 import { DRIVERS_2026 } from '@/data/drivers2026'
-import { Settings, Download, CheckCircle2, AlertCircle, Loader } from 'lucide-react'
+import { Settings, Download, CheckCircle2, AlertCircle, Loader, Lock, Pencil } from 'lucide-react'
 
 const EMPTY_RESULTS = Array.from({ length: 20 }, (_, i) => ({
   position: i + 1,
@@ -24,6 +24,7 @@ export default function RaceResultsAdmin() {
   const [processing, setProcessing] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [message, setMessage] = useState(null)
+  const [positionsLocked, setPositionsLocked] = useState(true)
 
   const selectedRace = RACES_2026.find((r) => r.id === selectedRaceId)
   const alreadyProcessed = raceResults.some((r) => r.raceId === selectedRaceId)
@@ -31,6 +32,8 @@ export default function RaceResultsAdmin() {
   const handleRaceChange = async (raceId) => {
     setSelectedRaceId(raceId)
     setMessage(null)
+
+    // 1. Try saved result from localStorage/Firebase
     const existing = await getRaceResult(gameId, raceId)
     if (existing?.results) {
       const filled = EMPTY_RESULTS.map((row) => {
@@ -38,9 +41,33 @@ export default function RaceResultsAdmin() {
         return found || row
       })
       setResults(filled)
-    } else {
-      setResults(EMPTY_RESULTS)
+      setPositionsLocked(true)
+      return
     }
+
+    // 2. Fall back to TRACK_HISTORY for completed races
+    if (TRACK_HISTORY[raceId]) {
+      const trackData = TRACK_HISTORY[raceId]
+      const sorted = Object.entries(trackData)
+        .map(([driverId, positions]) => ({ driverId, pos: positions[positions.length - 1] }))
+        .filter(({ pos }) => pos < 20)
+        .sort((a, b) => a.pos - b.pos)
+
+      const filled = EMPTY_RESULTS.map((row) => {
+        const found = sorted.find(({ pos }) => pos === row.position)
+        if (found) {
+          const driver = DRIVERS_2026.find((d) => d.id === found.driverId)
+          return { position: row.position, driverId: found.driverId, driverName: driver?.name || found.driverId }
+        }
+        return row
+      })
+      setResults(filled)
+      setPositionsLocked(true)
+      return
+    }
+
+    setResults(EMPTY_RESULTS)
+    setPositionsLocked(false)
   }
 
   const handleDriverChange = (position, driverId) => {
@@ -104,9 +131,9 @@ export default function RaceResultsAdmin() {
         <h2 className="font-bold text-white">Race Results — Admin</h2>
       </div>
 
-      <div className="card bg-yellow-900/20 border-yellow-700/50">
-        <p className="text-sm text-yellow-300">
-          <strong>Admin only.</strong> Enter race results after each Grand Prix to evaluate all players'
+      <div className="card bg-blue-900/30 border-blue-700/50">
+        <p className="text-sm text-blue-900">
+          <strong className="text-f1red">Admin only.</strong> Enter race results after each Grand Prix to evaluate all players'
           picks and update survival statuses automatically.
         </p>
       </div>
@@ -121,7 +148,7 @@ export default function RaceResultsAdmin() {
         >
           <option value="">— Choose a race —</option>
           {RACES_2026.map((race) => {
-            const done = raceResults.some((r) => r.raceId === race.id)
+            const done = raceResults.some((r) => r.raceId === race.id) || !!TRACK_HISTORY[race.id]
             return (
               <option key={race.id} value={race.id}>
                 R{race.round} — {race.flag} {race.name} {done ? '✓' : ''}
@@ -146,6 +173,23 @@ export default function RaceResultsAdmin() {
             <span className="text-xs text-gray-500">or enter results manually below</span>
           </div>
 
+          {/* Lock / unlock bar */}
+          {positionsLocked ? (
+            <div className="flex items-center justify-between bg-gray-100 border border-gray-300 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 text-gray-600 text-sm">
+                <Lock className="w-4 h-4" />
+                <span>Positions are locked. Click to edit.</span>
+              </div>
+              <button
+                onClick={() => setPositionsLocked(false)}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Change Race Positions
+              </button>
+            </div>
+          ) : null}
+
           {/* Results grid */}
           <div className="card p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-f1light flex items-center justify-between">
@@ -169,10 +213,14 @@ export default function RaceResultsAdmin() {
                   <select
                     value={row.driverId}
                     onChange={(e) => handleDriverChange(row.position, e.target.value)}
-                    className="input-field flex-1 text-sm py-1.5"
+                    disabled={positionsLocked}
+                    className={`input-field flex-1 text-sm py-1.5 ${positionsLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     <option value="">— Select driver —</option>
-                    {DRIVERS_2026.map((d) => (
+                    {DRIVERS_2026.filter((d) =>
+                      d.id === row.driverId ||
+                      !results.some((r) => r.position !== row.position && r.driverId === d.id)
+                    ).map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} ({d.team})
                       </option>

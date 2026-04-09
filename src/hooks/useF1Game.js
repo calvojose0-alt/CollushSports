@@ -4,6 +4,7 @@ import {
   getPlayers,
   subscribeToPlayers,
   getPicksForPlayer,
+  getPicksForGame,
   getAllRaceResults,
   joinGame,
 } from '@/services/firebase/firestore'
@@ -19,6 +20,7 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
   const [players, setPlayers] = useState([])
   const [myPlayer, setMyPlayer] = useState(null)
   const [myPicks, setMyPicks] = useState([])
+  const [allPicks, setAllPicks] = useState([])
   const [raceResults, setRaceResults] = useState([])
   const [usedDrivers, setUsedDrivers] = useState({ usedA: new Set(), usedB: new Set() })
   const [currentRace, setCurrentRace] = useState(null)
@@ -33,13 +35,15 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
       // Join game if not already enrolled
       await joinGame({ gameId, userId: user.uid, displayName: user.displayName || user.email })
 
-      const [picks, results, used] = await Promise.all([
+      const [picks, gamePicks, results, used] = await Promise.all([
         getPicksForPlayer(gameId, user.uid),
+        getPicksForGame(gameId),
         getAllRaceResults(gameId),
         getUsedDrivers(gameId, user.uid),
       ])
 
       setMyPicks(picks)
+      setAllPicks(gamePicks)
       setRaceResults(results)
       setUsedDrivers(used)
       setCurrentRace(getCurrentRace())
@@ -99,6 +103,7 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
     players,
     myPlayer,
     myPicks,
+    allPicks,
     raceResults,
     usedDrivers,
     currentRace,

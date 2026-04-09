@@ -63,3 +63,11 @@ export const DRIVER_STATS = {
   BOT: { podiumRate: 0.04, top10Rate: 0.42, recentFinishes: [13, 14, 20, 13, 19] },
   PER: { podiumRate: 0.08, top10Rate: 0.55, recentFinishes: [11, 12, 16, 15, 17] },
 }
+
+// 2026 driver championship standings order (R01–R03 results, F1 points system)
+// Used to rank "top available drivers" on the leaderboard
+export const SEASON_STANDINGS_2026 = [
+  'ANT', 'RUS', 'LEC', 'HAM', 'NOR', 'PIA', 'BEA', 'GAS',
+  'VER', 'LAW', 'LIN', 'HAD', 'SAI', 'BOR', 'OCO', 'COL',
+  'HUL', 'PER', 'BOT', 'ALO', 'ALB', 'STR',
+]
