@@ -6,11 +6,11 @@ import { useF1Game } from '@/hooks/useF1Game'
 import { useAuth } from '@/hooks/useAuth'
 
 const NAV = [
-  { to: '/f1-survivor', label: 'My Picks', icon: Flag, exact: true },
-  { to: '/f1-survivor/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { to: '/f1-survivor/history', label: 'History', icon: History },
-  { to: '/f1-survivor/groups', label: 'Groups', icon: Users },
-  { to: '/f1-survivor/admin', label: 'Admin', icon: Settings },
+  { to: '/f1-survivor', label: 'My Picks', icon: Flag, exact: true, labelColor: 'text-blue-800' },
+  { to: '/f1-survivor/leaderboard', label: 'Leaderboard', icon: Trophy, labelColor: 'text-blue-800' },
+  { to: '/f1-survivor/history', label: 'History', icon: History, labelColor: 'text-blue-800' },
+  { to: '/f1-survivor/groups', label: 'Groups', icon: Users, labelColor: 'text-blue-800' },
+  { to: '/f1-survivor/admin', label: 'Admin', icon: Settings, labelColor: 'text-blue-800' },
 ]
 
 function StatusBadge({ status }) {
@@ -71,7 +71,7 @@ export default function F1SurvivorLayout() {
                   }
                 >
                   <Icon className="w-4 h-4" />
-                  {item.label}
+                  <span className={item.labelColor || ''}>{item.label}</span>
                 </NavLink>
               )
             })}

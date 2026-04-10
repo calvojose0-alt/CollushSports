@@ -1,15 +1,68 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useF1Game, DEFAULT_GAME_ID } from '@/hooks/useF1Game'
-import { createGroup, joinGroupByCode, getGroupsForUser, getPlayers } from '@/services/firebase/firestore'
-import { Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
+import { createGroup, joinGroupByCode, getGroupsForUser } from '@/services/firebase/firestore'
+import { Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 
 function generateCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
-function GroupCard({ group, currentUserId, players }) {
+function MyGroupsSummary({ groups, currentUserId, players }) {
+  return (
+    <div className="card space-y-3">
+      <div className="flex items-center gap-2">
+        <Users className="w-4 h-4 text-gray-400" />
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Groups I've Joined</p>
+      </div>
+      <div className="bg-f1dark rounded-xl overflow-hidden">
+        <div className="divide-y divide-f1light">
+          {groups.map((group) => {
+            const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+            const sorted = [...memberPlayers].sort((a, b) => (b.points || 0) - (a.points || 0))
+            const myRank = sorted.findIndex((p) => p.userId === currentUserId) + 1
+            const me = sorted.find((p) => p.userId === currentUserId)
+            return (
+              <div key={group.id} className="flex items-center gap-3 px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{group.name}</p>
+                  <p className="text-xs text-gray-500">{group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {myRank > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Your rank</p>
+                      <p className="text-sm font-black text-white">#{myRank}</p>
+                    </div>
+                  )}
+                  {me && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Points</p>
+                      <p className="text-sm font-black text-f1gold">{me.points || 0}</p>
+                    </div>
+                  )}
+                  <span className="text-xs font-mono text-gray-500 bg-f1gray border border-f1light px-2 py-1 rounded-lg">
+                    {group.inviteCode}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function GroupViewer({ groups, currentUserId, players }) {
+  const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied] = useState(false)
+
+  const group = groups.find((g) => g.id === selectedGroupId) || groups[0]
+  if (!group) return null
+
+  const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+  const sortedMembers = [...memberPlayers].sort((a, b) => (b.points || 0) - (a.points || 0))
 
   const handleCopy = () => {
     navigator.clipboard.writeText(group.inviteCode)
@@ -17,17 +70,23 @@ function GroupCard({ group, currentUserId, players }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
-  const sortedMembers = [...memberPlayers].sort((a, b) => (b.points || 0) - (a.points || 0))
-
   return (
     <div className="card space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-bold text-white">{group.name}</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}</p>
+      {/* Group name dropdown + invite code */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <select
+            value={selectedGroupId}
+            onChange={(e) => { setSelectedGroupId(e.target.value); setCopied(false) }}
+            className="w-full appearance-none bg-f1dark border border-f1light rounded-xl px-4 py-2.5 pr-9 text-white font-bold text-base focus:outline-none focus:border-f1red cursor-pointer"
+          >
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-gray-500 font-mono bg-f1dark border border-f1light px-2 py-1 rounded-lg">
             {group.inviteCode}
           </span>
@@ -41,7 +100,11 @@ function GroupCard({ group, currentUserId, players }) {
         </div>
       </div>
 
-      {/* Mini leaderboard */}
+      <p className="text-xs text-gray-400 -mt-2">
+        {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
+      </p>
+
+      {/* Standings */}
       {sortedMembers.length > 0 && (
         <div className="bg-f1dark rounded-xl overflow-hidden">
           <div className="px-3 py-2 border-b border-f1light">
@@ -153,7 +216,7 @@ export default function GroupsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-gray-400" />
-          <h2 className="font-bold text-white">Groups</h2>
+          <h2 className="font-bold text-blue-800">Groups</h2>
         </div>
         <div className="flex gap-2">
           <button
@@ -233,7 +296,7 @@ export default function GroupsPage() {
         </div>
       )}
 
-      {/* Groups list */}
+      {/* Groups viewer */}
       {loading ? (
         <div className="card text-center py-10 text-gray-400">
           <div className="animate-spin w-8 h-8 border-2 border-f1red border-t-transparent rounded-full mx-auto mb-2" />
@@ -246,16 +309,10 @@ export default function GroupsPage() {
           <p className="text-gray-400 text-sm">Create a group or join one with an invite code to compete with friends.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {groups.map((group) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              currentUserId={user.uid}
-              players={players}
-            />
-          ))}
-        </div>
+        <>
+          <MyGroupsSummary groups={groups} currentUserId={user.uid} players={players} />
+          <GroupViewer groups={groups} currentUserId={user.uid} players={players} />
+        </>
       )}
     </div>
   )

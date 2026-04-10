@@ -9,7 +9,7 @@ import { format } from 'date-fns'
 import ColumnPick from './ColumnPick'
 import DriverPanel from './DriverPanel'
 import {
-  CheckCircle2, AlertCircle, Lock, Timer, ChevronRight, ChevronLeft, Trophy,
+  CheckCircle2, AlertCircle, Lock, Timer, ChevronRight, ChevronLeft, Trophy, Flag,
 } from 'lucide-react'
 
 function RaceSelector({ selectedRace, onChange, picks }) {
@@ -238,6 +238,11 @@ export default function PickSubmissionPage() {
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <Flag className="w-5 h-5 text-gray-400" />
+        <h2 className="font-bold text-blue-800">My Picks</h2>
+      </div>
+
       {/* Race selector */}
       <div className="card">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Select Race Week</p>

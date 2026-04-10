@@ -1,7 +1,7 @@
 import { useF1Game } from '@/hooks/useF1Game'
 import { useAuth } from '@/hooks/useAuth'
 import { RACES_2026 } from '@/data/calendar2026'
-import { CheckCircle2, XCircle, Trophy, Minus } from 'lucide-react'
+import { CheckCircle2, XCircle, Trophy, Minus, History } from 'lucide-react'
 
 function ResultIcon({ result }) {
   if (result === 'success') return <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -59,6 +59,11 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <History className="w-5 h-5 text-gray-400" />
+        <h2 className="font-bold text-blue-800">History</h2>
+      </div>
+
       {/* Season summary cards */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card text-center">
