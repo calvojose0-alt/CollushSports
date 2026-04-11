@@ -185,7 +185,10 @@ export default function RaceResultsAdmin() {
         >
           <option value="">— Choose a race —</option>
           {RACES_2026.map((race) => {
-            const done = raceResults.some((r) => r.raceId === race.id) || !!TRACK_HISTORY[race.id]
+            const savedResult = raceResults.find((r) => r.raceId === race.id)
+            const done = savedResult
+              ? (savedResult.results?.length > 0)
+              : !!TRACK_HISTORY[race.id]
             return (
               <option key={race.id} value={race.id}>
                 R{race.round} — {race.flag} {race.name} {done ? '✓' : ''}
