@@ -324,6 +324,17 @@ export async function getRaceResult(gameId, raceId) {
   return LS.getAll('raceResults').find((r) => r.id === resultId) || null
 }
 
+export async function deleteRaceResult(gameId, raceId) {
+  const resultId = `${gameId}_${raceId}`
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('race_results').delete().eq('id', resultId)
+    if (error) throw new Error(error.message)
+    return
+  }
+  const arr = LS.getAll('raceResults').filter((r) => r.id !== resultId)
+  localStorage.setItem('collush_raceResults', JSON.stringify(arr))
+}
+
 export async function getAllRaceResults(gameId) {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase

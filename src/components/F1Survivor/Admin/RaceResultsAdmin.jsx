@@ -2,12 +2,12 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useF1Game } from '@/hooks/useF1Game'
-import { saveRaceResult, getRaceResult } from '@/services/firebase/firestore'
+import { saveRaceResult, getRaceResult, deleteRaceResult } from '@/services/firebase/firestore'
 import { processRaceResults } from '@/services/gameEngine/survivorEngine'
 import { fetchRaceResults } from '@/services/api/f1Api'
 import { RACES_2026, TRACK_HISTORY } from '@/data/calendar2026'
 import { DRIVERS_2026 } from '@/data/drivers2026'
-import { Settings, Download, CheckCircle2, AlertCircle, Loader, Lock, Pencil } from 'lucide-react'
+import { Settings, Download, CheckCircle2, AlertCircle, Loader, Lock, Pencil, Trash2 } from 'lucide-react'
 
 const EMPTY_RESULTS = Array.from({ length: 20 }, (_, i) => ({
   position: i + 1,
@@ -23,6 +23,7 @@ export default function RaceResultsAdmin() {
   const [results, setResults] = useState(EMPTY_RESULTS)
   const [processing, setProcessing] = useState(false)
   const [fetching, setFetching] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [message, setMessage] = useState(null)
   const [positionsLocked, setPositionsLocked] = useState(true)
 
@@ -103,6 +104,23 @@ export default function RaceResultsAdmin() {
       setMessage({ type: 'error', text: `API error: ${err.message}` })
     } finally {
       setFetching(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!selectedRaceId) return
+    setResetting(true)
+    setMessage(null)
+    try {
+      await deleteRaceResult(gameId, selectedRaceId)
+      await refreshResults()
+      setResults(EMPTY_RESULTS)
+      setPositionsLocked(false)
+      setMessage({ type: 'success', text: 'Race results cleared. You can now enter new positions.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: `Reset failed: ${err.message}` })
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -190,7 +208,24 @@ export default function RaceResultsAdmin() {
                 Change Race Positions
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-center justify-between bg-gray-100 border border-gray-300 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 text-gray-600 text-sm">
+                <Pencil className="w-4 h-4" />
+                <span>Positions are unlocked. Edit dropdowns or reset all results below.</span>
+              </div>
+              <button
+                onClick={handleReset}
+                disabled={resetting}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+              >
+                {resetting
+                  ? <><Loader className="w-4 h-4 animate-spin" /> Resetting…</>
+                  : <><Trash2 className="w-4 h-4" /> Reset All Results</>
+                }
+              </button>
+            </div>
+          )}
 
           {/* Results grid */}
           <div className="card p-0 overflow-hidden">
