@@ -28,6 +28,8 @@ export default function RaceResultsAdmin() {
 
   const selectedRace = RACES_2026.find((r) => r.id === selectedRaceId)
   const alreadyProcessed = raceResults.some((r) => r.raceId === selectedRaceId)
+  // Allow reprocessing once the user explicitly unlocks positions
+  const canProcess = !processing && (!alreadyProcessed || !positionsLocked)
 
   const handleRaceChange = async (raceId) => {
     setSelectedRaceId(raceId)
@@ -248,13 +250,15 @@ export default function RaceResultsAdmin() {
           {/* Process button */}
           <button
             onClick={handleProcess}
-            disabled={processing || alreadyProcessed}
+            disabled={!canProcess}
             className="btn-primary w-full py-3 text-base font-bold flex items-center justify-center gap-2"
           >
             {processing ? (
               <><Loader className="w-5 h-5 animate-spin" /> Processing…</>
-            ) : alreadyProcessed ? (
+            ) : alreadyProcessed && positionsLocked ? (
               <><CheckCircle2 className="w-5 h-5" /> Already Processed</>
+            ) : alreadyProcessed && !positionsLocked ? (
+              'Reprocess Results & Update Players'
             ) : (
               'Process Results & Update Players'
             )}
