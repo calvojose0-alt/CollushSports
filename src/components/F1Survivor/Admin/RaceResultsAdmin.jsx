@@ -24,6 +24,7 @@ export default function RaceResultsAdmin() {
   const [processing, setProcessing] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
   const [positionsLocked, setPositionsLocked] = useState(true)
 
@@ -121,6 +122,22 @@ export default function RaceResultsAdmin() {
       setMessage({ type: 'error', text: `Reset failed: ${err.message}` })
     } finally {
       setResetting(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setMessage(null)
+    try {
+      const filled = results.filter((r) => r.driverId)
+      await saveRaceResult({ gameId, raceId: selectedRaceId, results: filled })
+      await refreshResults()
+      setPositionsLocked(true)
+      setMessage({ type: 'success', text: `Positions saved (${filled.length} filled). Run "Process" to evaluate picks.` })
+    } catch (err) {
+      setMessage({ type: 'error', text: `Save failed: ${err.message}` })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -280,6 +297,20 @@ export default function RaceResultsAdmin() {
               {message.type === 'success' ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
               {message.text}
             </div>
+          )}
+
+          {/* Save positions (visible when unlocked — works with any number of positions including 0) */}
+          {!positionsLocked && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-3 text-base font-bold flex items-center justify-center gap-2 rounded-xl border-2 border-blue-500 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 transition-colors"
+            >
+              {saving
+                ? <><Loader className="w-5 h-5 animate-spin" /> Saving…</>
+                : <><CheckCircle2 className="w-5 h-5" /> Save Positions</>
+              }
+            </button>
           )}
 
           {/* Process button */}
