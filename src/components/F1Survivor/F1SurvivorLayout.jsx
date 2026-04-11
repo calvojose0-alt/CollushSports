@@ -25,7 +25,7 @@ function StatusBadge({ status }) {
 
 export default function F1SurvivorLayout() {
   const navigate = useNavigate()
-  const { myPlayer, currentRace, leaderboard } = useF1Game()
+  const { myPlayer, currentRace, leaderboard, loading, error } = useF1Game()
 
   const alive = leaderboard.filter((p) => p.status === 'alive').length
   const total = leaderboard.length
@@ -113,7 +113,18 @@ export default function F1SurvivorLayout() {
 
         {/* Main content */}
         <main className="flex-1 min-w-0">
-          <Outlet />
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin w-8 h-8 border-2 border-f1red border-t-transparent rounded-full" />
+            </div>
+          )}
+          {error && (
+            <div className="bg-red-900/40 border border-red-700 rounded-xl px-4 py-3 text-red-300 text-sm mb-4">
+              <p className="font-bold mb-1">Error loading game data</p>
+              <p className="font-mono text-xs">{error}</p>
+            </div>
+          )}
+          {!loading && <Outlet />}
         </main>
       </div>
     </div>

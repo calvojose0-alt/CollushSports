@@ -1,6 +1,7 @@
 // useF1Game — central hook for F1 Survivor game state
 import { useState, useEffect, useCallback } from 'react'
 import {
+  createGame,
   getPlayers,
   subscribeToPlayers,
   getPicksForPlayer,
@@ -31,10 +32,17 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
     if (!user) return
     try {
       setLoading(true)
+      setError(null)
 
-      // Join game if not already enrolled
+      console.log('[F1Game] Starting loadData for user:', user.uid)
+
+      console.log('[F1Game] Creating game...')
+      await createGame({ gameId, season: 2026, name: 'F1 Survivor 2026', createdBy: user.uid })
+
+      console.log('[F1Game] Joining game...')
       await joinGame({ gameId, userId: user.uid, displayName: user.displayName || user.email })
 
+      console.log('[F1Game] Fetching picks, results...')
       const [picks, gamePicks, results, used] = await Promise.all([
         getPicksForPlayer(gameId, user.uid),
         getPicksForGame(gameId),
@@ -47,7 +55,9 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
       setRaceResults(results)
       setUsedDrivers(used)
       setCurrentRace(getCurrentRace())
+      console.log('[F1Game] loadData complete ✓')
     } catch (err) {
+      console.error('[F1Game] loadData error:', err.message)
       setError(err.message)
     } finally {
       setLoading(false)
