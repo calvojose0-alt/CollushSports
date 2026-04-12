@@ -8,6 +8,7 @@ import {
   updatePlayerStatus,
   getPlayers,
   getGame,
+  resetRaceProcessing,
 } from '@/services/firebase/firestore'
 import { isRaceLocked } from '@/data/calendar2026'
 
@@ -22,6 +23,11 @@ import { isRaceLocked } from '@/data/calendar2026'
  * @param {Array} raceResults - [{ position, driverId, driverName }]
  */
 export async function processRaceResults(gameId, raceId, raceResults) {
+  // Reset any previously-processed state for this race first.
+  // This makes re-processing safe: eliminated players are restored to alive,
+  // bonus points are subtracted, and pick results are cleared before re-evaluation.
+  await resetRaceProcessing(gameId, raceId)
+
   const picks = await getPicksForRace(gameId, raceId)
   const players = await getPlayers(gameId)
 

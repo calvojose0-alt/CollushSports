@@ -324,7 +324,67 @@ export async function getRaceResult(gameId, raceId) {
   return LS.getAll('raceResults').find((r) => r.id === resultId) || null
 }
 
+/**
+ * Undo all pick evaluations and player state changes for a given race.
+ * Called before deleting results OR before re-processing with new results.
+ * Safe to call even if the race was never processed (no-op).
+ */
+export async function resetRaceProcessing(gameId, raceId) {
+  if (!isSupabaseConfigured || !supabase) return // localStorage mode: no-op
+
+  // 1. Fetch picks that were actually evaluated (result_a is not null)
+  const { data: rawPicks } = await supabase
+    .from('picks')
+    .select('id, user_id, point_earned, result_a')
+    .eq('game_id', gameId)
+    .eq('race_id', raceId)
+
+  const processedPicks = (rawPicks || []).filter((p) => p.result_a !== null)
+
+  // 2. For each processed pick, undo the player-level changes
+  await Promise.all(
+    processedPicks.map(async (pick) => {
+      const playerId = `${gameId}_${pick.user_id}`
+      const { data: row } = await supabase
+        .from('players').select('*').eq('id', playerId).single()
+      if (!row) return
+
+      // Remove this race from race_outcomes JSONB
+      const newOutcomes = { ...(row.race_outcomes || {}) }
+      delete newOutcomes[raceId]
+
+      // Was the player eliminated or made winner specifically by this race's processing?
+      const wasEliminatedHere = row.eliminated_at === raceId
+      const becameWinnerHere  = row.status === 'winner' && row.last_race_id === raceId
+
+      return supabase.from('players').update({
+        // Restore status to alive if this race eliminated or crowned them
+        status:       (wasEliminatedHere || becameWinnerHere) ? 'alive' : row.status,
+        eliminated_at: wasEliminatedHere ? null : row.eliminated_at,
+        win_reason:    becameWinnerHere   ? null : row.win_reason,
+        // Subtract the bonus point this race may have granted
+        points: Math.max(0, (row.points || 0) - (pick.point_earned ? 1 : 0)),
+        // Clear the last_race_id if it was set by this race
+        last_race_id: row.last_race_id === raceId ? null : row.last_race_id,
+        // Clear tiebreaker flag set by this race
+        tiebreaker: row.last_race_id === raceId ? false : row.tiebreaker,
+        race_outcomes: newOutcomes,
+      }).eq('id', playerId)
+    })
+  )
+
+  // 3. Null out pick evaluation fields for this race
+  await supabase
+    .from('picks')
+    .update({ result_a: null, result_b: null, survived: null, point_earned: null })
+    .eq('game_id', gameId)
+    .eq('race_id', raceId)
+}
+
 export async function deleteRaceResult(gameId, raceId) {
+  // First undo all player + pick changes caused by processing this race
+  await resetRaceProcessing(gameId, raceId)
+
   const resultId = `${gameId}_${raceId}`
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('race_results').delete().eq('id', resultId)
