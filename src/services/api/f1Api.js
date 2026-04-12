@@ -23,19 +23,24 @@ async function apiFetch(path, params = {}) {
  * Returns podium probability, top10 probability, last 5 races, track history.
  */
 export async function getDriverStats(driverId, raceId) {
-  if (IS_DEMO) {
-    return buildDriverStats(driverId, raceId)
-  }
+  // Always start from seed stats — they encode real driver form & are instant
+  const base = buildDriverStats(driverId, raceId)
 
+  if (IS_DEMO) return base
+
+  // In live mode, attempt to enrich the recent-finishes bar chart from OpenF1.
+  // Probabilities stay seed-based because the OpenF1 /position endpoint is a
+  // live timing stream that doesn't reliably surface final finishing positions
+  // for historical races, which would produce 0% for everyone.
   try {
-    // OpenF1: get last 5 sessions for this driver
-    const sessions = await apiFetch('/sessions', { session_type: 'Race' })
+    const sessions = await apiFetch('/sessions', { session_type: 'Race', year: 2026 })
     const lastSessions = sessions.slice(-5).map((s) => s.session_key)
 
     const results = await Promise.all(
       lastSessions.map((sk) =>
         apiFetch('/position', { session_key: sk, driver_number: driverId })
           .then((data) => {
+            if (!data?.length) return null
             const final = data.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
             return final?.position ?? null
           })
@@ -44,22 +49,21 @@ export async function getDriverStats(driverId, raceId) {
     )
 
     const valid = results.filter((r) => r !== null)
-    const podiumRate = valid.length ? valid.filter((p) => p <= 3).length / valid.length : 0
-    const top10Rate = valid.length ? valid.filter((p) => p <= 10).length / valid.length : 0
 
-    return {
-      driverId,
-      driver: DRIVER_MAP[driverId],
-      podiumProbability: Math.round(podiumRate * 100),
-      top10Probability: Math.round(top10Rate * 100),
-      recentFinishes: valid,
-      trackHistory: getTrackHistoryForDriver(driverId, raceId),
-      dataSource: 'OpenF1',
+    // Only replace the bar chart if we actually got real data back
+    if (valid.length > 0) {
+      return {
+        ...base,
+        recentFinishes: valid,
+        recentRaceLabels: lastSessions.map((_, i) => `R-${lastSessions.length - i}`),
+        dataSource: 'OpenF1',
+      }
     }
   } catch (err) {
-    console.warn('[F1 API] Falling back to seed data:', err.message)
-    return buildDriverStats(driverId, raceId)
+    console.warn('[F1 API] Could not enrich from OpenF1, using seed data:', err.message)
   }
+
+  return base
 }
 
 function buildDriverStats(driverId, raceId) {
