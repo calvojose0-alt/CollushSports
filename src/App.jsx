@@ -19,6 +19,8 @@ import HistoryPage from '@/components/F1Survivor/History/HistoryPage'
 import GroupsPage from '@/components/F1Survivor/Groups/GroupsPage'
 import RaceResultsAdmin from '@/components/F1Survivor/Admin/RaceResultsAdmin'
 
+const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) {
@@ -29,6 +31,20 @@ function ProtectedRoute({ children }) {
     )
   }
   if (!user) return <Navigate to="/login" replace />
+  return children
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-10 h-10 border-2 border-f1red border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+  if (!user) return <Navigate to="/login" replace />
+  if (user.email?.toLowerCase() !== ADMIN_EMAIL) return <Navigate to="/f1-survivor" replace />
   return children
 }
 
@@ -76,7 +92,7 @@ function AppRoutes() {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="groups" element={<GroupsPage />} />
-          <Route path="admin" element={<RaceResultsAdmin />} />
+          <Route path="admin" element={<AdminRoute><RaceResultsAdmin /></AdminRoute>} />
         </Route>
 
         {/* Catch-all */}

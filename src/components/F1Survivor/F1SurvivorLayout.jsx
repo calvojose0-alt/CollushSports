@@ -5,13 +5,15 @@ import {
 import { useF1Game } from '@/hooks/useF1Game'
 import { useAuth } from '@/hooks/useAuth'
 
-const NAV = [
+const ALL_NAV = [
   { to: '/f1-survivor', label: 'My Picks', icon: Flag, exact: true, labelColor: 'text-blue-800' },
   { to: '/f1-survivor/leaderboard', label: 'Leaderboard', icon: Trophy, labelColor: 'text-blue-800' },
   { to: '/f1-survivor/history', label: 'History', icon: History, labelColor: 'text-blue-800' },
   { to: '/f1-survivor/groups', label: 'Groups', icon: Users, labelColor: 'text-blue-800' },
-  { to: '/f1-survivor/admin', label: 'Admin', icon: Settings, labelColor: 'text-blue-800' },
+  { to: '/f1-survivor/admin', label: 'Admin', icon: Settings, labelColor: 'text-blue-800', adminOnly: true },
 ]
+
+const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 function StatusBadge({ status }) {
   if (status === 'alive')
@@ -25,7 +27,11 @@ function StatusBadge({ status }) {
 
 export default function F1SurvivorLayout() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { myPlayer, currentRace, leaderboard, loading, error } = useF1Game()
+
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
+  const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)
 
   const alive = leaderboard.filter((p) => p.status === 'alive').length
   const total = leaderboard.length

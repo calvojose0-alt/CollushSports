@@ -279,53 +279,7 @@ export default function PickSubmissionPage() {
             </div>
           </div>
 
-          {/* Completed race: show finishing order. Upcoming: show pick columns */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {TRACK_HISTORY[selectedRace.id] ? (
-              <RaceFinishingOrder raceId={selectedRace.id} />
-            ) : (
-              <>
-                {/* Podium Pick */}
-                <ColumnPick
-                  column="A"
-                  label="Podium Pick"
-                  description="Driver must finish Top 3"
-                  selectedDriver={pickedA}
-                  usedDriverIds={effectiveUsedA}
-                  onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
-                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
-                />
-
-                {/* Top 10 Pick */}
-                <ColumnPick
-                  column="B"
-                  label="Top 10 Pick"
-                  description="Driver must finish Top 10"
-                  selectedDriver={pickedB}
-                  usedDriverIds={effectiveUsedB}
-                  onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
-                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
-                />
-
-                {/* Driver Analysis Panel */}
-                <DriverPanel
-                  driverId={inspectedDriver}
-                  raceId={selectedRace?.id}
-                  column={inspectedColumn}
-                  onClose={() => setInspectedDriver(null)}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Survival logic reminder */}
-          <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-sm text-gray-400">
-            <strong className="text-white">Survival rule:</strong> You advance if at least one pick succeeds.
-            Both succeed → earn 1 bonus point. Both fail → eliminated.{' '}
-            <span className="text-gray-500">Each driver can be used once per column, all season.</span>
-          </div>
-
-          {/* Submit area */}
+          {/* Submit area — shown right below the race header */}
           {!locked && (
             <div className="card">
               {submitSuccess ? (
@@ -400,6 +354,52 @@ export default function PickSubmissionPage() {
               </div>
             </div>
           )}
+
+          {/* Completed race: show finishing order. Upcoming: show pick columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {TRACK_HISTORY[selectedRace.id] ? (
+              <RaceFinishingOrder raceId={selectedRace.id} />
+            ) : (
+              <>
+                {/* Podium Pick */}
+                <ColumnPick
+                  column="A"
+                  label="Podium Pick"
+                  description="Driver must finish Top 3"
+                  selectedDriver={pickedA}
+                  usedDriverIds={effectiveUsedA}
+                  onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
+                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
+                />
+
+                {/* Top 10 Pick */}
+                <ColumnPick
+                  column="B"
+                  label="Top 10 Pick"
+                  description="Driver must finish Top 10"
+                  selectedDriver={pickedB}
+                  usedDriverIds={effectiveUsedB}
+                  onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
+                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
+                />
+
+                {/* Driver Analysis Panel */}
+                <DriverPanel
+                  driverId={inspectedDriver}
+                  raceId={selectedRace?.id}
+                  column={inspectedColumn}
+                  onClose={() => setInspectedDriver(null)}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Survival logic reminder */}
+          <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-sm text-gray-400">
+            <strong className="text-white">Survival rule:</strong> You advance if at least one pick succeeds.
+            Both succeed → earn 1 bonus point. Both fail → eliminated.{' '}
+            <span className="text-gray-500">Each driver can be used once per column, all season.</span>
+          </div>
         </>
       )}
     </div>
