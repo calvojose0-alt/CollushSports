@@ -54,11 +54,14 @@ export default function LeaderboardPage() {
       .filter(Boolean)
   }
 
+  // Only races with an actual saved race_result are considered processed
+  const validRaceIds = new Set(raceResults.map((r) => r.raceId))
+  const completedRaces = raceResults.length
+
   const alive = leaderboard.filter((p) => p.status === 'alive')
   const eliminated = leaderboard.filter((p) => p.status === 'eliminated')
-  const winner = leaderboard.filter((p) => p.status === 'winner')
-
-  const completedRaces = raceResults.length
+  // Only show a winner if there are actual processed race results — guards against stale DB state
+  const winner = completedRaces > 0 ? leaderboard.filter((p) => p.status === 'winner') : []
 
   if (loading) {
     return (
@@ -135,7 +138,7 @@ export default function LeaderboardPage() {
 
               const isExpanded = expandedPlayer === player.id
               const playerPicks = allPicks
-                .filter((p) => p.userId === player.userId && p.resultA !== null)
+                .filter((p) => p.userId === player.userId && p.resultA !== null && validRaceIds.has(p.raceId))
                 .sort((a, b) => a.raceId.localeCompare(b.raceId))
 
               return (

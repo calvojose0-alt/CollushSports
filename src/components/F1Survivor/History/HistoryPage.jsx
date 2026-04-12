@@ -34,6 +34,9 @@ export default function HistoryPage() {
     )
   }
 
+  // Only races that have an actual saved race_result are considered "completed"
+  const validRaceIds = new Set(raceResults.map((r) => r.raceId))
+
   // Merge pick data with race info, sorted by round
   const history = myPicks
     .map((pick) => ({
@@ -43,7 +46,9 @@ export default function HistoryPage() {
     .filter((p) => p.race)
     .sort((a, b) => a.race.round - b.race.round)
 
-  const completed = history.filter((h) => h.survived !== null)
+  // A race is only "completed" if there is a live race_result in the DB for it.
+  // Picks may have stale result data if a race was reset in Admin — those show as Pending.
+  const completed = history.filter((h) => h.survived !== null && validRaceIds.has(h.raceId))
   const survived = completed.filter((h) => h.survived).length
   const points = completed.filter((h) => h.pointEarned).length
 
@@ -88,9 +93,11 @@ export default function HistoryPage() {
 
         <div className="divide-y divide-f1light">
           {history.map((item) => {
-            const isPending = item.survived === null
-            const didSurvive = item.survived === true
-            const wasEliminated = item.survived === false
+            // Treat as pending if no race_result exists, even if pick has stale result data
+            const hasResult = validRaceIds.has(item.raceId)
+            const isPending = !hasResult || item.survived === null
+            const didSurvive = hasResult && item.survived === true
+            const wasEliminated = hasResult && item.survived === false
 
             return (
               <div
@@ -137,7 +144,7 @@ export default function HistoryPage() {
                         <p className="text-xs text-gray-500 mb-1">Podium Pick</p>
                         <StatusRow
                           label=""
-                          result={item.resultA}
+                          result={hasResult ? item.resultA : null}
                           driverName={item.columnA?.driverName}
                         />
                       </div>
@@ -145,7 +152,7 @@ export default function HistoryPage() {
                         <p className="text-xs text-gray-500 mb-1">Top 10 Pick</p>
                         <StatusRow
                           label=""
-                          result={item.resultB}
+                          result={hasResult ? item.resultB : null}
                           driverName={item.columnB?.driverName}
                         />
                       </div>
