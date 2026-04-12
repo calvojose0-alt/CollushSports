@@ -65,7 +65,7 @@ function RaceFinishingOrder({ raceId }) {
     .filter(({ pos }) => pos >= 20)
 
   return (
-    <div className="card col-span-1 lg:col-span-3">
+    <div className="card col-span-1 lg:col-span-2">
       <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Race Result</p>
       <div className="grid grid-cols-2 gap-3">
         {/* Left column: P1–P10 */}
@@ -353,13 +353,14 @@ export default function PickSubmissionPage() {
             </div>
           )}
 
-          {/* Completed race: show finishing order. Upcoming: show pick columns */}
+          {/* 3-column grid: left 2 = picks (or race result), right 1 = always-visible analysis */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {TRACK_HISTORY[selectedRace.id] ? (
+              /* Completed race: result spans left 2 columns */
               <RaceFinishingOrder raceId={selectedRace.id} />
             ) : (
+              /* Upcoming race: Podium Pick + Top 10 Pick */
               <>
-                {/* Podium Pick */}
                 <ColumnPick
                   column="A"
                   label="Podium Pick"
@@ -368,8 +369,6 @@ export default function PickSubmissionPage() {
                   usedDriverIds={effectiveUsedA}
                   onSelect={(d) => setPickedA(d)}
                 />
-
-                {/* Top 10 Pick */}
                 <ColumnPick
                   column="B"
                   label="Top 10 Pick"
@@ -378,11 +377,11 @@ export default function PickSubmissionPage() {
                   usedDriverIds={effectiveUsedB}
                   onSelect={(d) => setPickedB(d)}
                 />
-
-                {/* Driver Analysis Panel — always visible, self-contained */}
-                <DriverPanel raceId={selectedRace?.id} />
               </>
             )}
+
+            {/* Driver Analysis Panel — always the 3rd column, self-contained */}
+            <DriverPanel raceId={selectedRace?.id} />
           </div>
 
           {/* Survival logic reminder */}
