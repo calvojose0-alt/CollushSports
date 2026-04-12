@@ -66,7 +66,7 @@ export async function getDriverStats(driverId, raceId) {
   return base
 }
 
-function buildDriverStats(driverId, raceId) {
+export function buildDriverStats(driverId, raceId) {
   const seed = DRIVER_STATS[driverId] || { podiumRate: 0.05, top10Rate: 0.4, recentFinishes: [10, 12, 14, 11, 13] }
   return {
     driverId,

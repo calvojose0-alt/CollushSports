@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useF1Game } from '@/hooks/useF1Game'
 import { submitPick } from '@/services/firebase/firestore'
 import { validatePick } from '@/services/gameEngine/survivorEngine'
-import { DRIVER_MAP, DRIVERS_2026 } from '@/data/drivers2026'
+import { DRIVER_MAP } from '@/data/drivers2026'
 import { RACES_2026, TRACK_HISTORY, isRaceLocked } from '@/data/calendar2026'
 import { format } from 'date-fns'
 import ColumnPick from './ColumnPick'
@@ -151,8 +151,6 @@ export default function PickSubmissionPage() {
   const [selectedRace, setSelectedRace] = useState(null)
   const [pickedA, setPickedA] = useState(null)
   const [pickedB, setPickedB] = useState(null)
-  const [inspectedDriver, setInspectedDriver] = useState(null)
-  const [inspectedColumn, setInspectedColumn] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -368,8 +366,7 @@ export default function PickSubmissionPage() {
                   description="Driver must finish Top 3"
                   selectedDriver={pickedA}
                   usedDriverIds={effectiveUsedA}
-                  onSelect={(d) => { setPickedA(d); setInspectedDriver(d.id); setInspectedColumn('A') }}
-                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('A') }}
+                  onSelect={(d) => setPickedA(d)}
                 />
 
                 {/* Top 10 Pick */}
@@ -379,17 +376,11 @@ export default function PickSubmissionPage() {
                   description="Driver must finish Top 10"
                   selectedDriver={pickedB}
                   usedDriverIds={effectiveUsedB}
-                  onSelect={(d) => { setPickedB(d); setInspectedDriver(d.id); setInspectedColumn('B') }}
-                  onInspect={(id) => { setInspectedDriver(id); setInspectedColumn('B') }}
+                  onSelect={(d) => setPickedB(d)}
                 />
 
-                {/* Driver Analysis Panel */}
-                <DriverPanel
-                  driverId={inspectedDriver}
-                  raceId={selectedRace?.id}
-                  column={inspectedColumn}
-                  onClose={() => setInspectedDriver(null)}
-                />
+                {/* Driver Analysis Panel — always visible, self-contained */}
+                <DriverPanel raceId={selectedRace?.id} />
               </>
             )}
           </div>

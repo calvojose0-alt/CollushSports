@@ -1,7 +1,8 @@
-// Driver Panel — right-side panel showing stats when a driver is selected
+// Driver Panel — always-visible right column with its own driver selector
+import { useState } from 'react'
 import { useDriverStats } from '@/hooks/useF1Data'
-import { DRIVER_MAP } from '@/data/drivers2026'
-import { TrendingUp, Clock, MapPin, X } from 'lucide-react'
+import { DRIVER_MAP, DRIVERS_2026 } from '@/data/drivers2026'
+import { TrendingUp, Clock, ChevronDown } from 'lucide-react'
 
 function positionColor(pos) {
   if (pos <= 3) return '#FFD700'
@@ -38,51 +39,79 @@ function ProbabilityRing({ value, label, color }) {
   )
 }
 
-export default function DriverPanel({ driverId, raceId, column, onClose }) {
-  const { stats, loading } = useDriverStats(driverId, raceId)
-  const driver = DRIVER_MAP[driverId]
+function DriverDropdown({ selectedId, onChange }) {
+  const [open, setOpen] = useState(false)
+  const driver = DRIVER_MAP[selectedId]
 
-  if (!driverId || !driver) return null
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-f1dark border border-f1light hover:border-gray-500 transition"
+      >
+        {driver ? (
+          <>
+            <div
+              className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black text-white"
+              style={{ background: driver.teamColor }}
+            >
+              {driver.number}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold text-white leading-tight">{driver.name}</p>
+              <p className="text-xs" style={{ color: driver.teamColor }}>{driver.team}</p>
+            </div>
+          </>
+        ) : (
+          <span className="flex-1 text-left text-sm text-gray-400">Select a driver…</span>
+        )}
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full bg-f1gray border border-f1light rounded-xl shadow-xl overflow-hidden">
+          <div className="max-h-60 overflow-y-auto p-1 space-y-0.5">
+            {DRIVERS_2026.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => { onChange(d.id); setOpen(false) }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition
+                  ${d.id === selectedId ? 'bg-f1red/20 border border-f1red' : 'hover:bg-f1light'}`}
+              >
+                <div
+                  className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
+                  style={{ background: d.teamColor }}
+                >
+                  {d.number}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{d.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{d.team}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DriverPanel({ raceId }) {
+  const [selectedId, setSelectedId] = useState(DRIVERS_2026[0]?.id ?? null)
+  const { stats } = useDriverStats(selectedId, raceId)
+  const driver = DRIVER_MAP[selectedId]
 
   return (
     <div className="bg-f1gray border border-f1light rounded-2xl overflow-hidden w-full">
       {/* Header */}
-      <div
-        className="px-4 py-3 flex items-center justify-between"
-        style={{ background: `${driver.teamColor}22`, borderBottom: `2px solid ${driver.teamColor}` }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white"
-            style={{ background: driver.teamColor }}
-          >
-            {driver.number}
-          </div>
-          <div>
-            <p className="font-bold text-white text-sm leading-tight">{driver.name}</p>
-            <p className="text-xs" style={{ color: driver.teamColor }}>{driver.team}</p>
-          </div>
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        )}
+      <div className="px-4 py-3 border-b border-f1light">
+        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Driver Analysis</p>
+        <DriverDropdown selectedId={selectedId} onChange={setSelectedId} />
       </div>
 
-      {loading ? (
-        <div className="p-6 text-center text-gray-400 text-sm">Loading stats…</div>
-      ) : stats ? (
+      {driver && stats ? (
         <div className="p-4 space-y-5">
-          {/* Column context */}
-          <div className="text-xs text-gray-400 bg-f1dark rounded-lg px-3 py-2 flex items-center gap-2">
-            <MapPin className="w-3 h-3" />
-            Analyzing for{' '}
-            <strong className="text-white">
-              {column === 'A' ? 'Podium Pick (Top 3)' : 'Top 10 Pick'}
-            </strong>
-          </div>
-
           {/* Probability Rings */}
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1">
@@ -108,8 +137,6 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Last {stats.recentFinishes.length} Races
               </p>
-              {/* CSS bar chart — labels row then bars row */}
-              {/* Labels row — fixed height, never overlaps title */}
               <div className="flex gap-1.5 mb-1">
                 {stats.recentFinishes.map((pos, i) => {
                   const label = pos >= 20 ? 'Ret' : `P${pos}`
@@ -130,7 +157,6 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
                   )
                 })}
               </div>
-              {/* Bars row — bottom aligned */}
               <div className="flex items-end gap-1.5" style={{ height: 60 }}>
                 {stats.recentFinishes.map((pos, i) => {
                   const color = positionColor(pos)
@@ -145,15 +171,13 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
                   )
                 })}
               </div>
-              {/* Race name labels */}
               <div className="flex gap-1.5 mt-1.5">
                 {stats.recentFinishes.map((_, i) => (
                   <div key={i} className="flex-1 text-center" style={{ color: '#6b7280', fontSize: 8 }}>
-                    {(stats.recentRaceLabels?.[i] ?? `R-${stats.recentFinishes.length - i}`)}
+                    {stats.recentRaceLabels?.[i] ?? `R-${stats.recentFinishes.length - i}`}
                   </div>
                 ))}
               </div>
-              {/* Legend */}
               <div className="flex gap-3 mt-2 justify-end">
                 {[['#FFD700', 'Podium'], ['#22c55e', 'Top 10'], ['#6b7280', 'Other']].map(([c, l]) => (
                   <span key={l} className="flex items-center gap-1 text-xs text-gray-500">
@@ -188,13 +212,12 @@ export default function DriverPanel({ driverId, raceId, column, onClose }) {
             </div>
           )}
 
-          {/* Data source note */}
           <p className="text-xs text-gray-600 text-right">
             Data: {stats.dataSource === 'OpenF1' ? 'Live via OpenF1 API' : 'Seed estimates'}
           </p>
         </div>
       ) : (
-        <div className="p-4 text-sm text-gray-500">Stats unavailable.</div>
+        <div className="p-6 text-center text-gray-500 text-sm">Select a driver above to see analysis.</div>
       )}
     </div>
   )
