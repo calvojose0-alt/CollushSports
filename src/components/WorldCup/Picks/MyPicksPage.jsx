@@ -21,6 +21,7 @@ function ScoreInput({ value, onChange, disabled }) {
       }}
       disabled={disabled}
       className={`w-10 h-10 text-center text-base font-bold rounded-lg border transition-colors focus:outline-none
+        [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
         ${disabled
           ? 'bg-f1dark border-f1light text-gray-500 cursor-not-allowed'
           : 'bg-f1dark border-f1light text-white focus:border-yellow-500 hover:border-gray-500'
@@ -427,8 +428,8 @@ export default function MyPicksPage() {
           </div>
 
           {/* Total Goals Tiebreaker */}
-          <div className="card border-yellow-700/30 bg-yellow-900/10">
-            <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-2">
+          <div className="card border-yellow-700/40 bg-gray-900">
+            <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">
               Tiebreaker — Total Tournament Goals
             </p>
             <p className="text-xs text-gray-400 mb-3">
