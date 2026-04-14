@@ -37,9 +37,9 @@ const GAMES = [
     borderColor: 'border-yellow-700/30',
     accentColor: 'text-yellow-400',
     badgeColor: 'bg-yellow-600',
-    status: 'coming-soon',
-    path: null,
-    features: ['48 Group Games', 'Knockout Bracket', 'Bonus Points', '2026 Only'],
+    status: 'live',
+    path: '/world-cup',
+    features: ['72 Group Matches', 'Playoff Bracket', 'Live Standings', 'Groups'],
   },
   {
     id: 'nfl-win-league',

@@ -19,6 +19,14 @@ import HistoryPage from '@/components/F1Survivor/History/HistoryPage'
 import GroupsPage from '@/components/F1Survivor/Groups/GroupsPage'
 import RaceResultsAdmin from '@/components/F1Survivor/Admin/RaceResultsAdmin'
 
+// World Cup Quiniela
+import WorldCupLayout from '@/components/WorldCup/WorldCupLayout'
+import MyPicksPage from '@/components/WorldCup/Picks/MyPicksPage'
+import BracketPage from '@/components/WorldCup/Bracket/BracketPage'
+import WCLeaderboardPage from '@/components/WorldCup/Leaderboard/WCLeaderboardPage'
+import WCGroupsPage from '@/components/WorldCup/Groups/WCGroupsPage'
+import WCAdminPage from '@/components/WorldCup/Admin/WCAdminPage'
+
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 function ProtectedRoute({ children }) {
@@ -34,7 +42,7 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-function AdminRoute({ children }) {
+function AdminRoute({ children, fallback = '/f1-survivor' }) {
   const { user, loading } = useAuth()
   if (loading) {
     return (
@@ -44,7 +52,7 @@ function AdminRoute({ children }) {
     )
   }
   if (!user) return <Navigate to="/login" replace />
-  if (user.email?.toLowerCase() !== ADMIN_EMAIL) return <Navigate to="/f1-survivor" replace />
+  if (user.email?.toLowerCase() !== ADMIN_EMAIL) return <Navigate to={fallback} replace />
   return children
 }
 
@@ -93,6 +101,24 @@ function AppRoutes() {
           <Route path="history" element={<HistoryPage />} />
           <Route path="groups" element={<GroupsPage />} />
           <Route path="admin" element={<AdminRoute><RaceResultsAdmin /></AdminRoute>} />
+        </Route>
+
+        {/* World Cup Quiniela nested routes */}
+        <Route
+          path="/world-cup"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <WorldCupLayout />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<MyPicksPage />} />
+          <Route path="bracket" element={<BracketPage />} />
+          <Route path="leaderboard" element={<WCLeaderboardPage />} />
+          <Route path="groups" element={<WCGroupsPage />} />
+          <Route path="admin" element={<AdminRoute fallback="/world-cup"><WCAdminPage /></AdminRoute>} />
         </Route>
 
         {/* Catch-all */}
