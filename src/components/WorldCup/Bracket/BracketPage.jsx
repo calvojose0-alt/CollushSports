@@ -122,7 +122,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick }) {
       {team ? (
         <>
           <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
-          <span className={`text-[11px] font-semibold truncate ${selected ? 'text-yellow-200' : ''}`}>
+          <span className={`text-[11px] font-semibold truncate ${selected ? 'text-white' : ''}`}>
             {team.shortName}
           </span>
           {selected && <span className="ml-auto text-yellow-400 text-[8px]">▶</span>}
@@ -144,7 +144,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const fmtTime = (t) => t || ''
   const venue   = match.venue || ''
 
-  const canPick = !locked && !isR32
+  const canPick = !locked
 
   return (
     <div

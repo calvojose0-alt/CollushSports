@@ -78,18 +78,18 @@ export const WC_TEAMS = {
 
 // Groups map: letter → [teamId, teamId, teamId, teamId]  (order = seeding 1–4)
 export const WC_GROUPS = {
-  A: ['mexico',      'southkorea',  'southafrica', 'czechrepublic'],
-  B: ['canada',      'switzerland', 'qatar',       'bosnia'],
-  C: ['brazil',      'morocco',     'scotland',    'haiti'],
+  A: ['mexico',      'southafrica', 'southkorea',  'czechrepublic'],
+  B: ['canada',      'bosnia',      'qatar',       'switzerland'],
+  C: ['brazil',      'morocco',     'haiti',       'scotland'],
   D: ['usa',         'paraguay',    'australia',   'turkey'],
-  E: ['germany',     'ecuador',     'ivorycoast',  'curacao'],
+  E: ['germany',     'curacao',     'ivorycoast',  'ecuador'],
   F: ['netherlands', 'japan',       'sweden',      'tunisia'],
-  G: ['belgium',     'iran',        'egypt',       'newzealand'],
-  H: ['spain',       'uruguay',     'saudiarabia', 'capeverde'],
-  I: ['france',      'senegal',     'norway',      'iraq'],
-  J: ['argentina',   'austria',     'algeria',     'jordan'],
-  K: ['portugal',    'colombia',    'uzbekistan',  'drcongo'],
-  L: ['england',     'croatia',     'panama',      'ghana'],
+  G: ['belgium',     'egypt',       'iran',        'newzealand'],
+  H: ['spain',       'capeverde',   'saudiarabia', 'uruguay'],
+  I: ['france',      'senegal',     'iraq',        'norway'],
+  J: ['argentina',   'algeria',     'austria',     'jordan'],
+  K: ['portugal',    'drcongo',     'uzbekistan',  'colombia'],
+  L: ['england',     'croatia',     'ghana',       'panama'],
 }
 
 export const GROUP_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L']

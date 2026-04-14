@@ -28,129 +28,130 @@ function buildGroupMatches(group, dates, venues, times) {
 }
 
 // ── Group Stage Matches (72 total) ────────────────────────────────────────────
+// Team order in WC_GROUPS determines matchups:
+//   MD1: t1 vs t2, t3 vs t4 | MD2: t1 vs t3, t2 vs t4 | MD3: t1 vs t4, t2 vs t3
+// dates/venues/times arrays follow the same [idx0..idx5] order as buildGroupMatches output
 export const GROUP_MATCHES = [
-  // Group A – MD1: Jun 11-12, MD2: Jun 17-18, MD3: Jun 24
+  // Group A: mexico(t1) vs southafrica(t2), southkorea(t3) vs czechrepublic(t4)
   ...buildGroupMatches('A',
-    ['2026-06-11','2026-06-12','2026-06-17','2026-06-18','2026-06-24','2026-06-24'],
-    ['MetLife Stadium, East Rutherford, NJ','SoFi Stadium, Inglewood, CA','MetLife Stadium, East Rutherford, NJ','SoFi Stadium, Inglewood, CA','MetLife Stadium, East Rutherford, NJ','SoFi Stadium, Inglewood, CA'],
-    ['8:00 PM ET','9:00 PM PT','3:00 PM ET','6:00 PM PT','3:00 PM ET','6:00 PM PT']),
+    ['2026-06-11','2026-06-11','2026-06-18','2026-06-18','2026-06-24','2026-06-24'],
+    ['Estadio Azteca, Mexico City, Mexico','Estadio Akron, Zapopan, Mexico','Estadio Akron, Zapopan, Mexico','Mercedes-Benz Stadium, Atlanta, GA','Estadio Azteca, Mexico City, Mexico','Estadio BBVA, Monterrey, Mexico'],
+    ['3:00 PM ET','10:00 PM ET','9:00 PM ET','12:00 PM ET','9:00 PM ET','9:00 PM ET']),
 
-  // Group B – MD1: Jun 11-12, MD2: Jun 17-18, MD3: Jun 24-25
+  // Group B: canada(t1) vs bosnia(t2), qatar(t3) vs switzerland(t4)
   ...buildGroupMatches('B',
-    ['2026-06-11','2026-06-12','2026-06-18','2026-06-19','2026-06-25','2026-06-25'],
-    ['Estadio Azteca, Mexico City, Mexico','AT&T Stadium, Arlington, TX','Estadio Azteca, Mexico City, Mexico','AT&T Stadium, Arlington, TX','Estadio Azteca, Mexico City, Mexico','AT&T Stadium, Arlington, TX'],
-    ['5:00 PM CT','6:00 PM CT','5:00 PM CT','6:00 PM CT','5:00 PM CT','6:00 PM CT']),
+    ['2026-06-12','2026-06-13','2026-06-18','2026-06-18','2026-06-24','2026-06-24'],
+    ['BMO Field, Toronto, Canada',"Levi's Stadium, Santa Clara, CA",'BC Place, Vancouver, Canada','SoFi Stadium, Inglewood, CA','BC Place, Vancouver, Canada','Lumen Field, Seattle, WA'],
+    ['3:00 PM ET','3:00 PM ET','6:00 PM ET','3:00 PM ET','3:00 PM ET','3:00 PM ET']),
 
-  // Group C – MD1: Jun 12-13, MD2: Jun 18-19, MD3: Jun 25-26
+  // Group C: brazil(t1) vs morocco(t2), haiti(t3) vs scotland(t4)
   ...buildGroupMatches('C',
-    ['2026-06-12','2026-06-13','2026-06-19','2026-06-20','2026-06-25','2026-06-26'],
-    ['BMO Field, Toronto, Canada','BC Place, Vancouver, Canada','BMO Field, Toronto, Canada','BC Place, Vancouver, Canada','BMO Field, Toronto, Canada','BC Place, Vancouver, Canada'],
-    ['3:00 PM ET','9:00 PM ET','3:00 PM ET','9:00 PM ET','3:00 PM ET','9:00 PM ET']),
+    ['2026-06-13','2026-06-13','2026-06-19','2026-06-19','2026-06-24','2026-06-24'],
+    ['MetLife Stadium, East Rutherford, NJ','Gillette Stadium, Foxborough, MA','Lincoln Financial Field, Philadelphia, PA','Gillette Stadium, Foxborough, MA','Hard Rock Stadium, Miami Gardens, FL','Mercedes-Benz Stadium, Atlanta, GA'],
+    ['6:00 PM ET','9:00 PM ET','9:00 PM ET','6:00 PM ET','6:00 PM ET','6:00 PM ET']),
 
-  // Group D – MD1: Jun 13-14, MD2: Jun 19-20, MD3: Jun 26
+  // Group D: usa(t1) vs paraguay(t2), australia(t3) vs turkey(t4)
   ...buildGroupMatches('D',
-    ['2026-06-13','2026-06-14','2026-06-20','2026-06-21','2026-06-26','2026-06-26'],
-    ['Levi\'s Stadium, Santa Clara, CA','Hard Rock Stadium, Miami, FL','Levi\'s Stadium, Santa Clara, CA','Hard Rock Stadium, Miami, FL','Levi\'s Stadium, Santa Clara, CA','Hard Rock Stadium, Miami, FL'],
-    ['9:00 PM ET','6:00 PM ET','9:00 PM ET','6:00 PM ET','6:00 PM ET','9:00 PM ET']),
+    ['2026-06-12','2026-06-13','2026-06-19','2026-06-20','2026-06-25','2026-06-25'],
+    ['SoFi Stadium, Inglewood, CA','BC Place, Vancouver, Canada','Lumen Field, Seattle, WA',"Levi's Stadium, Santa Clara, CA",'SoFi Stadium, Inglewood, CA',"Levi's Stadium, Santa Clara, CA"],
+    ['9:00 PM ET','12:00 AM ET','3:00 PM ET','12:00 AM ET','10:00 PM ET','10:00 PM ET']),
 
-  // Group E – MD1: Jun 14-15, MD2: Jun 20-21, MD3: Jun 27
+  // Group E: germany(t1) vs curacao(t2), ivorycoast(t3) vs ecuador(t4)
   ...buildGroupMatches('E',
-    ['2026-06-14','2026-06-15','2026-06-21','2026-06-22','2026-06-27','2026-06-27'],
-    ['Lincoln Financial Field, Philadelphia, PA','NRG Stadium, Houston, TX','Lincoln Financial Field, Philadelphia, PA','NRG Stadium, Houston, TX','Lincoln Financial Field, Philadelphia, PA','NRG Stadium, Houston, TX'],
-    ['3:00 PM ET','6:00 PM CT','3:00 PM ET','6:00 PM CT','3:00 PM ET','6:00 PM CT']),
+    ['2026-06-14','2026-06-14','2026-06-20','2026-06-20','2026-06-25','2026-06-25'],
+    ['NRG Stadium, Houston, TX','Lincoln Financial Field, Philadelphia, PA','BMO Field, Toronto, Canada','Arrowhead Stadium, Kansas City, MO','MetLife Stadium, East Rutherford, NJ','Lincoln Financial Field, Philadelphia, PA'],
+    ['1:00 PM ET','7:00 PM ET','4:00 PM ET','8:00 PM ET','4:00 PM ET','4:00 PM ET']),
 
-  // Group F – MD1: Jun 15-16, MD2: Jun 21-22, MD3: Jun 27-28
+  // Group F: netherlands(t1) vs japan(t2), sweden(t3) vs tunisia(t4)
   ...buildGroupMatches('F',
-    ['2026-06-15','2026-06-16','2026-06-22','2026-06-23','2026-06-28','2026-06-28'],
-    ['Arrowhead Stadium, Kansas City, MO','Mercedes-Benz Stadium, Atlanta, GA','Arrowhead Stadium, Kansas City, MO','Mercedes-Benz Stadium, Atlanta, GA','Arrowhead Stadium, Kansas City, MO','Mercedes-Benz Stadium, Atlanta, GA'],
-    ['6:00 PM CT','6:00 PM ET','6:00 PM CT','6:00 PM ET','6:00 PM CT','6:00 PM ET']),
+    ['2026-06-14','2026-06-14','2026-06-20','2026-06-22','2026-06-25','2026-06-25'],
+    ['AT&T Stadium, Arlington, TX','Estadio BBVA, Monterrey, Mexico','NRG Stadium, Houston, TX','Estadio BBVA, Monterrey, Mexico','Arrowhead Stadium, Kansas City, MO','AT&T Stadium, Arlington, TX'],
+    ['4:00 PM ET','10:00 PM ET','1:00 PM ET','12:00 AM ET','7:00 PM ET','7:00 PM ET']),
 
-  // Group G – MD1: Jun 13-14, MD2: Jun 19-20, MD3: Jun 26-27
+  // Group G: belgium(t1) vs egypt(t2), iran(t3) vs newzealand(t4)
   ...buildGroupMatches('G',
-    ['2026-06-13','2026-06-14','2026-06-20','2026-06-21','2026-06-26','2026-06-27'],
-    ['Estadio BBVA, Monterrey, Mexico','AT&T Stadium, Arlington, TX','Estadio BBVA, Monterrey, Mexico','AT&T Stadium, Arlington, TX','Estadio BBVA, Monterrey, Mexico','AT&T Stadium, Arlington, TX'],
-    ['8:00 PM CT','9:00 PM CT','8:00 PM CT','9:00 PM CT','8:00 PM CT','9:00 PM CT']),
+    ['2026-06-15','2026-06-15','2026-06-21','2026-06-21','2026-06-26','2026-06-26'],
+    ['Lumen Field, Seattle, WA','SoFi Stadium, Inglewood, CA','SoFi Stadium, Inglewood, CA','BC Place, Vancouver, Canada','BC Place, Vancouver, Canada','Lumen Field, Seattle, WA'],
+    ['3:00 PM ET','9:00 PM ET','3:00 PM ET','9:00 PM ET','11:00 PM ET','11:00 PM ET']),
 
-  // Group H – MD1: Jun 16-17, MD2: Jun 22-23, MD3: Jun 29
+  // Group H: spain(t1) vs capeverde(t2), saudiarabia(t3) vs uruguay(t4)
   ...buildGroupMatches('H',
-    ['2026-06-16','2026-06-17','2026-06-23','2026-06-24','2026-06-29','2026-06-29'],
-    ['Estadio Jalisco, Guadalajara, Mexico','Lumen Field, Seattle, WA','Estadio Jalisco, Guadalajara, Mexico','Lumen Field, Seattle, WA','Estadio Jalisco, Guadalajara, Mexico','Lumen Field, Seattle, WA'],
-    ['8:00 PM CT','9:00 PM PT','8:00 PM CT','9:00 PM PT','3:00 PM CT','6:00 PM PT']),
+    ['2026-06-15','2026-06-15','2026-06-21','2026-06-21','2026-06-26','2026-06-26'],
+    ['Mercedes-Benz Stadium, Atlanta, GA','Hard Rock Stadium, Miami Gardens, FL','Mercedes-Benz Stadium, Atlanta, GA','Hard Rock Stadium, Miami Gardens, FL','Estadio Akron, Zapopan, Mexico','NRG Stadium, Houston, TX'],
+    ['12:00 PM ET','6:00 PM ET','12:00 PM ET','6:00 PM ET','8:00 PM ET','8:00 PM ET']),
 
-  // Group I – MD1: Jun 15-16, MD2: Jun 21-22, MD3: Jun 28-29
+  // Group I: france(t1) vs senegal(t2), iraq(t3) vs norway(t4)
   ...buildGroupMatches('I',
-    ['2026-06-15','2026-06-16','2026-06-22','2026-06-23','2026-06-28','2026-06-29'],
-    ['MetLife Stadium, East Rutherford, NJ','Hard Rock Stadium, Miami, FL','MetLife Stadium, East Rutherford, NJ','Hard Rock Stadium, Miami, FL','MetLife Stadium, East Rutherford, NJ','Hard Rock Stadium, Miami, FL'],
-    ['6:00 PM ET','9:00 PM ET','6:00 PM ET','9:00 PM ET','6:00 PM ET','9:00 PM ET']),
+    ['2026-06-16','2026-06-16','2026-06-22','2026-06-22','2026-06-26','2026-06-26'],
+    ['MetLife Stadium, East Rutherford, NJ','Gillette Stadium, Foxborough, MA','Lincoln Financial Field, Philadelphia, PA','MetLife Stadium, East Rutherford, NJ','Gillette Stadium, Foxborough, MA','BMO Field, Toronto, Canada'],
+    ['3:00 PM ET','6:00 PM ET','5:00 PM ET','8:00 PM ET','3:00 PM ET','3:00 PM ET']),
 
-  // Group J – MD1: Jun 17-18, MD2: Jun 23-24, MD3: Jun 30
+  // Group J: argentina(t1) vs algeria(t2), austria(t3) vs jordan(t4)
   ...buildGroupMatches('J',
-    ['2026-06-17','2026-06-18','2026-06-24','2026-06-25','2026-06-30','2026-06-30'],
-    ['SoFi Stadium, Inglewood, CA','Levi\'s Stadium, Santa Clara, CA','SoFi Stadium, Inglewood, CA','Levi\'s Stadium, Santa Clara, CA','SoFi Stadium, Inglewood, CA','Levi\'s Stadium, Santa Clara, CA'],
-    ['9:00 PM PT','9:00 PM PT','9:00 PM PT','9:00 PM PT','6:00 PM PT','9:00 PM PT']),
+    ['2026-06-16','2026-06-17','2026-06-22','2026-06-23','2026-06-27','2026-06-27'],
+    ['Arrowhead Stadium, Kansas City, MO',"Levi's Stadium, Santa Clara, CA",'AT&T Stadium, Arlington, TX',"Levi's Stadium, Santa Clara, CA",'AT&T Stadium, Arlington, TX','Arrowhead Stadium, Kansas City, MO'],
+    ['9:00 PM ET','12:00 AM ET','1:00 PM ET','12:00 AM ET','10:00 PM ET','10:00 PM ET']),
 
-  // Group K – MD1: Jun 18-19, MD2: Jun 24-25, MD3: Jul 1
+  // Group K: portugal(t1) vs drcongo(t2), uzbekistan(t3) vs colombia(t4)
   ...buildGroupMatches('K',
-    ['2026-06-18','2026-06-19','2026-06-25','2026-06-26','2026-07-01','2026-07-01'],
-    ['BC Place, Vancouver, Canada','Mercedes-Benz Stadium, Atlanta, GA','BC Place, Vancouver, Canada','Mercedes-Benz Stadium, Atlanta, GA','BC Place, Vancouver, Canada','Mercedes-Benz Stadium, Atlanta, GA'],
-    ['6:00 PM PT','6:00 PM ET','6:00 PM PT','6:00 PM ET','6:00 PM PT','6:00 PM ET']),
+    ['2026-06-17','2026-06-17','2026-06-23','2026-06-23','2026-06-27','2026-06-27'],
+    ['NRG Stadium, Houston, TX','Estadio Azteca, Mexico City, Mexico','NRG Stadium, Houston, TX','Estadio Akron, Zapopan, Mexico','Hard Rock Stadium, Miami Gardens, FL','Mercedes-Benz Stadium, Atlanta, GA'],
+    ['1:00 PM ET','10:00 PM ET','1:00 PM ET','10:00 PM ET','7:30 PM ET','7:30 PM ET']),
 
-  // Group L – MD1: Jun 19-20, MD2: Jun 25-26, MD3: Jul 2
+  // Group L: england(t1) vs croatia(t2), ghana(t3) vs panama(t4)
   ...buildGroupMatches('L',
-    ['2026-06-19','2026-06-20','2026-06-26','2026-06-27','2026-07-02','2026-07-02'],
-    ['NRG Stadium, Houston, TX','BMO Field, Toronto, Canada','NRG Stadium, Houston, TX','BMO Field, Toronto, Canada','NRG Stadium, Houston, TX','BMO Field, Toronto, Canada'],
-    ['6:00 PM CT','3:00 PM ET','6:00 PM CT','3:00 PM ET','6:00 PM CT','3:00 PM ET']),
+    ['2026-06-17','2026-06-17','2026-06-23','2026-06-23','2026-06-27','2026-06-27'],
+    ['AT&T Stadium, Arlington, TX','BMO Field, Toronto, Canada','Gillette Stadium, Foxborough, MA','BMO Field, Toronto, Canada','MetLife Stadium, East Rutherford, NJ','Lincoln Financial Field, Philadelphia, PA'],
+    ['4:00 PM ET','7:00 PM ET','4:00 PM ET','7:00 PM ET','5:00 PM ET','5:00 PM ET']),
 ]
 
 // ── Knockout Stage Template ───────────────────────────────────────────────────
 // homeSlot/awaySlot are placeholders; actual team IDs are filled in by admin.
 export const KNOCKOUT_MATCHES = [
-  // ── Round of 32 (Jun 28 – Jul 4) — official FIFA matchups per Fox Sports ──
-  // Pairs 1-2 → R16-1; Pairs 3-4 → R16-2; Pairs 5-6 → R16-3; Pairs 7-8 → R16-4
-  // Pairs 9-10 → R16-5; Pairs 11-12 → R16-6; Pairs 13-14 → R16-7; Pairs 15-16 → R16-8
-  // '3ABCDF' = best 3rd-place team from one of those groups (determined after group stage)
-  { id: 'ko_r32_1',  stage: 'r32', homeSlot: '1E',  awaySlot: '3ABCDF', date: '2026-06-29', time: '8:30 PM ET',  venue: 'Gillette Stadium, Foxborough, MA' },
-  { id: 'ko_r32_2',  stage: 'r32', homeSlot: '1I',  awaySlot: '3CDFGH', date: '2026-06-30', time: '9:00 PM ET',  venue: 'MetLife Stadium, East Rutherford, NJ' },
-  { id: 'ko_r32_3',  stage: 'r32', homeSlot: '2A',  awaySlot: '2B',     date: '2026-06-28', time: '7:00 PM PT',  venue: 'SoFi Stadium, Inglewood, CA' },
-  { id: 'ko_r32_4',  stage: 'r32', homeSlot: '1F',  awaySlot: '2C',     date: '2026-06-30', time: '9:00 PM CT',  venue: 'Estadio Jalisco, Guadalajara, Mexico' },
-  { id: 'ko_r32_5',  stage: 'r32', homeSlot: '2K',  awaySlot: '2L',     date: '2026-07-02', time: '6:00 PM ET',  venue: 'BMO Field, Toronto, Canada' },
-  { id: 'ko_r32_6',  stage: 'r32', homeSlot: '1H',  awaySlot: '2J',     date: '2026-07-02', time: '7:00 PM PT',  venue: 'SoFi Stadium, Inglewood, CA' },
-  { id: 'ko_r32_7',  stage: 'r32', homeSlot: '1D',  awaySlot: '3BEFIJ', date: '2026-07-01', time: '9:00 PM PT',  venue: 'Levi\'s Stadium, Santa Clara, CA' },
-  { id: 'ko_r32_8',  stage: 'r32', homeSlot: '1G',  awaySlot: '3AEHIJ', date: '2026-07-01', time: '8:00 PM PT',  venue: 'Lumen Field, Seattle, WA' },
-  { id: 'ko_r32_9',  stage: 'r32', homeSlot: '1C',  awaySlot: '2F',     date: '2026-06-29', time: '5:00 PM ET',  venue: 'NRG Stadium, Houston, TX' },
-  { id: 'ko_r32_10', stage: 'r32', homeSlot: '2E',  awaySlot: '2I',     date: '2026-06-30', time: '5:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
-  { id: 'ko_r32_11', stage: 'r32', homeSlot: '1A',  awaySlot: '3CEFHI', date: '2026-07-01', time: '9:00 PM CT',  venue: 'Estadio Azteca, Mexico City, Mexico' },
-  { id: 'ko_r32_12', stage: 'r32', homeSlot: '1L',  awaySlot: '3EHIJK', date: '2026-07-01', time: '4:00 PM ET',  venue: 'Mercedes-Benz Stadium, Atlanta, GA' },
-  { id: 'ko_r32_13', stage: 'r32', homeSlot: '1J',  awaySlot: '2H',     date: '2026-07-03', time: '6:00 PM ET',  venue: 'Hard Rock Stadium, Miami, FL' },
+  // ── Round of 32 (Jun 28 – Jul 3) — official FIFA matchups ──────────
+  // '3ABCDF' = best 3rd-place team from one of those groups (TBD after group stage)
+  { id: 'ko_r32_1',  stage: 'r32', homeSlot: '1E',  awaySlot: '3ABCDF', date: '2026-06-29', time: '4:30 PM ET',  venue: 'Gillette Stadium, Foxborough, MA' },
+  { id: 'ko_r32_2',  stage: 'r32', homeSlot: '1I',  awaySlot: '3CDFGH', date: '2026-06-30', time: '5:00 PM ET',  venue: 'MetLife Stadium, East Rutherford, NJ' },
+  { id: 'ko_r32_3',  stage: 'r32', homeSlot: '2A',  awaySlot: '2B',     date: '2026-06-28', time: '3:00 PM ET',  venue: 'SoFi Stadium, Inglewood, CA' },
+  { id: 'ko_r32_4',  stage: 'r32', homeSlot: '1F',  awaySlot: '2C',     date: '2026-06-29', time: '9:00 PM ET',  venue: 'Estadio BBVA, Monterrey, Mexico' },
+  { id: 'ko_r32_5',  stage: 'r32', homeSlot: '2K',  awaySlot: '2L',     date: '2026-07-02', time: '7:00 PM ET',  venue: 'BMO Field, Toronto, Canada' },
+  { id: 'ko_r32_6',  stage: 'r32', homeSlot: '1H',  awaySlot: '2J',     date: '2026-07-02', time: '3:00 PM ET',  venue: 'SoFi Stadium, Inglewood, CA' },
+  { id: 'ko_r32_7',  stage: 'r32', homeSlot: '1D',  awaySlot: '3BEFIJ', date: '2026-07-01', time: '8:00 PM ET',  venue: "Levi's Stadium, Santa Clara, CA" },
+  { id: 'ko_r32_8',  stage: 'r32', homeSlot: '1G',  awaySlot: '3AEHIJ', date: '2026-07-01', time: '4:00 PM ET',  venue: 'Lumen Field, Seattle, WA' },
+  { id: 'ko_r32_9',  stage: 'r32', homeSlot: '1C',  awaySlot: '2F',     date: '2026-06-29', time: '1:00 PM ET',  venue: 'NRG Stadium, Houston, TX' },
+  { id: 'ko_r32_10', stage: 'r32', homeSlot: '2E',  awaySlot: '2I',     date: '2026-06-30', time: '1:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
+  { id: 'ko_r32_11', stage: 'r32', homeSlot: '1A',  awaySlot: '3CEFHI', date: '2026-07-01', time: '12:00 AM ET', venue: 'Estadio Azteca, Mexico City, Mexico' },
+  { id: 'ko_r32_12', stage: 'r32', homeSlot: '1L',  awaySlot: '3EHIJK', date: '2026-07-01', time: '12:00 PM ET', venue: 'Mercedes-Benz Stadium, Atlanta, GA' },
+  { id: 'ko_r32_13', stage: 'r32', homeSlot: '1J',  awaySlot: '2H',     date: '2026-07-03', time: '6:00 PM ET',  venue: 'Hard Rock Stadium, Miami Gardens, FL' },
   { id: 'ko_r32_14', stage: 'r32', homeSlot: '2D',  awaySlot: '2G',     date: '2026-07-03', time: '2:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
-  { id: 'ko_r32_15', stage: 'r32', homeSlot: '1B',  awaySlot: '3EFGIJ', date: '2026-07-03', time: '6:00 PM PT',  venue: 'BC Place, Vancouver, Canada' },
-  { id: 'ko_r32_16', stage: 'r32', homeSlot: '1K',  awaySlot: '3DEIJL', date: '2026-07-04', time: '8:30 PM CT',  venue: 'Arrowhead Stadium, Kansas City, MO' },
+  { id: 'ko_r32_15', stage: 'r32', homeSlot: '1B',  awaySlot: '3EFGIJ', date: '2026-07-03', time: '12:00 AM ET', venue: 'BC Place, Vancouver, Canada' },
+  { id: 'ko_r32_16', stage: 'r32', homeSlot: '1K',  awaySlot: '3DEIJL', date: '2026-07-03', time: '9:30 PM ET',  venue: 'Arrowhead Stadium, Kansas City, MO' },
 
-  // ── Round of 16 (July 9–12) ───────────────────────────────────────
-  { id: 'ko_r16_1', stage: 'r16', homeSlot: 'W_r32_1',  awaySlot: 'W_r32_2',  date: '2026-07-09', time: '3:00 PM ET',  venue: 'MetLife Stadium, East Rutherford, NJ' },
-  { id: 'ko_r16_2', stage: 'r16', homeSlot: 'W_r32_3',  awaySlot: 'W_r32_4',  date: '2026-07-09', time: '9:00 PM ET',  venue: 'SoFi Stadium, Inglewood, CA' },
-  { id: 'ko_r16_3', stage: 'r16', homeSlot: 'W_r32_5',  awaySlot: 'W_r32_6',  date: '2026-07-10', time: '3:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
-  { id: 'ko_r16_4', stage: 'r16', homeSlot: 'W_r32_7',  awaySlot: 'W_r32_8',  date: '2026-07-10', time: '9:00 PM ET',  venue: 'Hard Rock Stadium, Miami, FL' },
-  { id: 'ko_r16_5', stage: 'r16', homeSlot: 'W_r32_9',  awaySlot: 'W_r32_10', date: '2026-07-11', time: '3:00 PM ET',  venue: 'Levi\'s Stadium, Santa Clara, CA' },
-  { id: 'ko_r16_6', stage: 'r16', homeSlot: 'W_r32_11', awaySlot: 'W_r32_12', date: '2026-07-11', time: '9:00 PM ET',  venue: 'Mercedes-Benz Stadium, Atlanta, GA' },
-  { id: 'ko_r16_7', stage: 'r16', homeSlot: 'W_r32_13', awaySlot: 'W_r32_14', date: '2026-07-12', time: '3:00 PM ET',  venue: 'Estadio Azteca, Mexico City, Mexico' },
-  { id: 'ko_r16_8', stage: 'r16', homeSlot: 'W_r32_15', awaySlot: 'W_r32_16', date: '2026-07-12', time: '9:00 PM ET',  venue: 'Lumen Field, Seattle, WA' },
+  // ── Round of 16 (July 4–7) ────────────────────────────────────────
+  { id: 'ko_r16_1', stage: 'r16', homeSlot: 'W_r32_1',  awaySlot: 'W_r32_2',  date: '2026-07-04', time: '5:00 PM ET',  venue: 'Lincoln Financial Field, Philadelphia, PA' },
+  { id: 'ko_r16_2', stage: 'r16', homeSlot: 'W_r32_3',  awaySlot: 'W_r32_4',  date: '2026-07-04', time: '1:00 PM ET',  venue: 'NRG Stadium, Houston, TX' },
+  { id: 'ko_r16_3', stage: 'r16', homeSlot: 'W_r32_5',  awaySlot: 'W_r32_6',  date: '2026-07-06', time: '3:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
+  { id: 'ko_r16_4', stage: 'r16', homeSlot: 'W_r32_7',  awaySlot: 'W_r32_8',  date: '2026-07-06', time: '8:00 PM ET',  venue: 'Lumen Field, Seattle, WA' },
+  { id: 'ko_r16_5', stage: 'r16', homeSlot: 'W_r32_9',  awaySlot: 'W_r32_10', date: '2026-07-05', time: '4:00 PM ET',  venue: 'MetLife Stadium, East Rutherford, NJ' },
+  { id: 'ko_r16_6', stage: 'r16', homeSlot: 'W_r32_11', awaySlot: 'W_r32_12', date: '2026-07-05', time: '8:00 PM ET',  venue: 'Estadio Azteca, Mexico City, Mexico' },
+  { id: 'ko_r16_7', stage: 'r16', homeSlot: 'W_r32_13', awaySlot: 'W_r32_14', date: '2026-07-07', time: '12:00 PM ET', venue: 'Mercedes-Benz Stadium, Atlanta, GA' },
+  { id: 'ko_r16_8', stage: 'r16', homeSlot: 'W_r32_15', awaySlot: 'W_r32_16', date: '2026-07-07', time: '4:00 PM ET',  venue: 'BC Place, Vancouver, Canada' },
 
-  // ── Quarterfinals (July 14–15) ────────────────────────────────────
-  { id: 'ko_qf_1', stage: 'qf', homeSlot: 'W_r16_1', awaySlot: 'W_r16_2', date: '2026-07-14', time: '3:00 PM ET',  venue: 'MetLife Stadium, East Rutherford, NJ' },
-  { id: 'ko_qf_2', stage: 'qf', homeSlot: 'W_r16_3', awaySlot: 'W_r16_4', date: '2026-07-14', time: '9:00 PM ET',  venue: 'SoFi Stadium, Inglewood, CA' },
-  { id: 'ko_qf_3', stage: 'qf', homeSlot: 'W_r16_5', awaySlot: 'W_r16_6', date: '2026-07-15', time: '3:00 PM ET',  venue: 'Estadio Azteca, Mexico City, Mexico' },
-  { id: 'ko_qf_4', stage: 'qf', homeSlot: 'W_r16_7', awaySlot: 'W_r16_8', date: '2026-07-15', time: '9:00 PM ET',  venue: 'AT&T Stadium, Arlington, TX' },
+  // ── Quarterfinals (July 9–11) ─────────────────────────────────────
+  { id: 'ko_qf_1', stage: 'qf', homeSlot: 'W_r16_1', awaySlot: 'W_r16_2', date: '2026-07-09', time: '4:00 PM ET', venue: 'Gillette Stadium, Foxborough, MA' },
+  { id: 'ko_qf_2', stage: 'qf', homeSlot: 'W_r16_3', awaySlot: 'W_r16_4', date: '2026-07-10', time: '3:00 PM ET', venue: 'SoFi Stadium, Inglewood, CA' },
+  { id: 'ko_qf_3', stage: 'qf', homeSlot: 'W_r16_5', awaySlot: 'W_r16_6', date: '2026-07-11', time: '5:00 PM ET', venue: 'Hard Rock Stadium, Miami Gardens, FL' },
+  { id: 'ko_qf_4', stage: 'qf', homeSlot: 'W_r16_7', awaySlot: 'W_r16_8', date: '2026-07-11', time: '9:00 PM ET', venue: 'Arrowhead Stadium, Kansas City, MO' },
 
-  // ── Semifinals (July 17–18) ───────────────────────────────────────
-  { id: 'ko_sf_1', stage: 'sf', homeSlot: 'W_qf_1', awaySlot: 'W_qf_2', date: '2026-07-17', time: '6:00 PM ET', venue: 'MetLife Stadium, East Rutherford, NJ' },
-  { id: 'ko_sf_2', stage: 'sf', homeSlot: 'W_qf_3', awaySlot: 'W_qf_4', date: '2026-07-18', time: '6:00 PM ET', venue: 'SoFi Stadium, Inglewood, CA' },
+  // ── Semifinals (July 14–15) ───────────────────────────────────────
+  { id: 'ko_sf_1', stage: 'sf', homeSlot: 'W_qf_1', awaySlot: 'W_qf_2', date: '2026-07-14', time: '3:00 PM ET', venue: 'AT&T Stadium, Arlington, TX' },
+  { id: 'ko_sf_2', stage: 'sf', homeSlot: 'W_qf_3', awaySlot: 'W_qf_4', date: '2026-07-15', time: '3:00 PM ET', venue: 'Mercedes-Benz Stadium, Atlanta, GA' },
 
-  // ── Third Place (July 21) ─────────────────────────────────────────
-  { id: 'ko_3rd',   stage: '3rd',   homeSlot: 'L_sf_1', awaySlot: 'L_sf_2', date: '2026-07-21', time: '6:00 PM ET', venue: 'AT&T Stadium, Arlington, TX' },
+  // ── Third Place (July 18) ─────────────────────────────────────────
+  { id: 'ko_3rd',   stage: '3rd',   homeSlot: 'L_sf_1', awaySlot: 'L_sf_2', date: '2026-07-18', time: '5:00 PM ET', venue: 'Hard Rock Stadium, Miami Gardens, FL' },
 
-  // ── Final (July 22) ──────────────────────────────────────────────
-  { id: 'ko_final', stage: 'final', homeSlot: 'W_sf_1', awaySlot: 'W_sf_2', date: '2026-07-22', time: '6:00 PM ET', venue: 'MetLife Stadium, East Rutherford, NJ' },
+  // ── Final (July 19) ──────────────────────────────────────────────
+  { id: 'ko_final', stage: 'final', homeSlot: 'W_sf_1', awaySlot: 'W_sf_2', date: '2026-07-19', time: '3:00 PM ET', venue: 'MetLife Stadium, East Rutherford, NJ' },
 ]
 
 export const ALL_MATCHES = [...GROUP_MATCHES, ...KNOCKOUT_MATCHES]
