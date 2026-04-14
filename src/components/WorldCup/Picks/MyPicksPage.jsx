@@ -93,8 +93,8 @@ function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, res
 
       {/* Match date + time */}
       {isPending && (
-        <div className="mt-1 text-xs text-gray-600">
-          {match.date}{match.time && ` · ${match.time}`} · {match.venue?.split(',')[0]}
+        <div className="mt-1 text-xs text-gray-600 text-center">
+          {new Date(match.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}{match.time && ` · ${match.time}`} · {match.venue}
         </div>
       )}
     </div>

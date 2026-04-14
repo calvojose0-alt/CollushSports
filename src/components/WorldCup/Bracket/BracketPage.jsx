@@ -1,314 +1,550 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { savePlayoffPick } from '@/services/firebase/wc2026Service'
-import { WC_TEAMS, GROUP_LETTERS, PLAYOFF_ROUNDS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
-import { Globe, Save, CheckCircle2, AlertCircle, Loader, Lock, Info } from 'lucide-react'
+import { WC_TEAMS, WC_GROUPS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
+import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
+import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
+import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy } from 'lucide-react'
 
-const ALL_TEAM_IDS = Object.keys(WC_TEAMS)
+// ── Layout constants ───────────────────────────────────────────────────────────
+const CARD_H   = 80    // px – match card height
+const GAP      = 6     // px – gap between consecutive R32 cards
+const UNIT     = CARD_H + GAP   // 86px per bracket slot
+const TOTAL_H  = 16 * UNIT      // 1376px
+const COL_W    = 186            // px – match card column width
+const CONN_W   = 44             // px – connector SVG width
+const HDR_H    = 36             // px – column header height
 
-// ── Team selector chip ─────────────────────────────────────────────────────────
-function TeamChip({ teamId, selected, onClick, disabled, correct, incorrect }) {
-  const team = WC_TEAMS[teamId]
-  if (!team) return null
+// Top-edge position of a match card (roundIdx 0=R32…4=Final, matchIdx 0-based)
+function cardTop(roundIdx, matchIdx) {
+  const step = UNIT * Math.pow(2, roundIdx)
+  const offset = roundIdx === 0 ? 0 : (step - UNIT) / 2
+  return matchIdx * step + offset
+}
 
-  let chipClass = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all select-none '
-  if (disabled && !selected) {
-    chipClass += 'opacity-40 cursor-not-allowed bg-f1dark border-f1light text-gray-500'
-  } else if (correct) {
-    chipClass += 'bg-green-900/40 border-green-600 text-green-300'
-  } else if (incorrect) {
-    chipClass += 'bg-red-900/30 border-red-900/60 text-red-400 line-through opacity-60'
-  } else if (selected) {
-    chipClass += 'bg-yellow-600/30 border-yellow-500 text-yellow-200 shadow-sm shadow-yellow-600/20'
-  } else {
-    chipClass += 'bg-f1dark border-f1light text-gray-300 hover:border-yellow-600 hover:text-white'
+const STAGE_ROUND_IDX = { r32: 0, r16: 1, qf: 2, sf: 3, final: 4 }
+const STAGE_LABELS    = {
+  r32: 'Round of 32', r16: 'Round of 16',
+  qf:  'Quarterfinals', sf: 'Semifinals', final: 'Final',
+}
+const STAGE_SCORING = {
+  r16: SCORING.PLAYOFF_R16, qf: SCORING.PLAYOFF_QF,
+  sf: SCORING.PLAYOFF_SF, winner: SCORING.PLAYOFF_WINNER,
+}
+
+// ── Resolve a slot label to a teamId ──────────────────────────────────────────
+// slot: '1A', '2B', 'W_r32_1', '3ABCDF' (best 3rd from those groups), 'L_sf_1' etc.
+function resolveSlot(slot, slotMap, picks) {
+  if (!slot) return null
+  if (slot.startsWith('W_')) {
+    const matchId = 'ko_' + slot.slice(2)
+    return picks[matchId] || null
   }
+  // 3rd-place qualifier: '3ABCDF', '3CDFGH', etc. — TBD until group stage ends
+  if (/^3[A-L]{2,}/.test(slot)) return null
+  if (slot.startsWith('3rd') || slot.startsWith('L_')) return null
+  return slotMap[slot] || null
+}
 
+// Format a TBD slot label for display
+function formatSlotLabel(slot) {
+  if (!slot) return 'TBD'
+  if (slot.startsWith('W_')) return 'TBD'
+  if (/^3[A-L]{2,}/.test(slot)) return `Best 3rd · Grp ${slot.slice(1)}`
+  if (slot.startsWith('3rd')) return 'Best 3rd'
+  if (slot.startsWith('L_')) return 'Semifinal loser'
+  // '1A', '2B' etc. — will already be resolved to a team; this is a fallback
+  return slot
+}
+
+// Cascade-clear downstream picks when a team is removed from a match
+function cascadeClear(matchId, removedTeam, picks) {
+  const nextStage =
+    matchId.includes('_r32_') ? 'r16' :
+    matchId.includes('_r16_') ? 'qf' :
+    matchId.includes('_qf_')  ? 'sf' :
+    matchId.includes('_sf_')  ? 'final' : null
+  if (!nextStage) return
+  const numMatch = matchId.match(/_(\d+)$/)?.[1]
+  if (!numMatch) return
+  const nextNum = Math.ceil(parseInt(numMatch) / 2)
+  const nextId  = `ko_${nextStage}_${nextNum}`
+  if (picks[nextId] === removedTeam) {
+    picks[nextId] = null
+    cascadeClear(nextId, removedTeam, picks)
+  }
+}
+
+// ── SVG connectors between two adjacent bracket columns ───────────────────────
+function BracketConnector({ fromRoundIdx, pairCount }) {
+  const elems = []
+  for (let i = 0; i < pairCount; i++) {
+    const y0 = cardTop(fromRoundIdx, i * 2)     + CARD_H / 2
+    const y1 = cardTop(fromRoundIdx, i * 2 + 1) + CARD_H / 2
+    const yd = cardTop(fromRoundIdx + 1, i)      + CARD_H / 2
+    const mx = CONN_W / 2
+    elems.push(
+      <g key={i} stroke="#374151" strokeWidth="1.5" fill="none">
+        <line x1="0"     y1={y0} x2={mx}    y2={y0} />
+        <line x1="0"     y1={y1} x2={mx}    y2={y1} />
+        <line x1={mx}    y1={y0} x2={mx}    y2={y1} />
+        <line x1={mx}    y1={yd} x2={CONN_W} y2={yd} />
+      </g>
+    )
+  }
   return (
-    <button onClick={disabled ? undefined : onClick} className={chipClass} disabled={disabled && !selected}>
-      <span className="text-base leading-none">{team.flag}</span>
-      <span>{team.shortName}</span>
-      {correct && <CheckCircle2 className="w-3 h-3 text-green-400" />}
-    </button>
+    <svg
+      width={CONN_W}
+      height={TOTAL_H + HDR_H}
+      style={{ flexShrink: 0, marginTop: HDR_H }}
+      aria-hidden="true"
+    >
+      {elems}
+    </svg>
   )
 }
 
-// ── Round panel ────────────────────────────────────────────────────────────────
-function RoundPanel({ round, selectedTeams, onToggle, locked, actualTeams, maxTeams }) {
-  const selected = selectedTeams || []
-  const remaining = maxTeams - selected.length
-  const isWinner  = round.id === 'winner'
-
-  // Group teams by confederation for easier selection
-  const confeds = {}
-  ALL_TEAM_IDS.forEach((id) => {
-    const t = WC_TEAMS[id]
-    if (!confeds[t.confed]) confeds[t.confed] = []
-    confeds[t.confed].push(id)
-  })
-
-  // For winner round, sort by group/region
-  const orderedGroups = [
-    { label: 'CONCACAF', ids: confeds['CONCACAF'] || [] },
-    { label: 'CONMEBOL', ids: confeds['CONMEBOL'] || [] },
-    { label: 'UEFA',     ids: confeds['UEFA']     || [] },
-    { label: 'CAF',      ids: confeds['CAF']      || [] },
-    { label: 'AFC / OFC',ids: [...(confeds['AFC'] || []), ...(confeds['OFC'] || [])] },
-  ]
-
-  const actualSet = new Set(actualTeams || [])
-  const selectedSet = new Set(selected)
-
+// ── Team slot within a match card ─────────────────────────────────────────────
+function TeamSlot({ teamId, slotLabel, selected, clickable, onClick }) {
+  const team = teamId ? WC_TEAMS[teamId] : null
   return (
-    <div className="card space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-bold text-white">{round.label}</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Pick {maxTeams} team{maxTeams !== 1 ? 's' : ''} · <span className="text-yellow-400">+{round.points} pts</span> each correct
-          </p>
-        </div>
-        <div className={`text-sm font-bold px-3 py-1.5 rounded-lg border ${
-          selected.length === maxTeams
-            ? 'bg-green-900/40 border-green-700 text-green-300'
-            : 'bg-f1dark border-f1light text-gray-400'
-        }`}>
-          {selected.length}/{maxTeams}
-        </div>
-      </div>
-
-      {/* Team grid */}
-      {orderedGroups.map(({ label, ids }) => {
-        if (!ids.length) return null
-        return (
-          <div key={label}>
-            <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider mb-2">{label}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {ids.map((id) => {
-                const sel = selectedSet.has(id)
-                const cor = actualTeams && actualSet.has(id) && sel
-                const inc = actualTeams && !actualSet.has(id) && sel
-                const maxReached = !sel && selected.length >= maxTeams
-                return (
-                  <TeamChip
-                    key={id}
-                    teamId={id}
-                    selected={sel}
-                    correct={cor}
-                    incorrect={inc}
-                    disabled={locked || maxReached}
-                    onClick={() => onToggle(round.id, id, maxTeams)}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-
-      {!locked && remaining > 0 && (
-        <p className="text-xs text-gray-500 italic">
-          Select {remaining} more team{remaining !== 1 ? 's' : ''}…
-        </p>
-      )}
-      {!locked && selected.length === maxTeams && (
-        <p className="text-xs text-green-400 flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3" /> All {maxTeams} picks selected
-        </p>
+    <div
+      onClick={clickable && teamId ? onClick : undefined}
+      className={`flex items-center gap-1.5 px-2 transition-colors
+        ${clickable && teamId ? 'cursor-pointer' : 'cursor-default'}
+        ${selected
+          ? 'bg-yellow-500/30 text-white'
+          : team && clickable ? 'hover:bg-white/5 text-gray-200' : 'text-gray-500'}
+      `}
+      style={{ height: (CARD_H - 28) / 2 }}  // split remaining height between 2 slots
+    >
+      {team ? (
+        <>
+          <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
+          <span className={`text-[11px] font-semibold truncate ${selected ? 'text-yellow-200' : ''}`}>
+            {team.shortName}
+          </span>
+          {selected && <span className="ml-auto text-yellow-400 text-[8px]">▶</span>}
+        </>
+      ) : (
+        <>
+          <span className="w-3.5 h-3.5 rounded-full bg-gray-700 flex-shrink-0" />
+          <span className="text-[9px] text-gray-600 truncate">{formatSlotLabel(slotLabel)}</span>
+        </>
       )}
     </div>
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ── Match card ────────────────────────────────────────────────────────────────
+function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32 }) {
+  const fmtDate = (d) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
+  const fmtTime = (t) => t || ''
+  const venue   = match.venue || ''
+
+  const canPick = !locked && !isR32
+
+  return (
+    <div
+      className="border rounded overflow-hidden flex flex-col select-none"
+      style={{
+        height: CARD_H,
+        borderColor: isR32 ? '#374151' : picked ? '#CA8A04' : '#4B5563',
+        background: isR32 ? 'rgba(17,24,39,0.85)' : '#1F2937',
+      }}
+    >
+      {/* Venue */}
+      <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
+        style={{ height: 14 }}>
+        <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate">{venue}</span>
+      </div>
+
+      {/* Home team */}
+      <TeamSlot
+        teamId={homeTeamId}
+        slotLabel={match.homeSlot}
+        selected={picked === homeTeamId && !!homeTeamId}
+        clickable={canPick}
+        onClick={() => onPick(homeTeamId)}
+      />
+
+      {/* Divider */}
+      <div className="border-t border-gray-700/40 flex-shrink-0" />
+
+      {/* Away team */}
+      <TeamSlot
+        teamId={awayTeamId}
+        slotLabel={match.awaySlot}
+        selected={picked === awayTeamId && !!awayTeamId}
+        clickable={canPick}
+        onClick={() => onPick(awayTeamId)}
+      />
+
+      {/* Date / time */}
+      <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
+        style={{ height: 14 }}>
+        <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
+        <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Bracket column ────────────────────────────────────────────────────────────
+function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked }) {
+  const roundIdx = STAGE_ROUND_IDX[stage]
+  const isR32    = stage === 'r32'
+  return (
+    <div style={{ width: COL_W, flexShrink: 0 }}>
+      {/* Header */}
+      <div
+        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center border-b border-gray-700/60"
+        style={{ height: HDR_H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 6 }}
+      >
+        {STAGE_LABELS[stage]}
+      </div>
+      {/* Cards container */}
+      <div className="relative" style={{ height: TOTAL_H }}>
+        {matches.map((match, matchIdx) => {
+          const homeTeamId = resolveSlot(match.homeSlot, slotMap, bracketPicks)
+          const awayTeamId = resolveSlot(match.awaySlot, slotMap, bracketPicks)
+          const picked     = bracketPicks[match.id] || null
+          return (
+            <div
+              key={match.id}
+              style={{ position: 'absolute', top: cardTop(roundIdx, matchIdx), left: 0, right: 0 }}
+            >
+              <MatchCard
+                match={match}
+                homeTeamId={homeTeamId}
+                awayTeamId={awayTeamId}
+                picked={picked}
+                onPick={(teamId) => onPick(match.id, teamId)}
+                locked={locked}
+                isR32={isR32}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+function PickProgress({ bracketPicks }) {
+  const rounds = [
+    { stage: 'r16',   matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r32'), label: 'R16 picks',  total: 16 },
+    { stage: 'qf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r16'), label: 'QF picks',   total: 8  },
+    { stage: 'sf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'qf'),  label: 'SF picks',   total: 4  },
+    { stage: 'final', matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'sf'),  label: 'Final pick', total: 2  },
+  ]
+  return (
+    <div className="flex gap-3 flex-wrap">
+      {rounds.map(r => {
+        const done = r.matches.filter(m => bracketPicks[m.id]).length
+        const pct = Math.round((done / r.total) * 100)
+        return (
+          <div key={r.stage} className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">{r.label}</span>
+            <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs text-gray-500">{done}/{r.total}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main bracket page ─────────────────────────────────────────────────────────
 export default function BracketPage() {
-  const { user } = useAuth()
-  const { myPlayoffPicksByRound, tournamentMeta, refreshPicks } = useWCGame()
+  const { user }         = useAuth()
+  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks } = useWCGame()
 
   const locked = isPicksLocked()
 
-  // Local draft state: { r32: Set<teamId>, r16: Set<teamId>, ... }
-  const [draft, setDraft] = useState(() => {
-    const init = {}
-    PLAYOFF_ROUNDS.forEach((r) => { init[r.id] = new Set() })
-    return init
-  })
+  const [bracketPicks, setBracketPicks] = useState({})
+  const [initialized, setInitialized]   = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [msg, setMsg]                   = useState(null)
 
-  const [initialized, setInitialized] = useState(false)
-  const [saving, setSaving]   = useState(null) // round id being saved, or null
-  const [msg, setMsg]         = useState(null)
-
-  // Pre-fill draft from saved picks (once)
-  useMemo(() => {
-    if (initialized) return
-    const hasAny = Object.values(myPlayoffPicksByRound).some((p) => p?.teamIds?.length)
-    if (!hasAny) return
-    const newDraft = {}
-    PLAYOFF_ROUNDS.forEach((r) => {
-      const saved = myPlayoffPicksByRound[r.id]?.teamIds || []
-      newDraft[r.id] = new Set(saved)
-    })
-    setDraft(newDraft)
-    setInitialized(true)
-  }, [myPlayoffPicksByRound, initialized])
-
-  const handleToggle = (roundId, teamId, maxTeams) => {
-    if (locked) return
-    setDraft((prev) => {
-      const set = new Set(prev[roundId])
-      if (set.has(teamId)) {
-        set.delete(teamId)
-      } else if (set.size < maxTeams) {
-        set.add(teamId)
-      }
-      return { ...prev, [roundId]: set }
-    })
-  }
-
-  const handleSaveRound = async (roundId) => {
-    setSaving(roundId)
-    setMsg(null)
-    try {
-      await savePlayoffPick({
-        userId: user.uid,
-        round: roundId,
-        teamIds: Array.from(draft[roundId]),
+  // ── Compute predicted group standings from user's group picks ──────────────
+  const predictedStandings = useMemo(() => {
+    const result = {}
+    GROUP_LETTERS.forEach(group => {
+      const groupMatchList = GROUP_MATCHES.filter(m => m.group === group)
+      const picks = groupMatchList.map(m => {
+        const p = myPicksByMatchId[m.id]
+        return {
+          homeTeam: m.homeTeam,
+          awayTeam: m.awayTeam,
+          homeScore: p?.homeScore ?? null,
+          awayScore: p?.awayScore ?? null,
+        }
       })
-      await refreshPicks()
-      setMsg({ type: 'success', text: `${PLAYOFF_ROUNDS.find((r) => r.id === roundId)?.label} picks saved!` })
-    } catch (err) {
-      setMsg({ type: 'error', text: err.message })
-    } finally {
-      setSaving(null)
-    }
-  }
+      const standingsMap = computeGroupStandings(group, picks)
+      const sorted = Object.values(standingsMap).sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts
+        if (b.gd !== a.gd)  return b.gd - a.gd
+        return b.gf - a.gf
+      })
+      result[group] = sorted.map(s => s.teamId)
+    })
+    return result
+  }, [myPicksByMatchId])
 
-  const handleSaveAll = async () => {
-    setSaving('all')
+  // ── Build slot map: '1A' → teamId, '2B' → teamId, etc. ───────────────────
+  const slotMap = useMemo(() => {
+    const map = {}
+    GROUP_LETTERS.forEach(group => {
+      const rankings = predictedStandings[group] || WC_GROUPS[group]
+      rankings.forEach((teamId, idx) => {
+        map[`${idx + 1}${group}`] = teamId
+      })
+    })
+    return map
+  }, [predictedStandings])
+
+  // ── Initialize bracket picks from saved playoff data (once) ───────────────
+  useEffect(() => {
+    if (initialized) return
+    const r16Set    = new Set(myPlayoffPicksByRound.r16?.teamIds    || [])
+    const qfSet     = new Set(myPlayoffPicksByRound.qf?.teamIds     || [])
+    const sfSet     = new Set(myPlayoffPicksByRound.sf?.teamIds     || [])
+    const winnerSet = new Set(myPlayoffPicksByRound.winner?.teamIds || [])
+    const hasAny = r16Set.size || qfSet.size || sfSet.size || winnerSet.size
+
+    // Only initialize once we have group picks or saved playoff picks
+    if (!myPicks.length && !hasAny) return
+
+    const newPicks = {}
+
+    // R32 → r16
+    KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').forEach(m => {
+      const home = resolveSlot(m.homeSlot, slotMap, {})
+      const away = resolveSlot(m.awaySlot, slotMap, {})
+      if (home && r16Set.has(home)) newPicks[m.id] = home
+      else if (away && r16Set.has(away)) newPicks[m.id] = away
+    })
+    // R16 → qf
+    KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').forEach(m => {
+      const home = resolveSlot(m.homeSlot, slotMap, newPicks)
+      const away = resolveSlot(m.awaySlot, slotMap, newPicks)
+      if (home && qfSet.has(home)) newPicks[m.id] = home
+      else if (away && qfSet.has(away)) newPicks[m.id] = away
+    })
+    // QF → sf
+    KNOCKOUT_MATCHES.filter(m => m.stage === 'qf').forEach(m => {
+      const home = resolveSlot(m.homeSlot, slotMap, newPicks)
+      const away = resolveSlot(m.awaySlot, slotMap, newPicks)
+      if (home && sfSet.has(home)) newPicks[m.id] = home
+      else if (away && sfSet.has(away)) newPicks[m.id] = away
+    })
+    // SF → final
+    const finalMatch = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
+    KNOCKOUT_MATCHES.filter(m => m.stage === 'sf').forEach(m => {
+      const home = resolveSlot(m.homeSlot, slotMap, newPicks)
+      const away = resolveSlot(m.awaySlot, slotMap, newPicks)
+      if (home && winnerSet.has(home)) newPicks[m.id] = home
+      else if (away && winnerSet.has(away)) newPicks[m.id] = away
+    })
+    // Final
+    if (finalMatch) {
+      const home = resolveSlot(finalMatch.homeSlot, slotMap, newPicks)
+      const away = resolveSlot(finalMatch.awaySlot, slotMap, newPicks)
+      if (home && winnerSet.has(home)) newPicks[finalMatch.id] = home
+      else if (away && winnerSet.has(away)) newPicks[finalMatch.id] = away
+    }
+
+    setBracketPicks(newPicks)
+    setInitialized(true)
+  }, [myPlayoffPicksByRound, slotMap, initialized, myPicks.length])
+
+  // ── Pick a winner for a match ─────────────────────────────────────────────
+  const handlePick = useCallback((matchId, teamId) => {
+    if (locked) return
+    setBracketPicks(prev => {
+      const next = { ...prev }
+      const prev_winner = next[matchId]
+      if (prev_winner === teamId) {
+        // Toggle off
+        next[matchId] = null
+        cascadeClear(matchId, teamId, next)
+      } else {
+        if (prev_winner) cascadeClear(matchId, prev_winner, next)
+        next[matchId] = teamId
+      }
+      return next
+    })
+  }, [locked])
+
+  // ── Save all bracket picks ────────────────────────────────────────────────
+  const handleSave = async () => {
+    setSaving(true)
     setMsg(null)
     try {
-      await Promise.all(
-        PLAYOFF_ROUNDS.map((r) =>
-          savePlayoffPick({ userId: user.uid, round: r.id, teamIds: Array.from(draft[r.id]) })
-        )
-      )
+      // r32: 1st + 2nd from each group (auto from predictions)
+      const r32Teams = []
+      GROUP_LETTERS.forEach(g => {
+        if (slotMap[`1${g}`]) r32Teams.push(slotMap[`1${g}`])
+        if (slotMap[`2${g}`]) r32Teams.push(slotMap[`2${g}`])
+      })
+
+      const r16Teams = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32')
+        .map(m => bracketPicks[m.id]).filter(Boolean)
+      const qfTeams  = KNOCKOUT_MATCHES.filter(m => m.stage === 'r16')
+        .map(m => bracketPicks[m.id]).filter(Boolean)
+      const sfTeams  = KNOCKOUT_MATCHES.filter(m => m.stage === 'qf')
+        .map(m => bracketPicks[m.id]).filter(Boolean)
+      const finalM   = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
+      const winner   = finalM && bracketPicks[finalM.id] ? [bracketPicks[finalM.id]] : []
+
+      await Promise.all([
+        savePlayoffPick({ userId: user.uid, round: 'r32',    teamIds: r32Teams }),
+        savePlayoffPick({ userId: user.uid, round: 'r16',    teamIds: r16Teams }),
+        savePlayoffPick({ userId: user.uid, round: 'qf',     teamIds: qfTeams  }),
+        savePlayoffPick({ userId: user.uid, round: 'sf',     teamIds: sfTeams  }),
+        savePlayoffPick({ userId: user.uid, round: 'winner', teamIds: winner   }),
+      ])
       await refreshPicks()
-      setMsg({ type: 'success', text: 'All playoff picks saved!' })
+      setMsg({ type: 'success', text: 'Bracket saved!' })
+      setTimeout(() => setMsg(null), 3000)
     } catch (err) {
       setMsg({ type: 'error', text: err.message })
     } finally {
-      setSaving(null)
+      setSaving(false)
     }
   }
 
-  // Calculate potential points
-  const potentialPoints = PLAYOFF_ROUNDS.reduce((total, r) => {
-    return total + (draft[r.id]?.size || 0) * r.points
-  }, 0)
+  // ── Count picks made ──────────────────────────────────────────────────────
+  const r32PicksDone   = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32' && bracketPicks[m.id]).length
+  const finalPick      = bracketPicks[KNOCKOUT_MATCHES.find(m => m.stage === 'final')?.id]
+  const champion       = finalPick ? WC_TEAMS[finalPick] : null
+
+  // ── Build column data ─────────────────────────────────────────────────────
+  const columns = ['r32', 'r16', 'qf', 'sf', 'final'].map(stage => ({
+    stage,
+    matches: KNOCKOUT_MATCHES.filter(m => m.stage === stage),
+  }))
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="font-bold text-white text-lg">Playoff Bracket</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Round of 32 is auto-filled from your group picks. Click teams to advance them.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
-          <Globe className="w-5 h-5 text-yellow-400" />
-          <h2 className="font-bold text-blue-800">Playoff Bracket Picks</h2>
-        </div>
-        {locked && (
-          <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
-            <Lock className="w-3 h-3" /> Picks Locked
-          </span>
-        )}
-      </div>
-
-      {/* Info banner */}
-      <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-xs text-gray-400 flex items-start gap-2">
-        <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p>Pick which teams you think will <strong className="text-white">advance to each knockout round</strong>. Points are awarded for every correct team placement.</p>
-          <div className="flex flex-wrap gap-3 mt-2">
-            {PLAYOFF_ROUNDS.map((r) => (
-              <span key={r.id} className="text-yellow-400 font-semibold">{r.shortLabel}: +{r.points}pts each</span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Potential points */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="col-span-2 md:col-span-2 card bg-yellow-900/20 border-yellow-700/40 text-center">
-          <div className="text-2xl font-black text-yellow-400">{potentialPoints}</div>
-          <div className="text-xs text-gray-400">Max Playoff Pts (if all correct)</div>
-        </div>
-        {PLAYOFF_ROUNDS.map((r) => (
-          <div key={r.id} className="card text-center p-2">
-            <div className="text-base font-bold text-white">{draft[r.id]?.size || 0}/{r.teamsNeeded}</div>
-            <div className="text-xs text-gray-500">{r.shortLabel}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Round panels */}
-      {PLAYOFF_ROUNDS.map((round) => (
-        <div key={round.id}>
-          <RoundPanel
-            round={round}
-            selectedTeams={Array.from(draft[round.id] || [])}
-            onToggle={handleToggle}
-            locked={locked}
-            actualTeams={null /* admin fills in actual teams — show scoring post-tournament */}
-            maxTeams={round.teamsNeeded}
-          />
+          {locked && (
+            <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
+              <Lock className="w-3 h-3" /> Locked
+            </span>
+          )}
           {!locked && (
             <button
-              onClick={() => handleSaveRound(round.id)}
-              disabled={!!saving}
-              className="mt-2 btn-secondary flex items-center gap-2 text-sm py-1.5 px-4"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm bg-yellow-600 hover:bg-yellow-500 text-white disabled:opacity-50 transition-colors"
             >
-              {saving === round.id
+              {saving
                 ? <><Loader className="w-4 h-4 animate-spin" /> Saving…</>
-                : <><Save className="w-4 h-4" /> Save {round.shortLabel} Picks</>
+                : <><Save className="w-4 h-4" /> Save Bracket</>
               }
             </button>
           )}
         </div>
-      ))}
+      </div>
 
-      {/* Save all */}
-      {!locked && (
-        <button
-          onClick={handleSaveAll}
-          disabled={!!saving}
-          className="w-full py-3 font-bold flex items-center justify-center gap-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white disabled:opacity-50 transition-colors"
-        >
-          {saving === 'all'
-            ? <><Loader className="w-5 h-5 animate-spin" /> Saving All…</>
-            : <><Save className="w-5 h-5" /> Save All Playoff Picks</>
-          }
-        </button>
+      {/* Champion banner */}
+      {champion && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-yellow-900/30 border border-yellow-600/40">
+          <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-yellow-500 font-semibold uppercase tracking-wider">Your Predicted Champion</p>
+            <p className="text-white font-bold">{champion.flag} {champion.name}</p>
+          </div>
+        </div>
       )}
 
+      {/* Info + progress */}
+      <div className="card space-y-2">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-400">
+            Points per correctly predicted qualifier: &nbsp;
+            <span className="text-yellow-400 font-semibold">R16 +{SCORING.PLAYOFF_R16}</span> ·
+            <span className="text-yellow-400 font-semibold"> QF +{SCORING.PLAYOFF_QF}</span> ·
+            <span className="text-yellow-400 font-semibold"> SF +{SCORING.PLAYOFF_SF}</span> ·
+            <span className="text-yellow-400 font-semibold"> Champion +{SCORING.PLAYOFF_WINNER}</span>
+          </p>
+        </div>
+        <PickProgress bracketPicks={bracketPicks} />
+      </div>
+
+      {/* Save message */}
       {msg && (
-        <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm border ${
+        <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm border ${
           msg.type === 'success'
             ? 'bg-green-900/30 border-green-700 text-green-300'
             : 'bg-red-900/30 border-red-700 text-red-300'
         }`}>
           {msg.type === 'success'
             ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            : <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          }
+            : <AlertCircle  className="w-4 h-4 flex-shrink-0" />}
           {msg.text}
         </div>
       )}
 
+      {/* Note about R32 auto-fill */}
+      {r32PicksDone < 12 && (
+        <div className="flex items-start gap-2 text-xs text-gray-500 bg-gray-800/50 border border-gray-700/40 rounded-lg px-3 py-2">
+          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-600" />
+          <span>
+            R32 slots are filled from your <strong className="text-gray-400">My Picks</strong> group stage predictions.
+            Complete more group picks to see your predicted R32 matchups.
+          </span>
+        </div>
+      )}
+
+      {/* ── BRACKET ─────────────────────────────────────────────────────── */}
+      <div className="overflow-x-auto pb-4">
+        <div
+          className="flex items-start"
+          style={{ minWidth: columns.length * COL_W + (columns.length - 1) * CONN_W + 8 }}
+        >
+          {columns.map(({ stage, matches }, colIdx) => (
+            <div key={stage} className="flex items-start">
+              <BracketColumn
+                stage={stage}
+                matches={matches}
+                slotMap={slotMap}
+                bracketPicks={bracketPicks}
+                onPick={handlePick}
+                locked={locked}
+              />
+              {colIdx < columns.length - 1 && (
+                <BracketConnector
+                  fromRoundIdx={STAGE_ROUND_IDX[stage]}
+                  pairCount={matches.length}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {locked && (
-        <div className="card text-center py-8 text-gray-500">
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-600" />
-          <p className="font-semibold text-white mb-1">Picks are locked</p>
-          <p className="text-sm">Your playoff picks are saved and will be scored as the tournament progresses.</p>
+        <div className="card text-center py-6 text-gray-500">
+          <Lock className="w-7 h-7 mx-auto mb-2 text-gray-600" />
+          <p className="font-semibold text-white mb-1">Bracket is locked</p>
+          <p className="text-sm">Your picks are saved and will be scored as the tournament progresses.</p>
         </div>
       )}
     </div>
