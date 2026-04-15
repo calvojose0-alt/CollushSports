@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { Trophy, ChevronDown, ChevronUp, Target, Users, Zap, Globe } from 'lucide-react'
-import { GROUP_LETTERS } from '@/data/wc2026Teams'
-import { getGroupMatches } from '@/data/wc2026Schedule'
+import { GROUP_LETTERS, WC_TEAMS } from '@/data/wc2026Teams'
+import { getGroupMatches, getMatch } from '@/data/wc2026Schedule'
 
 function RankBadge({ rank }) {
   if (rank === 1) return <span className="text-f1gold font-black text-lg">🥇</span>
@@ -92,41 +92,59 @@ function PickHistory({ player }) {
 
   const scoredPicks = allPicks
     .filter((p) => p.userId === player.userId && p.pointsEarned !== null)
-    .sort((a, b) => a.matchId.localeCompare(b.matchId))
+    .sort((a, b) => {
+      // Sort by when the result was scored (most recent first), fall back to matchId
+      const tA = resultsByMatchId[a.matchId]?.scoredAt?.seconds ?? 0
+      const tB = resultsByMatchId[b.matchId]?.scoredAt?.seconds ?? 0
+      return tB - tA || b.matchId.localeCompare(a.matchId)
+    })
+    .slice(0, 5)
+
+  const totalScored = allPicks.filter((p) => p.userId === player.userId && p.pointsEarned !== null).length
 
   if (!scoredPicks.length) {
     return <p className="text-xs text-gray-500 px-4 py-3">No scored picks yet.</p>
   }
 
   return (
-    <div className="divide-y divide-f1light max-h-64 overflow-y-auto">
-      {scoredPicks.map((pick) => {
-        const result = resultsByMatchId[pick.matchId]
-        // Extract group/match info from matchId (e.g. gs_A1)
-        const parts  = pick.matchId.split('_')
-        const label  = parts.length >= 2 ? `Group ${parts[1]?.[0]} M${parts[1]?.slice(1)}` : pick.matchId
-        return (
-          <div key={pick.matchId} className="flex items-center gap-3 px-4 py-2">
-            <span className="text-xs text-gray-600 w-20 flex-shrink-0">{label}</span>
-            <span className="text-xs text-gray-400 flex-shrink-0">
-              Picked: <strong className="text-white">{pick.homeScore}–{pick.awayScore}</strong>
-            </span>
-            {result && (
-              <span className="text-xs text-gray-500 flex-shrink-0">
-                Result: <strong className="text-gray-300">{result.homeScore}–{result.awayScore}</strong>
+    <>
+      <div className="divide-y divide-f1light">
+        {scoredPicks.map((pick) => {
+          const result = resultsByMatchId[pick.matchId]
+          const matchData = getMatch(pick.matchId)
+          const homeTeam = matchData ? WC_TEAMS[matchData.homeTeam] : null
+          const awayTeam = matchData ? WC_TEAMS[matchData.awayTeam] : null
+          const label = homeTeam && awayTeam
+            ? `${homeTeam.flag} ${homeTeam.shortName} vs ${awayTeam.shortName} ${awayTeam.flag}`
+            : pick.matchId
+          return (
+            <div key={pick.matchId} className="flex items-center gap-3 px-4 py-2">
+              <span className="text-xs text-gray-500 flex-shrink-0">{label}</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">
+                Picked: <strong className="text-white">{pick.homeScore}–{pick.awayScore}</strong>
               </span>
-            )}
-            <span className={`ml-auto text-xs font-bold flex-shrink-0 ${
-              pick.isExact ? 'text-green-400' :
-              pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-600'
-            }`}>
-              {pick.isExact ? '⭐ Exact +5' :
-               pick.isCorrectOutcome ? '✓ Outcome +3' : '✗ 0 pts'}
-            </span>
-          </div>
-        )
-      })}
-    </div>
+              {result && (
+                <span className="text-xs text-gray-500 flex-shrink-0">
+                  Result: <strong className="text-gray-300">{result.homeScore}–{result.awayScore}</strong>
+                </span>
+              )}
+              <span className={`ml-auto text-xs font-bold flex-shrink-0 ${
+                pick.isExact ? 'text-green-400' :
+                pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-600'
+              }`}>
+                {pick.isExact ? '⭐ Exact +5' :
+                 pick.isCorrectOutcome ? '✓ Outcome +3' : '✗ 0 pts'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      {totalScored > 5 && (
+        <div className="px-4 py-2 border-t border-f1light">
+          <span className="text-xs text-gray-600">Showing 5 most recent · {totalScored} total scored</span>
+        </div>
+      )}
+    </>
   )
 }
 

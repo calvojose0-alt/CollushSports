@@ -5,7 +5,7 @@ import { savePlayoffPick } from '@/services/firebase/wc2026Service'
 import { WC_TEAMS, WC_GROUPS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
-import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy } from 'lucide-react'
+import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users } from 'lucide-react'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const CARD_H   = 80    // px – match card height
@@ -138,64 +138,149 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick }) {
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32 }) {
+function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const fmtTime = (t) => t || ''
   const venue   = match.venue || ''
+  const [showCommunity, setShowCommunity] = useState(false)
 
   const canPick = !locked
+  const hasCommunity = communityStats && communityStats.total > 0
 
   return (
-    <div
-      className="border rounded overflow-hidden flex flex-col select-none"
-      style={{
-        height: CARD_H,
-        borderColor: isR32 ? '#374151' : picked ? '#CA8A04' : '#4B5563',
-        background: isR32 ? 'rgba(17,24,39,0.85)' : '#1F2937',
-      }}
-    >
-      {/* Venue */}
-      <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
-        style={{ height: 14 }}>
-        <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate">{venue}</span>
+    <div className="relative">
+      <div
+        className="border rounded overflow-hidden flex flex-col select-none"
+        style={{
+          height: CARD_H,
+          borderColor: isR32 ? '#374151' : picked ? '#CA8A04' : '#4B5563',
+          background: isR32 ? 'rgba(17,24,39,0.85)' : '#1F2937',
+        }}
+      >
+        {/* Venue + community toggle */}
+        <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
+          style={{ height: 14 }}>
+          <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate flex-1">{venue}</span>
+          {hasCommunity && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowCommunity(v => !v) }}
+              className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0 ml-1"
+            >
+              <Users className="w-2 h-2" />
+              <span className="text-[7px]">{communityStats.total}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Home team */}
+        <TeamSlot
+          teamId={homeTeamId}
+          slotLabel={match.homeSlot}
+          selected={picked === homeTeamId && !!homeTeamId}
+          clickable={canPick}
+          onClick={() => onPick(homeTeamId)}
+        />
+
+        {/* Divider */}
+        <div className="border-t border-gray-700/40 flex-shrink-0" />
+
+        {/* Away team */}
+        <TeamSlot
+          teamId={awayTeamId}
+          slotLabel={match.awaySlot}
+          selected={picked === awayTeamId && !!awayTeamId}
+          clickable={canPick}
+          onClick={() => onPick(awayTeamId)}
+        />
+
+        {/* Date / time */}
+        <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
+          style={{ height: 14 }}>
+          <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
+          <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
+        </div>
       </div>
 
-      {/* Home team */}
-      <TeamSlot
-        teamId={homeTeamId}
-        slotLabel={match.homeSlot}
-        selected={picked === homeTeamId && !!homeTeamId}
-        clickable={canPick}
-        onClick={() => onPick(homeTeamId)}
-      />
-
-      {/* Divider */}
-      <div className="border-t border-gray-700/40 flex-shrink-0" />
-
-      {/* Away team */}
-      <TeamSlot
-        teamId={awayTeamId}
-        slotLabel={match.awaySlot}
-        selected={picked === awayTeamId && !!awayTeamId}
-        clickable={canPick}
-        onClick={() => onPick(awayTeamId)}
-      />
-
-      {/* Date / time */}
-      <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
-        style={{ height: 14 }}>
-        <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
-        <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
-      </div>
+      {/* Community picks popover — floats below card */}
+      {showCommunity && hasCommunity && (
+        <div
+          className="absolute left-0 right-0 z-10 rounded-b border border-t-0 border-gray-600 bg-gray-900 px-2 py-1.5 shadow-lg"
+          style={{ top: CARD_H }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-green-700">{communityStats.homePct}%</span>
+              <span className="text-[9px] text-gray-500">{communityStats.homeTeam?.shortName}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] text-gray-500">{communityStats.awayTeam?.shortName}</span>
+              <span className="text-[10px] font-bold text-red-700">{communityStats.awayPct}%</span>
+            </div>
+          </div>
+          <div className="flex rounded-full overflow-hidden h-1">
+            {communityStats.homePct > 0 && <div className="bg-green-700" style={{ width: `${communityStats.homePct}%` }} />}
+            {communityStats.awayPct  > 0 && <div className="bg-red-700"   style={{ width: `${communityStats.awayPct}%` }} />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Bracket column ────────────────────────────────────────────────────────────
-function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked }) {
+function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks }) {
   const roundIdx = STAGE_ROUND_IDX[stage]
   const isR32    = stage === 'r32'
+
+  // For each bracket match, count how many users picked each team to advance.
+  // allPlayoffPicks entries: { userId, round, teamIds: [teamId, ...] }
+  // R32 match winner → appears in user's 'r16' teamIds
+  // R16 match winner → appears in user's 'qf' teamIds
+  // QF match winner  → appears in user's 'sf' teamIds
+  // SF/Final winner  → appears in user's 'winner' teamIds
+  const advancementRound = { r32: 'r16', r16: 'qf', qf: 'sf', sf: 'winner', final: 'winner' }
+
+  const communityStatsByMatch = useMemo(() => {
+    const nextRound = advancementRound[stage]
+    // Build per-user set of teams they picked to advance to nextRound
+    const userSets = {}
+    allPlayoffPicks.forEach(p => {
+      if (p.round === nextRound) {
+        userSets[p.userId] = new Set(p.teamIds || [])
+      }
+    })
+    const userIds = Object.keys(userSets)
+    const total   = userIds.length
+
+    const stats = {}
+    matches.forEach((m) => {
+      const home = resolveSlot(m.homeSlot, slotMap, bracketPicks)
+      const away = resolveSlot(m.awaySlot, slotMap, bracketPicks)
+      if (!home || !away || total === 0) { stats[m.id] = { total: 0 }; return }
+
+      let homePicked = 0, awayPicked = 0
+      userIds.forEach(uid => {
+        const s = userSets[uid]
+        if (s.has(home))       homePicked++
+        else if (s.has(away))  awayPicked++
+      })
+      const counted = homePicked + awayPicked
+      if (counted === 0) { stats[m.id] = { total: 0 }; return }
+
+      stats[m.id] = {
+        total: counted,
+        homePct: Math.round((homePicked / counted) * 100),
+        drawPct: 0,
+        awayPct: Math.round((awayPicked / counted) * 100),
+        homeTeam: WC_TEAMS[home],
+        awayTeam: WC_TEAMS[away],
+      }
+    })
+    return stats
+  }, [matches, slotMap, bracketPicks, allPlayoffPicks, stage])
+
   return (
     <div style={{ width: COL_W, flexShrink: 0 }}>
       {/* Header */}
@@ -224,6 +309,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked }
                 onPick={(teamId) => onPick(match.id, teamId)}
                 locked={locked}
                 isR32={isR32}
+                communityStats={communityStatsByMatch[match.id]}
               />
             </div>
           )
@@ -263,7 +349,7 @@ function PickProgress({ bracketPicks }) {
 // ── Main bracket page ─────────────────────────────────────────────────────────
 export default function BracketPage() {
   const { user }         = useAuth()
-  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks } = useWCGame()
+  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks, allPlayoffPicks } = useWCGame()
 
   const locked = isPicksLocked()
 
@@ -528,6 +614,7 @@ export default function BracketPage() {
                 bracketPicks={bracketPicks}
                 onPick={handlePick}
                 locked={locked}
+                allPlayoffPicks={allPlayoffPicks}
               />
               {colIdx < columns.length - 1 && (
                 <BracketConnector

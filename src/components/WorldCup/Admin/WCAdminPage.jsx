@@ -1,5 +1,5 @@
 // Admin page — enter World Cup match results and trigger scoring
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import {
@@ -13,9 +13,186 @@ import {
   recalculateAllPlayerTotals,
   recalculatePlayoffPoints,
   markGroupStageLeader,
+  computeGroupStandings,
 } from '@/services/gameEngine/wc2026Engine'
 import { SCORING, GROUP_LETTERS, WC_TEAMS, PLAYOFF_ROUNDS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
+
+// ── Bracket layout constants (shared with visual bracket) ─────────────────────
+const B_CARD_H  = 80
+const B_GAP     = 6
+const B_UNIT    = B_CARD_H + B_GAP
+const B_TOTAL_H = 16 * B_UNIT
+const B_COL_W   = 186
+const B_CONN_W  = 44
+const B_HDR_H   = 36
+
+const B_STAGE_IDX    = { r32: 0, r16: 1, qf: 2, sf: 3, final: 4 }
+const B_STAGE_LABELS = { r32: 'Round of 32', r16: 'Round of 16', qf: 'Quarterfinals', sf: 'Semifinals', final: 'Final' }
+
+function bCardTop(roundIdx, matchIdx) {
+  const step   = B_UNIT * Math.pow(2, roundIdx)
+  const offset = roundIdx === 0 ? 0 : (step - B_UNIT) / 2
+  return matchIdx * step + offset
+}
+
+function bResolveSlot(slot, slotMap, picks) {
+  if (!slot) return null
+  if (slot.startsWith('W_')) return picks['ko_' + slot.slice(2)] || null
+  if (/^3[A-L]{2,}/.test(slot) || slot.startsWith('3rd') || slot.startsWith('L_')) return null
+  return slotMap[slot] || null
+}
+
+function bFormatSlot(slot) {
+  if (!slot || slot.startsWith('W_')) return 'TBD'
+  if (/^3[A-L]{2,}/.test(slot)) return `Best 3rd · ${slot.slice(1)}`
+  if (slot.startsWith('3rd') || slot.startsWith('L_')) return 'TBD'
+  return slot
+}
+
+function bCascadeClear(matchId, removedTeam, picks) {
+  const nextStage =
+    matchId.includes('_r32_') ? 'r16'   :
+    matchId.includes('_r16_') ? 'qf'    :
+    matchId.includes('_qf_')  ? 'sf'    :
+    matchId.includes('_sf_')  ? 'final' : null
+  if (!nextStage) return
+  const num = matchId.match(/_(\d+)$/)?.[1]
+  if (!num) return
+  const nextId = `ko_${nextStage}_${Math.ceil(parseInt(num) / 2)}`
+  if (picks[nextId] === removedTeam) { picks[nextId] = null; bCascadeClear(nextId, removedTeam, picks) }
+}
+
+// ── Admin bracket sub-components ─────────────────────────────────────────────
+function AdminConnector({ fromRoundIdx, pairCount }) {
+  const elems = []
+  for (let i = 0; i < pairCount; i++) {
+    const y0 = bCardTop(fromRoundIdx, i * 2)     + B_CARD_H / 2
+    const y1 = bCardTop(fromRoundIdx, i * 2 + 1) + B_CARD_H / 2
+    const yd = bCardTop(fromRoundIdx + 1, i)      + B_CARD_H / 2
+    const mx = B_CONN_W / 2
+    elems.push(
+      <g key={i} stroke="#374151" strokeWidth="1.5" fill="none">
+        <line x1="0"       y1={y0} x2={mx}      y2={y0} />
+        <line x1="0"       y1={y1} x2={mx}      y2={y1} />
+        <line x1={mx}      y1={y0} x2={mx}      y2={y1} />
+        <line x1={mx}      y1={yd} x2={B_CONN_W} y2={yd} />
+      </g>
+    )
+  }
+  return (
+    <svg width={B_CONN_W} height={B_TOTAL_H + B_HDR_H}
+      style={{ flexShrink: 0, marginTop: B_HDR_H }} aria-hidden="true">
+      {elems}
+    </svg>
+  )
+}
+
+function AdminTeamSlot({ teamId, slotLabel, selected, onClick }) {
+  const team = teamId ? WC_TEAMS[teamId] : null
+  return (
+    <div
+      onClick={teamId ? onClick : undefined}
+      className={`flex items-center gap-1.5 px-2 transition-colors
+        ${teamId ? 'cursor-pointer' : 'cursor-default'}
+        ${selected ? 'bg-green-600/30 text-white' : team ? 'hover:bg-white/5 text-gray-200' : 'text-gray-500'}
+      `}
+      style={{ height: (B_CARD_H - 28) / 2 }}
+    >
+      {team ? (
+        <>
+          <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
+          <span className={`text-[11px] font-semibold truncate ${selected ? 'text-white' : ''}`}>
+            {team.shortName}
+          </span>
+          {selected && <span className="ml-auto text-green-400 text-[9px]">✓</span>}
+        </>
+      ) : (
+        <>
+          <span className="w-3.5 h-3.5 rounded-full bg-gray-700 flex-shrink-0" />
+          <span className="text-[9px] text-gray-600 truncate">{bFormatSlot(slotLabel)}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, onSave, saving }) {
+  const fmtDate = (d) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
+  const isDirty = picked && picked !== saved
+  return (
+    <div className="border rounded overflow-hidden flex flex-col select-none"
+      style={{ height: B_CARD_H, borderColor: saved ? '#16a34a' : picked ? '#ca8a04' : '#4B5563', background: '#1F2937' }}>
+      {/* Venue / save button row */}
+      <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
+        style={{ height: 16 }}>
+        <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate flex-1 mr-1">{match.venue || ''}</span>
+        {isDirty && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSave() }}
+            disabled={saving}
+            className="flex items-center gap-0.5 bg-green-700 hover:bg-green-600 text-white rounded px-1 py-px text-[8px] font-bold leading-none flex-shrink-0 transition-colors disabled:opacity-50"
+          >
+            {saving ? '…' : '✓ Save'}
+          </button>
+        )}
+        {saved && !isDirty && (
+          <span className="text-[8px] text-green-500 font-bold flex-shrink-0">✓</span>
+        )}
+      </div>
+      <AdminTeamSlot
+        teamId={homeTeamId} slotLabel={match.homeSlot}
+        selected={picked === homeTeamId && !!homeTeamId}
+        onClick={() => onPick(homeTeamId)}
+      />
+      <div className="border-t border-gray-700/40 flex-shrink-0" />
+      <AdminTeamSlot
+        teamId={awayTeamId} slotLabel={match.awaySlot}
+        selected={picked === awayTeamId && !!awayTeamId}
+        onClick={() => onPick(awayTeamId)}
+      />
+      <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
+        style={{ height: 12 }}>
+        <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
+        <span className="text-[8px] text-gray-600">{match.time || ''}</span>
+      </div>
+    </div>
+  )
+}
+
+function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, savingMatch, onPick, onSave }) {
+  const roundIdx = B_STAGE_IDX[stage]
+  return (
+    <div style={{ width: B_COL_W, flexShrink: 0 }}>
+      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center border-b border-gray-700/60"
+        style={{ height: B_HDR_H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 6 }}>
+        {B_STAGE_LABELS[stage]}
+      </div>
+      <div className="relative" style={{ height: B_TOTAL_H }}>
+        {matches.map((match, matchIdx) => {
+          const homeTeamId = bResolveSlot(match.homeSlot, slotMap, adminPicks)
+          const awayTeamId = bResolveSlot(match.awaySlot, slotMap, adminPicks)
+          return (
+            <div key={match.id}
+              style={{ position: 'absolute', top: bCardTop(roundIdx, matchIdx), left: 0, right: 0 }}>
+              <AdminMatchCard
+                match={match}
+                homeTeamId={homeTeamId}
+                awayTeamId={awayTeamId}
+                picked={adminPicks[match.id] || null}
+                saved={savedPicks[match.id] || null}
+                saving={savingMatch === match.id}
+                onPick={(teamId) => onPick(match.id, teamId)}
+                onSave={() => onSave(match.id)}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 import {
   Settings, CheckCircle2, AlertCircle, Loader, Trash2, Pencil,
   Lock, Trophy, Globe, Flag,
@@ -194,107 +371,159 @@ function GroupStageAdmin({ matchResults, onRefresh, resultsByMatchId }) {
   )
 }
 
-// ── Playoff Results Admin ──────────────────────────────────────────────────────
+// ── Playoff Results Admin — Visual Bracket ────────────────────────────────────
 function PlayoffAdmin({ onRefresh }) {
-  const { matchResults, resultsByMatchId } = useWCGame()
-  const [selectedRound, setSelectedRound] = useState('r32')
-  const [roundTeams, setRoundTeams] = useState({})  // { roundId: [teamId, ...] }
-  const [processing, setProcessing] = useState(false)
+  const { resultsByMatchId } = useWCGame()
+  // adminPicks: working UI state (selected but maybe not saved yet)
+  const [adminPicks, setAdminPicks] = useState({})
+  // savedPicks: confirmed/scored results { matchId: teamId }
+  const [savedPicks, setSavedPicks] = useState({})
+  const [savingMatch, setSavingMatch] = useState(null) // matchId currently being saved
   const [msg, setMsg] = useState(null)
 
-  const roundMatches = KNOCKOUT_MATCHES.filter((m) => m.stage === selectedRound)
+  // Build slot map from actual group stage results
+  const slotMap = useMemo(() => {
+    const map = {}
+    GROUP_LETTERS.forEach((group) => {
+      const groupMatchList = GROUP_MATCHES.filter((m) => m.group === group)
+      const picks = groupMatchList.map((m) => {
+        const r = resultsByMatchId[m.id]
+        return {
+          homeTeam: m.homeTeam, awayTeam: m.awayTeam,
+          homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null,
+        }
+      })
+      const standingsMap = computeGroupStandings(group, picks)
+      const sorted = Object.values(standingsMap).sort((a, b) =>
+        b.pts - a.pts || b.gd - a.gd || b.gf - a.gf
+      )
+      sorted.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
+    })
+    return map
+  }, [resultsByMatchId])
 
-  const handleSavePlayoffRound = async () => {
-    setProcessing(true)
+  // Build actualRounds sets from a given picks object
+  const buildRounds = useCallback((picks) => {
+    const r32Set = new Set()
+    KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32').forEach((m) => {
+      const home = bResolveSlot(m.homeSlot, slotMap, {})
+      const away = bResolveSlot(m.awaySlot, slotMap, {})
+      if (home) r32Set.add(home)
+      if (away) r32Set.add(away)
+    })
+    const r16Set = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => picks[m.id]).filter(Boolean))
+    const qfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => picks[m.id]).filter(Boolean))
+    const sfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => picks[m.id]).filter(Boolean))
+    const finalM = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
+    const winnerSet = new Set(finalM && picks[finalM.id] ? [picks[finalM.id]] : [])
+    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, winner: winnerSet }
+  }, [slotMap])
+
+  const handlePick = useCallback((matchId, teamId) => {
+    setAdminPicks((prev) => {
+      const next = { ...prev }
+      const prevWinner = next[matchId]
+      if (prevWinner === teamId) {
+        next[matchId] = null
+        bCascadeClear(matchId, teamId, next)
+      } else {
+        if (prevWinner) bCascadeClear(matchId, prevWinner, next)
+        next[matchId] = teamId
+      }
+      return next
+    })
+  }, [])
+
+  // Save & score a single match result
+  const handleSaveMatch = useCallback(async (matchId) => {
+    const winner = adminPicks[matchId]
+    if (!winner) return
+    setSavingMatch(matchId)
     setMsg(null)
     try {
-      const actualRounds = {}
-      PLAYOFF_ROUNDS.forEach((r) => {
-        actualRounds[r.id] = new Set(roundTeams[r.id] || [])
-      })
-      await recalculatePlayoffPoints(actualRounds)
+      // Merge this match into saved picks and score
+      const newSaved = { ...savedPicks, [matchId]: winner }
+      setSavedPicks(newSaved)
+      await recalculatePlayoffPoints(buildRounds(newSaved))
       await onRefresh()
-      setMsg({ type: 'success', text: 'Playoff points recalculated.' })
+      setMsg({ type: 'success', text: `${WC_TEAMS[winner]?.shortName || winner} saved & scored.` })
+      setTimeout(() => setMsg(null), 3000)
     } catch (err) {
       setMsg({ type: 'error', text: err.message })
     } finally {
-      setProcessing(false)
+      setSavingMatch(null)
     }
-  }
+  }, [adminPicks, savedPicks, buildRounds, onRefresh])
 
-  const toggleTeam = (roundId, teamId) => {
-    setRoundTeams((prev) => {
-      const arr = prev[roundId] || []
-      return {
-        ...prev,
-        [roundId]: arr.includes(teamId) ? arr.filter((t) => t !== teamId) : [...arr, teamId],
-      }
-    })
-  }
+  const savedCount = Object.values(savedPicks).filter(Boolean).length
+  const totalMatches = 31
+  const finalMatch = KNOCKOUT_MATCHES.find((m) => m.stage === 'final')
+  const champion   = finalMatch && savedPicks[finalMatch.id] ? WC_TEAMS[savedPicks[finalMatch.id]] : null
+  const columns    = ['r32', 'r16', 'qf', 'sf', 'final'].map((stage) => ({
+    stage,
+    matches: KNOCKOUT_MATCHES.filter((m) => m.stage === stage),
+  }))
 
   return (
     <div className="space-y-4">
       <h3 className="font-bold text-white flex items-center gap-2">
-        <Globe className="w-4 h-4 text-yellow-400" /> Playoff — Teams that Advanced
+        <Globe className="w-4 h-4 text-green-400" /> Playoff — Enter Actual Results
       </h3>
       <p className="text-xs text-gray-400">
-        Select which teams actually advanced to each round. This scores all playoff pick predictions.
+        Click the winning team, then press <strong className="text-green-400">✓ Save</strong> on each card to score that match individually.
       </p>
 
-      {/* Round tabs */}
-      <div className="flex gap-1 flex-wrap">
-        {PLAYOFF_ROUNDS.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setSelectedRound(r.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
-              r.id === selectedRound ? 'bg-yellow-600 text-white' : 'bg-f1dark border border-f1light text-gray-400'
-            }`}
-          >
-            {r.shortLabel} <span className="text-xs opacity-70">({r.teamsNeeded})</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Team grid for selected round */}
-      <div className="card">
-        <p className="text-xs text-gray-500 mb-3">
-          Select the {PLAYOFF_ROUNDS.find((r) => r.id === selectedRound)?.teamsNeeded} teams that reached this round:
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {Object.values(WC_TEAMS).map((team) => {
-            const sel = (roundTeams[selectedRound] || []).includes(team.id)
-            return (
-              <button
-                key={team.id}
-                onClick={() => toggleTeam(selectedRound, team.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                  sel
-                    ? 'bg-yellow-600/30 border-yellow-500 text-yellow-200'
-                    : 'bg-f1dark border-f1light text-gray-400 hover:border-yellow-600'
-                }`}
-              >
-                <span>{team.flag}</span>
-                <span>{team.shortName}</span>
-              </button>
-            )
-          })}
+      {/* Progress bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-green-500 rounded-full transition-all"
+            style={{ width: `${Math.round((savedCount / totalMatches) * 100)}%` }} />
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Selected: {(roundTeams[selectedRound] || []).length} / {PLAYOFF_ROUNDS.find((r) => r.id === selectedRound)?.teamsNeeded}
-        </p>
+        <span className="text-xs text-gray-400">{savedCount}/{totalMatches} results saved</span>
       </div>
 
-      <button
-        onClick={handleSavePlayoffRound}
-        disabled={processing}
-        className="btn-primary flex items-center gap-2"
-      >
-        {processing ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-        {processing ? 'Processing…' : 'Score All Playoff Picks'}
-      </button>
+      {/* Champion banner */}
+      {champion && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-green-900/30 border border-green-600/40">
+          <Trophy className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <p className="text-sm font-bold text-white">
+            {champion.flag} {champion.name}
+            <span className="text-green-400 font-normal text-xs ml-2">— Champion</span>
+          </p>
+        </div>
+      )}
 
+      {/* Save message */}
       {msg && <MessageBox msg={msg} />}
+
+      {/* Visual bracket */}
+      <div className="overflow-x-auto pb-4">
+        <div
+          className="flex items-start"
+          style={{ minWidth: columns.length * B_COL_W + (columns.length - 1) * B_CONN_W + 8 }}
+        >
+          {columns.map(({ stage, matches }, colIdx) => (
+            <div key={stage} className="flex items-start">
+              <AdminBracketColumn
+                stage={stage}
+                matches={matches}
+                slotMap={slotMap}
+                adminPicks={adminPicks}
+                savedPicks={savedPicks}
+                savingMatch={savingMatch}
+                onPick={handlePick}
+                onSave={handleSaveMatch}
+              />
+              {colIdx < columns.length - 1 && (
+                <AdminConnector
+                  fromRoundIdx={B_STAGE_IDX[stage]}
+                  pairCount={matches.length}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

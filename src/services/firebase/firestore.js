@@ -414,6 +414,12 @@ export async function createGroup({ name, createdBy, gameId, inviteCode }) {
     members: [createdBy], createdAt: new Date().toISOString(),
   }
   if (isSupabaseConfigured && supabase) {
+    // Ensure the game record exists so the FK constraint is satisfied
+    await supabase.from('games').upsert(
+      { id: gameId, season: '2026', name: gameId, status: 'active', current_race_index: 0 },
+      { onConflict: 'id', ignoreDuplicates: true }
+    )
+
     const { error: groupError } = await supabase.from('groups').insert({
       id: groupId, name,
       created_by: createdBy,

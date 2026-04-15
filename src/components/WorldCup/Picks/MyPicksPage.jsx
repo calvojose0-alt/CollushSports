@@ -5,7 +5,7 @@ import { saveGroupPick, updateWCPlayer } from '@/services/firebase/wc2026Service
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
-import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users } from 'lucide-react'
 
 // ── Score input component ────────────────────────────────────────────────────
 function ScoreInput({ value, onChange, disabled }) {
@@ -30,40 +30,71 @@ function ScoreInput({ value, onChange, disabled }) {
   )
 }
 
+// ── Community picks breakdown bar ────────────────────────────────────────────
+function CommunityBar({ stats }) {
+  if (!stats || stats.total === 0) return (
+    <p className="text-[10px] text-gray-600 italic">No community picks yet.</p>
+  )
+  const { homePct, drawPct, awayPct, homeTeam, awayTeam, total } = stats
+  return (
+    <div className="space-y-1">
+      {/* Percentages row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-bold text-green-700">{homePct}%</span>
+          <span className="text-[10px] text-gray-500">{homeTeam?.shortName}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-bold text-yellow-600">{drawPct}%</span>
+          <span className="text-[10px] text-gray-500">Draw</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-500">{awayTeam?.shortName}</span>
+          <span className="text-[11px] font-bold text-red-700">{awayPct}%</span>
+        </div>
+      </div>
+      {/* Bar */}
+      <div className="flex rounded-full overflow-hidden h-1.5">
+        {homePct > 0 && <div className="bg-green-700 transition-all" style={{ width: `${homePct}%` }} />}
+        {drawPct > 0  && <div className="bg-yellow-600 transition-all" style={{ width: `${drawPct}%` }} />}
+        {awayPct > 0  && <div className="bg-red-700 transition-all"    style={{ width: `${awayPct}%` }} />}
+      </div>
+      <p className="text-[10px] text-gray-600 text-right">{total} pick{total !== 1 ? 's' : ''}</p>
+    </div>
+  )
+}
+
 // ── Single match pick row ─────────────────────────────────────────────────────
-function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, result }) {
+function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, result, communityStats }) {
   const homeTeam = WC_TEAMS[match.homeTeam]
   const awayTeam = WC_TEAMS[match.awayTeam]
   const hasResult = result && result.status === 'final'
   const isPending = !hasResult
+  const [showCommunity, setShowCommunity] = useState(false)
 
   let rowClass = 'bg-f1dark'
   if (hasResult) {
     const scored = pick?.pointsEarned !== null && pick?.pointsEarned !== undefined
     if (scored) {
-      if (pick.isExact)           rowClass = 'bg-green-900/20 border-l-2 border-green-600'
-      else if (pick.isCorrectOutcome) rowClass = 'bg-blue-900/20 border-l-2 border-blue-600'
-      else                        rowClass = 'bg-red-900/10 border-l-2 border-red-900'
+      if (pick.isExact)                rowClass = 'bg-green-900/20 border-l-2 border-green-600'
+      else if (pick.isCorrectOutcome)  rowClass = 'bg-blue-900/20 border-l-2 border-blue-600'
+      else                             rowClass = 'bg-red-900/10 border-l-2 border-red-900'
     }
   }
 
   return (
     <div className={`rounded-xl px-4 py-3 ${rowClass} mb-2`}>
+      {/* Teams + score inputs */}
       <div className="flex items-center gap-2 justify-between">
-        {/* Home team */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-xl">{homeTeam?.flag}</span>
           <span className="text-sm font-semibold text-white truncate">{homeTeam?.shortName}</span>
         </div>
-
-        {/* Score inputs */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <ScoreInput value={homeScore} onChange={(v) => onChange(match.id, 'home', v)} disabled={locked} />
           <span className="text-gray-500 font-bold text-sm">–</span>
           <ScoreInput value={awayScore} onChange={(v) => onChange(match.id, 'away', v)} disabled={locked} />
         </div>
-
-        {/* Away team */}
         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
           <span className="text-sm font-semibold text-white truncate">{awayTeam?.shortName}</span>
           <span className="text-xl">{awayTeam?.flag}</span>
@@ -73,12 +104,10 @@ function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, res
       {/* Result / score feedback */}
       {hasResult && (
         <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="text-gray-500">
-            Result: {result.homeScore}–{result.awayScore}
-          </span>
+          <span className="text-gray-500">Result: {result.homeScore}–{result.awayScore}</span>
           {pick?.pointsEarned !== null && pick?.pointsEarned !== undefined ? (
             <span className={`font-bold ${
-              pick.isExact ? 'text-green-400' :
+              pick.isExact ? 'text-green-700' :
               pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-500'
             }`}>
               {pick.isExact ? `+${SCORING.GROUP_EXACT_SCORE} pts (exact!)` :
@@ -97,6 +126,26 @@ function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, res
           {new Date(match.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}{match.time && ` · ${match.time}`} · {match.venue}
         </div>
       )}
+
+      {/* Community picks toggle */}
+      <div className="mt-2 border-t border-f1light/40 pt-2">
+        <button
+          onClick={() => setShowCommunity(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          <Users className="w-3 h-3" />
+          Community Picks
+          {communityStats?.total > 0 && (
+            <span className="text-gray-600">· {communityStats.total}</span>
+          )}
+          {showCommunity ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+        {showCommunity && (
+          <div className="mt-2">
+            <CommunityBar stats={communityStats} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -156,7 +205,7 @@ export default function MyPicksPage() {
   const { user } = useAuth()
   const {
     myPicks, myPicksByMatchId, resultsByMatchId,
-    myPlayer, refreshPicks, reload,
+    myPlayer, refreshPicks, reload, allPicks,
   } = useWCGame()
 
   const locked = isPicksLocked()
@@ -199,6 +248,31 @@ export default function MyPicksPage() {
     () => computeGroupStandings(activeGroup, standingsPicks),
     [activeGroup, standingsPicks]
   )
+
+  // Community pick stats per match: { matchId: { homePct, drawPct, awayPct, total, homeTeam, awayTeam } }
+  const communityStatsByMatch = useMemo(() => {
+    const stats = {}
+    groupMatches.forEach((m) => {
+      const picks = allPicks.filter((p) => p.matchId === m.id && p.homeScore !== null && p.awayScore !== null)
+      const total = picks.length
+      if (total === 0) { stats[m.id] = { total: 0 }; return }
+      let homeWins = 0, draws = 0, awayWins = 0
+      picks.forEach((p) => {
+        if (p.homeScore > p.awayScore)       homeWins++
+        else if (p.homeScore === p.awayScore) draws++
+        else                                  awayWins++
+      })
+      stats[m.id] = {
+        total,
+        homePct: Math.round((homeWins / total) * 100),
+        drawPct: Math.round((draws    / total) * 100),
+        awayPct: Math.round((awayWins / total) * 100),
+        homeTeam: WC_TEAMS[m.homeTeam],
+        awayTeam: WC_TEAMS[m.awayTeam],
+      }
+    })
+    return stats
+  }, [groupMatches, allPicks])
 
   const handleSaveGroup = async () => {
     if (locked) return
@@ -364,6 +438,7 @@ export default function MyPicksPage() {
                     onChange={handleScoreChange}
                     locked={locked}
                     result={resultsByMatchId[match.id]}
+                    communityStats={communityStatsByMatch[match.id]}
                   />
                 ))}
               </div>
