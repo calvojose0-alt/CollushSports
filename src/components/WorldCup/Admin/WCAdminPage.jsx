@@ -195,8 +195,9 @@ function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, s
 }
 import {
   Settings, CheckCircle2, AlertCircle, Loader, Trash2, Pencil,
-  Lock, Trophy, Globe, Flag,
+  Lock, Trophy, Globe, Flag, FlaskConical,
 } from 'lucide-react'
+import { seedTestUsers, removeTestUsers, TEST_USERS } from '@/services/firebase/wcTestSeeder'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -664,6 +665,97 @@ function MessageBox({ msg }) {
   )
 }
 
+// ── Dev Tools — test data seeder ─────────────────────────────────────────────
+function DevToolsAdmin() {
+  const [status, setStatus] = useState([])
+  const [running, setRunning] = useState(false)
+
+  const log = (msg) => setStatus((prev) => [...prev, msg])
+
+  const handleSeed = async () => {
+    setStatus([])
+    setRunning(true)
+    try {
+      await seedTestUsers(log)
+    } catch (err) {
+      log(`❌ Error: ${err.message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const handleRemove = async () => {
+    setStatus([])
+    setRunning(true)
+    try {
+      await removeTestUsers(log)
+    } catch (err) {
+      log(`❌ Error: ${err.message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card bg-purple-900/20 border-purple-700/40 text-xs text-black">
+        <strong>Dev only.</strong> Inserts 3 simulated players with full picks. Safe to run multiple times (upserts). Remove cleans up all test data.
+      </div>
+
+      {/* Test users summary */}
+      <div className="card space-y-2">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Test Users</p>
+        {TEST_USERS.map((u) => (
+          <div key={u.userId} className="flex items-center gap-3 text-sm">
+            <div className="w-7 h-7 rounded-full bg-purple-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+              {u.displayName[0]}
+            </div>
+            <div>
+              <span className="text-white font-semibold">{u.displayName}</span>
+              <span className="ml-2 text-gray-500 text-xs font-mono">{u.userId}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={handleSeed}
+          disabled={running}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-purple-700 hover:bg-purple-600 text-white disabled:opacity-50 transition-colors"
+        >
+          {running ? <Loader className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+          Seed Test Users
+        </button>
+        <button
+          onClick={handleRemove}
+          disabled={running}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-f1dark border border-red-800 text-red-400 hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+        >
+          {running ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          Remove Test Users
+        </button>
+      </div>
+
+      {/* Log output */}
+      {status.length > 0 && (
+        <div className="card bg-gray-900 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
+          {status.map((line, i) => (
+            <div key={i} className={
+              line.startsWith('✓') || line.startsWith('🎉') ? 'text-green-400' :
+              line.startsWith('❌') ? 'text-red-400' :
+              line.startsWith('⚠') ? 'text-yellow-400' : 'text-gray-400'
+            }>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Admin Page ────────────────────────────────────────────────────────────
 export default function WCAdminPage() {
   const { user } = useAuth()
@@ -696,18 +788,19 @@ export default function WCAdminPage() {
       </div>
 
       {/* Tab selector */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {[
           { id: 'group',    label: 'Group Stage' },
           { id: 'playoff',  label: 'Playoff Rounds' },
           { id: 'settings', label: 'Tournament' },
+          { id: 'devtools', label: '🧪 Dev Tools' },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
               activeTab === tab.id
-                ? 'bg-yellow-600 text-white'
+                ? tab.id === 'devtools' ? 'bg-purple-700 text-white' : 'bg-yellow-600 text-white'
                 : 'bg-f1dark border border-f1light text-gray-400 hover:text-white'
             }`}
           >
@@ -719,6 +812,7 @@ export default function WCAdminPage() {
       {activeTab === 'group'    && <GroupStageAdmin matchResults={matchResults} onRefresh={handleRefresh} resultsByMatchId={resultsByMatchId} />}
       {activeTab === 'playoff'  && <PlayoffAdmin onRefresh={handleRefresh} />}
       {activeTab === 'settings' && <TournamentSettingsAdmin tournamentMeta={tournamentMeta} onRefresh={handleRefresh} />}
+      {activeTab === 'devtools' && <DevToolsAdmin />}
     </div>
   )
 }
