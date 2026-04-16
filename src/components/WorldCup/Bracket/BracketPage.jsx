@@ -6,6 +6,7 @@ import { WC_TEAMS, WC_GROUPS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/da
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users } from 'lucide-react'
+import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const CARD_H   = 80    // px – match card height
@@ -558,6 +559,9 @@ export default function BracketPage() {
           </div>
         </div>
       )}
+
+      {/* Countdown */}
+      {!locked && <TournamentCountdown />}
 
       {/* Info + progress */}
       <div className="card space-y-2">

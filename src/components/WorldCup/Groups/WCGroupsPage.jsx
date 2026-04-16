@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { createGroup, joinGroupByCode, getWCGroupsForUser } from '@/services/firebase/wc2026Service'
-import { Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown, Trophy } from 'lucide-react'
+import { Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trophy, Calendar } from 'lucide-react'
+import { WC_TEAMS } from '@/data/wc2026Teams'
+import { GROUP_MATCHES } from '@/data/wc2026Schedule'
 
 const WC_GAME_ID = 'wc2026'
 
@@ -10,7 +12,111 @@ function generateCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
-function GroupViewer({ groups, currentUserId, players }) {
+// ── Next Match Picks section ──────────────────────────────────────────────────
+function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUserId }) {
+  const [open, setOpen] = useState(true)
+
+  // First group match that hasn't been finalised yet
+  const nextMatch = useMemo(() => {
+    const sorted = [...GROUP_MATCHES].sort((a, b) =>
+      new Date(a.date) - new Date(b.date)
+    )
+    return sorted.find((m) => resultsByMatchId[m.id]?.status !== 'final') || null
+  }, [resultsByMatchId])
+
+  // Build a picks map for this match: { userId -> { homeScore, awayScore } }
+  const picksByUser = useMemo(() => {
+    if (!nextMatch) return {}
+    const map = {}
+    allPicks.forEach((p) => {
+      if (p.matchId === nextMatch.id) map[p.userId] = p
+    })
+    return map
+  }, [nextMatch, allPicks])
+
+  if (!nextMatch) return null   // all group matches completed
+
+  const homeTeam = WC_TEAMS[nextMatch.homeTeam]
+  const awayTeam = WC_TEAMS[nextMatch.awayTeam]
+  const matchDate = new Date(nextMatch.date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  })
+
+  return (
+    <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">
+      {/* Header — toggles the section */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3.5 h-3.5 text-green-500" />
+          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+            Next Match Picks
+          </p>
+        </div>
+        {open
+          ? <ChevronUp   className="w-3.5 h-3.5 text-gray-500" />
+          : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+        }
+      </button>
+
+      {open && (
+        <div className="border-t border-f1light">
+          {/* Match header */}
+          <div className="px-3 py-2.5 bg-gray-900/60 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{homeTeam?.flag}</span>
+              <span className="text-sm font-bold text-white">{homeTeam?.shortName}</span>
+              <span className="text-xs text-gray-500 font-semibold mx-1">vs</span>
+              <span className="text-sm font-bold text-white">{awayTeam?.shortName}</span>
+              <span className="text-lg">{awayTeam?.flag}</span>
+            </div>
+            <div className="text-right flex-shrink-0 ml-2">
+              <p className="text-[10px] text-gray-500">{matchDate}</p>
+              {nextMatch.time && <p className="text-[10px] text-gray-600">{nextMatch.time}</p>}
+            </div>
+          </div>
+
+          {/* Per-member picks */}
+          <div className="divide-y divide-f1light/60">
+            {memberPlayers.map((player) => {
+              const pick = picksByUser[player.userId]
+              const hasPick = pick && pick.homeScore !== null && pick.awayScore !== null
+              const isMe = player.userId === currentUserId
+              return (
+                <div
+                  key={player.userId}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
+                    {player.displayName?.[0]?.toUpperCase()}
+                  </div>
+                  <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                    {player.displayName}
+                    {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
+                  </span>
+                  {hasPick ? (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-lg font-black text-white tabular-nums">{pick.homeScore}</span>
+                      <span className="text-gray-500 font-bold text-sm">–</span>
+                      <span className="text-lg font-black text-white tabular-nums">{pick.awayScore}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-600 italic flex-shrink-0">No pick yet</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Group viewer ──────────────────────────────────────────────────────────────
+function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied] = useState(false)
 
@@ -58,6 +164,14 @@ function GroupViewer({ groups, currentUserId, players }) {
       <p className="text-xs text-gray-400 -mt-2">
         {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
       </p>
+
+      {/* Next Match Picks */}
+      <NextMatchPicks
+        memberPlayers={memberPlayers}
+        allPicks={allPicks}
+        resultsByMatchId={resultsByMatchId}
+        currentUserId={currentUserId}
+      />
 
       {/* Group leaderboard */}
       {sorted.length > 0 ? (
@@ -149,7 +263,7 @@ function MySummary({ groups, currentUserId, players }) {
 
 export default function WCGroupsPage() {
   const { user } = useAuth()
-  const { players } = useWCGame()
+  const { players, allPicks, resultsByMatchId } = useWCGame()
 
   const [groups, setGroups]   = useState([])
   const [loading, setLoading] = useState(true)
@@ -292,7 +406,13 @@ export default function WCGroupsPage() {
       ) : (
         <>
           <MySummary groups={groups} currentUserId={user.uid} players={players} />
-          <GroupViewer groups={groups} currentUserId={user.uid} players={players} />
+          <GroupViewer
+            groups={groups}
+            currentUserId={user.uid}
+            players={players}
+            allPicks={allPicks}
+            resultsByMatchId={resultsByMatchId}
+          />
         </>
       )}
     </div>

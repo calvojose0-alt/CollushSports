@@ -11,6 +11,9 @@ import RegisterPage from '@/components/Auth/RegisterPage'
 // Home
 import HomePage from '@/components/Home/HomePage'
 
+// Profile
+import ProfilePage from '@/components/Profile/ProfilePage'
+
 // F1 Survivor
 import F1SurvivorLayout from '@/components/F1Survivor/F1SurvivorLayout'
 import PickSubmissionPage from '@/components/F1Survivor/PickSubmission/PickSubmissionPage'
@@ -80,6 +83,18 @@ function AppRoutes() {
             <ProtectedRoute>
               <AppLayout>
                 <HomePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Profile */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProfilePage />
               </AppLayout>
             </ProtectedRoute>
           }

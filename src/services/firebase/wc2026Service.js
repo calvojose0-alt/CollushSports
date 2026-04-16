@@ -51,6 +51,19 @@
 // ─────────────────────────────────────────────────────────────────
 
 import { supabase, isSupabaseConfigured } from '@/supabase'
+import { SCORING } from '@/data/wc2026Teams'
+
+// Pure helper: score a pick against a known result.
+// Kept here (not in wc2026Engine) to avoid a circular import.
+function computePickScore(pickHome, pickAway, resultHome, resultAway) {
+  const outcome = (h, a) => h === a ? 'draw' : h > a ? 'home' : 'away'
+  const isExact           = pickHome === resultHome && pickAway === resultAway
+  const isCorrectOutcome  = outcome(pickHome, pickAway) === outcome(resultHome, resultAway)
+  const pointsEarned      = isExact
+    ? SCORING.GROUP_EXACT_SCORE
+    : isCorrectOutcome ? SCORING.GROUP_CORRECT_OUTCOME : 0
+  return { pointsEarned, isExact, isCorrectOutcome }
+}
 
 const WC_GAME_ID = 'wc2026'
 
@@ -179,6 +192,25 @@ export async function getAllWCPlayers() {
     .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
 }
 
+/**
+ * Update the display_name on the wc_players row for this user.
+ * Called when a user changes their screen name so the World Cup leaderboard
+ * reflects the new name immediately.
+ */
+export async function updateWCPlayerDisplayName(userId, newDisplayName) {
+  const playerId = `${WC_GAME_ID}_${userId}`
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('wc_players')
+      .update({ display_name: newDisplayName })
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
+    return
+  }
+  // Demo mode
+  LS.update('players', playerId, { displayName: newDisplayName })
+}
+
 export async function updateWCPlayer(userId, updates) {
   const playerId = `${WC_GAME_ID}_${userId}`
   if (isSupabaseConfigured && supabase) {
@@ -221,14 +253,54 @@ export async function saveGroupPick({ userId, matchId, homeScore, awayScore }) {
     pointsEarned: null, isExact: null, isCorrectOutcome: null,
     submittedAt: new Date().toISOString(),
   }
+
   if (isSupabaseConfigured && supabase) {
+    // Upsert only the score columns — deliberately exclude points_earned / is_exact /
+    // is_correct_outcome so that existing scoring is never overwritten when a user
+    // re-saves a pick after the admin has already scored the match.
     const { error } = await supabase.from('wc_picks').upsert({
       id: pickId, user_id: userId, match_id: matchId,
       home_score: homeScore, away_score: awayScore,
-      points_earned: null, is_exact: null, is_correct_outcome: null,
     })
     if (error) throw new Error(error.message)
+
+    // If a final result already exists for this match, score the pick immediately
+    // so users who save after the admin never see "Scoring pending".
+    const { data: result } = await supabase
+      .from('wc_match_results')
+      .select('home_score, away_score')
+      .eq('match_id', matchId)
+      .eq('status', 'final')
+      .maybeSingle()
+
+    if (result) {
+      const scored = computePickScore(homeScore, awayScore, result.home_score, result.away_score)
+      await supabase.from('wc_picks').update({
+        points_earned:       scored.pointsEarned,
+        is_exact:            scored.isExact,
+        is_correct_outcome:  scored.isCorrectOutcome,
+      }).eq('id', pickId)
+      Object.assign(data, scored)
+    }
+
     return data
+  }
+
+  // ── Demo mode ────────────────────────────────────────────────────────────────
+  // Preserve any existing scoring when re-saving a pick.
+  const existing = LS.getAll('picks').find((p) => p.id === pickId)
+  if (existing?.pointsEarned !== null && existing?.pointsEarned !== undefined) {
+    data.pointsEarned      = existing.pointsEarned
+    data.isExact           = existing.isExact
+    data.isCorrectOutcome  = existing.isCorrectOutcome
+  }
+  // Auto-score if a result exists in demo storage.
+  const demoResult = LS.getAll('match_results').find(
+    (r) => r.matchId === matchId && r.status === 'final'
+  )
+  if (demoResult) {
+    const scored = computePickScore(homeScore, awayScore, demoResult.homeScore, demoResult.awayScore)
+    Object.assign(data, scored)
   }
   LS.update('picks', pickId, data)
   return data

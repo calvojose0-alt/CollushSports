@@ -200,3 +200,31 @@ export async function getUserProfile(uid) {
   const users = getDemoUsers()
   return Object.values(users).find((u) => u.uid === uid) || null
 }
+
+/**
+ * Update the display name for the given user.
+ * Updates the Supabase `profiles` table (Supabase mode) or localStorage (demo mode).
+ */
+export async function updateDisplayName(userId, newDisplayName) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: newDisplayName })
+      .eq('id', userId)
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  // ── Demo mode ──────────────────────────────────────────────────────────────
+  const users = getDemoUsers()
+  const entry = Object.values(users).find((u) => u.uid === userId)
+  if (entry) {
+    entry.displayName = newDisplayName
+    users[entry.email] = entry
+    saveDemoUsers(users)
+  }
+  const session = getDemoSession()
+  if (session?.uid === userId) {
+    saveDemoSession({ ...session, displayName: newDisplayName })
+  }
+}

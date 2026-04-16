@@ -1,6 +1,8 @@
 // @refresh reset
 import { createContext, useContext, useState, useEffect } from 'react'
-import { onAuthStateChange, signOut } from '@/services/firebase/auth'
+import { onAuthStateChange, signOut, updateDisplayName } from '@/services/firebase/auth'
+import { updatePlayerDisplayName } from '@/services/firebase/firestore'
+import { updateWCPlayerDisplayName } from '@/services/firebase/wc2026Service'
 
 const AuthContext = createContext(null)
 
@@ -24,8 +26,29 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  /**
+   * Update the user's display name everywhere it is stored:
+   *   1. profiles table (auth service)
+   *   2. players table (F1 Survivor leaderboard rows)
+   *   3. wc_players table (World Cup leaderboard rows)
+   *   4. Local AuthContext state (so the header and UI update immediately)
+   */
+  const updateProfile = async (newDisplayName) => {
+    const uid = user?.uid
+    if (!uid) throw new Error('No authenticated user')
+    // Persist to all data stores in parallel
+    await Promise.all([
+      updateDisplayName(uid, newDisplayName),
+      updatePlayerDisplayName(uid, newDisplayName),
+      updateWCPlayerDisplayName(uid, newDisplayName),
+    ])
+    // Update in-memory state so the UI refreshes without a page reload
+    setUser((prev) => prev ? { ...prev, displayName: newDisplayName } : prev)
+    setProfile((prev) => prev ? { ...prev, display_name: newDisplayName, displayName: newDisplayName } : prev)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

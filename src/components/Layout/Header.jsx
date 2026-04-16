@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, User, ChevronDown, Pencil } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 export default function Header() {
@@ -74,11 +74,19 @@ export default function Header() {
             </button>
 
             {dropOpen && (
-              <div className="absolute right-0 mt-2 w-44 bg-f1gray border border-f1light rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute right-0 mt-2 w-48 bg-f1gray border border-f1light rounded-xl shadow-2xl overflow-hidden">
                 <div className="px-3 py-2 border-b border-f1light">
                   <p className="text-xs text-gray-400">Signed in as</p>
                   <p className="text-sm text-white font-medium truncate">{user.email}</p>
                 </div>
+                <Link
+                  to="/profile"
+                  onClick={() => setDropOpen(false)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-300 hover:bg-f1light hover:text-white transition-colors"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit Profile
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-f1light hover:text-red-300 transition-colors"

@@ -469,6 +469,28 @@ export async function joinGroupByCode(inviteCode, userId) {
   return group
 }
 
+/**
+ * Update the display_name on every player row that belongs to this user.
+ * Called when a user changes their screen name so the F1 Survivor leaderboard
+ * reflects the new name immediately.
+ */
+export async function updatePlayerDisplayName(userId, newDisplayName) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('players')
+      .update({ display_name: newDisplayName })
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
+    return
+  }
+  // Demo mode: update every player entry for this user across all games
+  const players = LS.getAll('players')
+  players.forEach((p) => {
+    if (p.userId === userId) p.displayName = newDisplayName
+  })
+  localStorage.setItem('collush_players', JSON.stringify(players))
+}
+
 export async function getGroupsForUser(userId) {
   if (isSupabaseConfigured && supabase) {
     const { data: memberships, error: memError } = await supabase

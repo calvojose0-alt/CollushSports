@@ -783,7 +783,7 @@ export default function WCAdminPage() {
         <h2 className="font-bold text-blue-800">World Cup Admin</h2>
       </div>
 
-      <div className="card bg-yellow-900/20 border-yellow-700/40 text-xs text-yellow-300">
+      <div className="card bg-gray-900 border-yellow-700/60 text-xs text-yellow-300">
         <strong>Admin only.</strong> Enter match results to automatically score all player picks. Use "Update" to correct mistakes.
       </div>
 

@@ -7,8 +7,8 @@ import { isPicksLocked, PICK_LOCK_TIME } from '@/data/wc2026Teams'
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 const ALL_NAV = [
-  { to: '/world-cup',            label: 'My Picks',   icon: Flag,    exact: true  },
-  { to: '/world-cup/bracket',    label: 'Bracket',    icon: Globe                 },
+  { to: '/world-cup',            label: 'Group Stage Picks',    icon: Flag,  exact: true },
+  { to: '/world-cup/bracket',    label: 'Playoff Bracket Picks', icon: Globe              },
   { to: '/world-cup/leaderboard',label: 'Leaderboard',icon: Trophy               },
   { to: '/world-cup/groups',     label: 'Groups',     icon: Users                },
   { to: '/world-cup/admin',      label: 'Admin',      icon: Settings, adminOnly: true },

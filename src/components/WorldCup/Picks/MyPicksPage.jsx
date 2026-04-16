@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { saveGroupPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
@@ -6,6 +7,7 @@ import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
 import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users } from 'lucide-react'
+import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Score input component ────────────────────────────────────────────────────
 function ScoreInput({ value, onChange, disabled }) {
@@ -340,6 +342,12 @@ export default function MyPicksPage() {
     return counts
   }, [myPicksByMatchId])
 
+  // True once every group has all its picks saved
+  const allGroupsComplete = useMemo(
+    () => GROUP_LETTERS.every((g) => savedCountByGroup[g] === getGroupMatches(g).length),
+    [savedCountByGroup]
+  )
+
   const groupIdx   = GROUP_LETTERS.indexOf(activeGroup)
   const prevGroup  = groupIdx > 0 ? GROUP_LETTERS[groupIdx - 1] : null
   const nextGroup  = groupIdx < GROUP_LETTERS.length - 1 ? GROUP_LETTERS[groupIdx + 1] : null
@@ -358,6 +366,9 @@ export default function MyPicksPage() {
           </span>
         )}
       </div>
+
+      {/* Countdown */}
+      {!locked && <TournamentCountdown />}
 
       {/* Scoring legend */}
       <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-xs text-gray-400 flex flex-wrap gap-4">
@@ -394,6 +405,24 @@ export default function MyPicksPage() {
           })}
         </div>
       </div>
+
+      {/* All-groups-complete nudge */}
+      {allGroupsComplete && !locked && (
+        <div className="flex items-center gap-4 px-4 py-3.5 rounded-xl bg-green-900/25 border border-green-700/50">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-green-300">🎉 All group stage picks saved!</p>
+            <p className="text-xs text-green-500 mt-0.5">
+              Head over to <span className="font-semibold text-green-300">Playoff Bracket Picks</span> to predict the knockout rounds and pick your tournament winner.
+            </p>
+          </div>
+          <Link
+            to="/world-cup/bracket"
+            className="flex-shrink-0 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
+          >
+            Go to Bracket →
+          </Link>
+        </div>
+      )}
 
       {/* Two-column layout: picks left, standings right */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
