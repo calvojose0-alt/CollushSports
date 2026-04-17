@@ -374,7 +374,7 @@ export default function MyPicksPage() {
       <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-xs text-gray-400 flex flex-wrap gap-4">
         <span><span className="text-green-400 font-bold">+{SCORING.GROUP_EXACT_SCORE} pts</span> Exact score</span>
         <span><span className="text-blue-400 font-bold">+{SCORING.GROUP_CORRECT_OUTCOME} pts</span> Correct outcome (W/D/L)</span>
-        <span className="text-gray-600">Playoff advancement points awarded separately (Bracket tab)</span>
+        <span className="text-gray-600">Knockout advancement points awarded separately (Bracket tab)</span>
       </div>
 
       {/* Group tabs */}
@@ -412,7 +412,7 @@ export default function MyPicksPage() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-green-300">🎉 All group stage picks saved!</p>
             <p className="text-xs text-green-500 mt-0.5">
-              Head over to <span className="font-semibold text-green-300">Playoff Bracket Picks</span> to predict the knockout rounds and pick your tournament winner.
+              Head over to <span className="font-semibold text-green-300">Knockout Bracket Picks</span> to predict the knockout rounds and pick your tournament winner.
             </p>
           </div>
           <Link

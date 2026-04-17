@@ -52,7 +52,7 @@ function PlayerRow({ player, rank, isMe, expanded, onToggle, myPicksByMatchId, r
             <span>Exact: <strong className="text-green-400">{player.exactHits || 0}</strong></span>
             <span>Outcome: <strong className="text-blue-400">{player.outcomeHits || 0}</strong></span>
             {player.playoffPoints > 0 && (
-              <span>Playoff: <strong className="text-yellow-400">+{player.playoffPoints}</strong></span>
+              <span>Knockout: <strong className="text-yellow-400">+{player.playoffPoints}</strong></span>
             )}
           </div>
         </div>

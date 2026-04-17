@@ -39,7 +39,7 @@ const GAMES = [
     badgeColor: 'bg-yellow-600',
     status: 'live',
     path: '/world-cup',
-    features: ['72 Group Matches', 'Playoff Bracket', 'Live Standings', 'Groups'],
+    features: ['72 Group Matches', 'Knockout Bracket', 'Live Standings', 'Groups'],
   },
   {
     id: 'nfl-win-league',

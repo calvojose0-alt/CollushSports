@@ -611,7 +611,7 @@ export default function BracketPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-bold text-white text-lg">Playoff Bracket</h2>
+          <h2 className="font-bold text-white text-lg">Knockout Bracket</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Round of 32 is auto-filled from your group picks. Click teams to advance them.
           </p>

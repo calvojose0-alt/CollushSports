@@ -499,7 +499,7 @@ function PlayoffAdmin({ onRefresh }) {
   return (
     <div className="space-y-4">
       <h3 className="font-bold text-white flex items-center gap-2">
-        <Globe className="w-4 h-4 text-green-400" /> Playoff — Enter Actual Results
+        <Globe className="w-4 h-4 text-green-400" /> Knockout — Enter Actual Results
       </h3>
       <p className="text-xs text-gray-400">
         Click the winning team, then press <strong className="text-green-400">✓ Save</strong> on each card to score that match individually.
@@ -517,7 +517,7 @@ function PlayoffAdmin({ onRefresh }) {
             try {
               await recalculatePlayoffPoints(buildRounds(savedPicks))
               await onRefresh()
-              setMsg({ type: 'success', text: 'All playoff points recalculated.' })
+              setMsg({ type: 'success', text: 'All knockout points recalculated.' })
               setTimeout(() => setMsg(null), 3000)
             } catch (err) {
               setMsg({ type: 'error', text: err.message })
@@ -848,7 +848,7 @@ export default function WCAdminPage() {
       <div className="flex gap-2 flex-wrap">
         {[
           { id: 'group',    label: 'Group Stage' },
-          { id: 'playoff',  label: 'Playoff Rounds' },
+          { id: 'playoff',  label: 'Knockout Rounds' },
           { id: 'settings', label: 'Tournament' },
           { id: 'devtools', label: '🧪 Dev Tools' },
         ].map((tab) => (
