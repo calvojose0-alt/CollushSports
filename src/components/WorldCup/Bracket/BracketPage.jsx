@@ -107,26 +107,47 @@ function BracketConnector({ fromRoundIdx, pairCount }) {
 }
 
 // ── Team slot within a match card ─────────────────────────────────────────────
-function TeamSlot({ teamId, slotLabel, selected, clickable, onClick }) {
+// resultStatus: 'correct' | 'wrong' | 'actual-winner' | 'eliminated' | null
+function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus }) {
   const team = teamId ? WC_TEAMS[teamId] : null
+
+  // Background / text color based on result state
+  let colorClass
+  if (selected) {
+    colorClass = resultStatus === 'correct'  ? 'bg-green-500/30 text-white'
+               : resultStatus === 'wrong'    ? 'bg-red-500/25 text-white'
+               : 'bg-yellow-500/30 text-white'
+  } else if (resultStatus === 'actual-winner') {
+    colorClass = 'bg-green-500/10 text-green-300'
+  } else if (resultStatus === 'eliminated') {
+    colorClass = 'text-gray-600 opacity-50'
+  } else {
+    colorClass = team && clickable ? 'hover:bg-white/5 text-gray-200' : 'text-gray-500'
+  }
+
+  // Pick indicator icon
+  const indicator = selected
+    ? resultStatus === 'correct' ? <span className="ml-auto text-green-400 text-[9px] font-bold">✓</span>
+    : resultStatus === 'wrong'   ? <span className="ml-auto text-red-400   text-[9px] font-bold">✗</span>
+    :                              <span className="ml-auto text-yellow-400 text-[8px]">▶</span>
+    : resultStatus === 'actual-winner'
+      ? <span className="ml-auto text-green-400 text-[9px] font-bold">✓</span>
+      : null
+
   return (
     <div
       onClick={clickable && teamId ? onClick : undefined}
       className={`flex items-center gap-1.5 px-2 transition-colors
         ${clickable && teamId ? 'cursor-pointer' : 'cursor-default'}
-        ${selected
-          ? 'bg-yellow-500/30 text-white'
-          : team && clickable ? 'hover:bg-white/5 text-gray-200' : 'text-gray-500'}
+        ${colorClass}
       `}
-      style={{ height: (CARD_H - 28) / 2 }}  // split remaining height between 2 slots
+      style={{ height: (CARD_H - 28) / 2 }}
     >
       {team ? (
         <>
           <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
-          <span className={`text-[11px] font-semibold truncate ${selected ? 'text-white' : ''}`}>
-            {team.shortName}
-          </span>
-          {selected && <span className="ml-auto text-yellow-400 text-[8px]">▶</span>}
+          <span className="text-[11px] font-semibold truncate">{team.shortName}</span>
+          {indicator}
         </>
       ) : (
         <>
@@ -139,7 +160,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick }) {
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats }) {
+function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats, result }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const fmtTime = (t) => t || ''
@@ -149,15 +170,43 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const canPick = !locked
   const hasCommunity = communityStats && communityStats.total > 0
 
+  // ── Scoring overlay (only for non-R32 matches with a saved result) ──────────
+  // Convention: admin saves winner as homeTeam with homeScore=1, awayScore=0
+  const resultKnown  = !isR32 && result?.status === 'final' && !!result?.homeTeam
+  const actualWinner = resultKnown
+    ? (result.homeScore > result.awayScore ? result.homeTeam : result.awayTeam)
+    : null
+
+  const pickCorrect = !!(picked && actualWinner && picked === actualWinner)
+  const pickWrong   = !!(picked && actualWinner && picked !== actualWinner)
+
+  // Per-slot result status
+  const homeResultStatus = (resultKnown && homeTeamId)
+    ? homeTeamId === actualWinner
+      ? (picked === homeTeamId ? 'correct' : 'actual-winner')
+      : (picked === homeTeamId ? 'wrong'   : 'eliminated')
+    : null
+  const awayResultStatus = (resultKnown && awayTeamId)
+    ? awayTeamId === actualWinner
+      ? (picked === awayTeamId ? 'correct' : 'actual-winner')
+      : (picked === awayTeamId ? 'wrong'   : 'eliminated')
+    : null
+
+  // Card border & background
+  const borderColor = isR32 ? '#374151'
+    : resultKnown
+      ? pickCorrect ? '#22C55E' : pickWrong ? '#EF4444' : '#4B5563'
+      : picked ? '#CA8A04' : '#4B5563'
+  const cardBg = isR32 ? 'rgba(17,24,39,0.85)'
+    : resultKnown
+      ? pickCorrect ? 'rgba(20,83,45,0.22)' : pickWrong ? 'rgba(127,29,29,0.20)' : '#1F2937'
+      : '#1F2937'
+
   return (
     <div className="relative">
       <div
         className="border rounded overflow-hidden flex flex-col select-none"
-        style={{
-          height: CARD_H,
-          borderColor: isR32 ? '#374151' : picked ? '#CA8A04' : '#4B5563',
-          background: isR32 ? 'rgba(17,24,39,0.85)' : '#1F2937',
-        }}
+        style={{ height: CARD_H, borderColor, background: cardBg }}
       >
         {/* Venue + community toggle */}
         <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
@@ -181,6 +230,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           selected={picked === homeTeamId && !!homeTeamId}
           clickable={canPick}
           onClick={() => onPick(homeTeamId)}
+          resultStatus={homeResultStatus}
         />
 
         {/* Divider */}
@@ -193,13 +243,29 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           selected={picked === awayTeamId && !!awayTeamId}
           clickable={canPick}
           onClick={() => onPick(awayTeamId)}
+          resultStatus={awayResultStatus}
         />
 
-        {/* Date / time */}
+        {/* Date / time  — or result badge when result is known */}
         <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
           style={{ height: 14 }}>
-          <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
-          <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
+          {resultKnown ? (
+            <>
+              <span className={`text-[8px] font-bold ${
+                pickCorrect ? 'text-green-400' : pickWrong ? 'text-red-400' : 'text-gray-500'
+              }`}>
+                {pickCorrect ? '✓ Correct' : pickWrong ? '✗ Wrong' : '● Final'}
+              </span>
+              <span className="text-[8px] text-gray-400">
+                {WC_TEAMS[actualWinner]?.flag} wins
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
+              <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -231,7 +297,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
 }
 
 // ── Bracket column ────────────────────────────────────────────────────────────
-function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks }) {
+function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks, resultsByMatchId }) {
   const roundIdx = STAGE_ROUND_IDX[stage]
   const isR32    = stage === 'r32'
 
@@ -311,6 +377,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
                 locked={locked}
                 isR32={isR32}
                 communityStats={communityStatsByMatch[match.id]}
+                result={resultsByMatchId?.[match.id] ?? null}
               />
             </div>
           )
@@ -350,7 +417,7 @@ function PickProgress({ bracketPicks }) {
 // ── Main bracket page ─────────────────────────────────────────────────────────
 export default function BracketPage() {
   const { user }         = useAuth()
-  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks, allPlayoffPicks } = useWCGame()
+  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks, allPlayoffPicks, resultsByMatchId } = useWCGame()
 
   const locked = isPicksLocked()
 
@@ -597,7 +664,7 @@ export default function BracketPage() {
         <div className="flex items-start gap-2 text-xs text-gray-500 bg-gray-800/50 border border-gray-700/40 rounded-lg px-3 py-2">
           <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-600" />
           <span>
-            R32 slots are filled from your <strong className="text-gray-400">My Picks</strong> group stage predictions.
+            R32 slots are filled from your <strong className="text-gray-400">Group Stage Picks</strong> predictions.
             Complete more group picks to see your predicted R32 matchups.
           </span>
         </div>
@@ -619,6 +686,7 @@ export default function BracketPage() {
                 onPick={handlePick}
                 locked={locked}
                 allPlayoffPicks={allPlayoffPicks}
+                resultsByMatchId={resultsByMatchId}
               />
               {colIdx < columns.length - 1 && (
                 <BracketConnector

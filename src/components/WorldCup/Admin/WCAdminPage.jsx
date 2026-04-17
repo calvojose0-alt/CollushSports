@@ -1,5 +1,5 @@
 // Admin page — enter World Cup match results and trigger scoring
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import {
@@ -374,13 +374,30 @@ function GroupStageAdmin({ matchResults, onRefresh, resultsByMatchId }) {
 
 // ── Playoff Results Admin — Visual Bracket ────────────────────────────────────
 function PlayoffAdmin({ onRefresh }) {
-  const { resultsByMatchId } = useWCGame()
+  const { resultsByMatchId, completedGroupMatches, totalGroupMatches } = useWCGame()
   // adminPicks: working UI state (selected but maybe not saved yet)
   const [adminPicks, setAdminPicks] = useState({})
   // savedPicks: confirmed/scored results { matchId: teamId }
   const [savedPicks, setSavedPicks] = useState({})
   const [savingMatch, setSavingMatch] = useState(null) // matchId currently being saved
   const [msg, setMsg] = useState(null)
+  const initializedRef = useRef(false)
+
+  // ── Initialize admin bracket from previously saved knockout results in DB ──
+  useEffect(() => {
+    if (initializedRef.current) return
+    const koIds = KNOCKOUT_MATCHES.map((m) => m.id)
+    const hasKo = koIds.some((id) => resultsByMatchId[id]?.status === 'final' && resultsByMatchId[id]?.homeTeam)
+    if (!hasKo) return
+    initializedRef.current = true
+    const loaded = {}
+    koIds.forEach((id) => {
+      const r = resultsByMatchId[id]
+      if (r?.status === 'final' && r?.homeTeam) loaded[id] = r.homeTeam
+    })
+    setSavedPicks(loaded)
+    setAdminPicks(loaded)
+  }, [resultsByMatchId])
 
   // Build slot map from actual group stage results
   const slotMap = useMemo(() => {
@@ -404,21 +421,27 @@ function PlayoffAdmin({ onRefresh }) {
   }, [resultsByMatchId])
 
   // Build actualRounds sets from a given picks object
+  const groupStageComplete = completedGroupMatches >= totalGroupMatches && totalGroupMatches > 0
+
   const buildRounds = useCallback((picks) => {
     const r32Set = new Set()
-    KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32').forEach((m) => {
-      const home = bResolveSlot(m.homeSlot, slotMap, {})
-      const away = bResolveSlot(m.awaySlot, slotMap, {})
-      if (home) r32Set.add(home)
-      if (away) r32Set.add(away)
-    })
+    // Only award R32 points once ALL group matches are complete — prevents
+    // premature scoring when the admin saves knockout results mid-group-stage.
+    if (groupStageComplete) {
+      KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32').forEach((m) => {
+        const home = bResolveSlot(m.homeSlot, slotMap, {})
+        const away = bResolveSlot(m.awaySlot, slotMap, {})
+        if (home) r32Set.add(home)
+        if (away) r32Set.add(away)
+      })
+    }
     const r16Set = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => picks[m.id]).filter(Boolean))
     const qfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => picks[m.id]).filter(Boolean))
     const sfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => picks[m.id]).filter(Boolean))
     const finalM = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
     const winnerSet = new Set(finalM && picks[finalM.id] ? [picks[finalM.id]] : [])
     return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, winner: winnerSet }
-  }, [slotMap])
+  }, [slotMap, groupStageComplete])
 
   const handlePick = useCallback((matchId, teamId) => {
     setAdminPicks((prev) => {
@@ -446,6 +469,14 @@ function PlayoffAdmin({ onRefresh }) {
       const newSaved = { ...savedPicks, [matchId]: winner }
       setSavedPicks(newSaved)
       await recalculatePlayoffPoints(buildRounds(newSaved))
+
+      // Persist winner to wc_match_results so the player bracket overlay can read it
+      const koMatch = KNOCKOUT_MATCHES.find((m) => m.id === matchId)
+      const homeResolved = koMatch ? bResolveSlot(koMatch.homeSlot, slotMap, adminPicks) : null
+      const awayResolved = koMatch ? bResolveSlot(koMatch.awaySlot, slotMap, adminPicks) : null
+      const loser = winner === homeResolved ? awayResolved : homeResolved
+      await saveMatchResult({ matchId, homeScore: 1, awayScore: 0, homeTeam: winner, awayTeam: loser || null })
+
       await onRefresh()
       setMsg({ type: 'success', text: `${WC_TEAMS[winner]?.shortName || winner} saved & scored.` })
       setTimeout(() => setMsg(null), 3000)
@@ -454,7 +485,7 @@ function PlayoffAdmin({ onRefresh }) {
     } finally {
       setSavingMatch(null)
     }
-  }, [adminPicks, savedPicks, buildRounds, onRefresh])
+  }, [adminPicks, savedPicks, buildRounds, slotMap, onRefresh])
 
   const savedCount = Object.values(savedPicks).filter(Boolean).length
   const totalMatches = 31
@@ -481,7 +512,33 @@ function PlayoffAdmin({ onRefresh }) {
             style={{ width: `${Math.round((savedCount / totalMatches) * 100)}%` }} />
         </div>
         <span className="text-xs text-gray-400">{savedCount}/{totalMatches} results saved</span>
+        <button
+          onClick={async () => {
+            try {
+              await recalculatePlayoffPoints(buildRounds(savedPicks))
+              await onRefresh()
+              setMsg({ type: 'success', text: 'All playoff points recalculated.' })
+              setTimeout(() => setMsg(null), 3000)
+            } catch (err) {
+              setMsg({ type: 'error', text: err.message })
+            }
+          }}
+          className="text-xs text-yellow-400 hover:text-yellow-300 underline transition-colors flex-shrink-0"
+        >
+          ↺ Recalculate
+        </button>
       </div>
+
+      {/* Warning: R32 points only awarded when group stage is complete */}
+      {!groupStageComplete && (
+        <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            R32 qualification points (+{SCORING.PLAYOFF_R32}/team) will only be awarded once all {totalGroupMatches} group stage matches are entered
+            ({completedGroupMatches}/{totalGroupMatches} done).
+          </span>
+        </div>
+      )}
 
       {/* Champion banner */}
       {champion && (
