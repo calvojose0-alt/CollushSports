@@ -26,7 +26,18 @@ export default function RegisterPage() {
       setRegisteredEmail(form.email)
       setRegistered(true)
     } catch (err) {
-      setError(err.message)
+      // If the only failure is the confirmation email send (SMTP not yet configured),
+      // the account was still created — show the confirmation screen anyway.
+      const isEmailSendError =
+        err.message?.toLowerCase().includes('sending confirmation') ||
+        err.message?.toLowerCase().includes('sending email') ||
+        err.message?.toLowerCase().includes('email') && err.message?.toLowerCase().includes('error')
+      if (isEmailSendError) {
+        setRegisteredEmail(form.email)
+        setRegistered(true)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
