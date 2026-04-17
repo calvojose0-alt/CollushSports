@@ -108,8 +108,10 @@ function BracketConnector({ fromRoundIdx, pairCount }) {
 
 // ── Team slot within a match card ─────────────────────────────────────────────
 // resultStatus: 'correct' | 'wrong' | 'actual-winner' | 'eliminated' | null
-function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus }) {
-  const team = teamId ? WC_TEAMS[teamId] : null
+// actualWinnerId: teamId of the actual match winner (shown beside wrong picks)
+function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus, actualWinnerId }) {
+  const team         = teamId         ? WC_TEAMS[teamId]         : null
+  const actualWinner = actualWinnerId ? WC_TEAMS[actualWinnerId] : null
 
   // Background / text color based on result state
   let colorClass
@@ -134,21 +136,36 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
       ? <span className="ml-auto text-green-400 text-[9px] font-bold">✓</span>
       : null
 
+  // Wrong pick: show struck-through picked team + actual winner beside it
+  const showWrongWithWinner = selected && resultStatus === 'wrong' && actualWinner
+
   return (
     <div
       onClick={clickable && teamId ? onClick : undefined}
-      className={`flex items-center gap-1.5 px-2 transition-colors
+      className={`flex items-center gap-1 px-2 transition-colors
         ${clickable && teamId ? 'cursor-pointer' : 'cursor-default'}
         ${colorClass}
       `}
       style={{ height: (CARD_H - 28) / 2 }}
     >
       {team ? (
-        <>
-          <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
-          <span className="text-[11px] font-semibold truncate">{team.shortName}</span>
-          {indicator}
-        </>
+        showWrongWithWinner ? (
+          // Wrong pick: ~~MEX~~ → 🇿🇦 RSA ✗
+          <>
+            <span className="text-[12px] leading-none flex-shrink-0 opacity-40">{team.flag}</span>
+            <span className="text-[10px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
+            <span className="text-[8px] text-gray-400 flex-shrink-0">→</span>
+            <span className="text-[12px] leading-none flex-shrink-0">{actualWinner.flag}</span>
+            <span className="text-[10px] font-bold text-white truncate">{actualWinner.shortName}</span>
+            <span className="ml-auto text-red-400 text-[9px] font-bold flex-shrink-0">✗</span>
+          </>
+        ) : (
+          <>
+            <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
+            <span className="text-[11px] font-semibold truncate">{team.shortName}</span>
+            {indicator}
+          </>
+        )
       ) : (
         <>
           <span className="w-3.5 h-3.5 rounded-full bg-gray-700 flex-shrink-0" />
@@ -233,6 +250,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           clickable={canPick}
           onClick={() => onPick(homeTeamId)}
           resultStatus={homeResultStatus}
+          actualWinnerId={homeResultStatus === 'wrong' ? actualWinner : null}
         />
 
         {/* Divider */}
@@ -246,6 +264,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           clickable={canPick}
           onClick={() => onPick(awayTeamId)}
           resultStatus={awayResultStatus}
+          actualWinnerId={awayResultStatus === 'wrong' ? actualWinner : null}
         />
 
         {/* Date / time  — or result badge when result is known */}
