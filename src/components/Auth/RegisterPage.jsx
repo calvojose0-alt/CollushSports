@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { registerUser } from '@/services/firebase/auth'
-import { Flag, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
+import { Flag, AlertCircle, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -9,6 +9,8 @@ export default function RegisterPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [registered, setRegistered] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
 
   const passwordsMatch = form.password === form.confirm && form.confirm.length > 0
   const passwordStrong = form.password.length >= 6
@@ -21,12 +23,62 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       await registerUser({ email: form.email, password: form.password, displayName: form.displayName })
-      navigate('/')
+      setRegisteredEmail(form.email)
+      setRegistered(true)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (registered) {
+    return (
+      <div className="min-h-screen f1-hero-gradient flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 bg-f1red rounded-xl flex items-center justify-center">
+                <Flag className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-black text-white tracking-tight">COLLUSH</div>
+                <div className="text-xs text-f1accent font-semibold tracking-widest -mt-1">SPORTS</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card border-f1light text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
+                <Mail className="w-8 h-8 text-green-400" />
+              </div>
+            </div>
+            <h2 className="text-xl font-bold text-white">Check your email!</h2>
+            <p className="text-gray-300 text-sm leading-relaxed">
+              We sent a confirmation link to <span className="text-white font-semibold">{registeredEmail}</span>.
+            </p>
+            <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg px-4 py-3 text-left space-y-2">
+              <p className="text-amber-300 text-sm font-semibold">📧 From: Collush Sports Admin</p>
+              <p className="text-amber-300 text-sm font-semibold">✉️ no-reply@collushsports.com</p>
+              <p className="text-gray-300 text-xs mt-2">
+                Can't find it? Check your <span className="text-white font-semibold">Junk / Spam</span> folder — it may have landed there.
+              </p>
+            </div>
+            <p className="text-gray-400 text-xs">
+              Click the link in the email to activate your account, then come back to sign in.
+            </p>
+            <button
+              onClick={() => navigate('/login')}
+              className="btn-primary w-full py-2.5 mt-2"
+            >
+              Go to Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
