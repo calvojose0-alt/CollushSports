@@ -249,78 +249,66 @@ export default function PickSubmissionPage() {
 
       {selectedRace && (
         <>
-          {/* Race info bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-f1gray/60 border border-f1light rounded-xl px-4 py-3">
-            <span className="text-2xl">{selectedRace.flag}</span>
-            <div>
+          {/* Race info bar + submit combined */}
+          <div className="bg-f1gray/60 border border-f1light rounded-xl px-4 py-3 flex items-center gap-3">
+            {/* Left: flag + race name */}
+            <span className="text-2xl flex-shrink-0">{selectedRace.flag}</span>
+            <div className="flex-1 min-w-0">
               <p className="font-bold text-white">{selectedRace.name}</p>
               <p className="text-xs text-gray-400">{selectedRace.circuit} — Round {selectedRace.round}</p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+
+            {/* Right: lock time + button in a single row */}
+            <div className="flex-shrink-0 flex items-center gap-3">
               {locked ? (
                 <span className="badge-eliminated flex items-center gap-1">
                   <Lock className="w-3 h-3" /> Locked
                 </span>
               ) : (
                 <>
-                  <Timer className="w-4 h-4 text-f1accent" />
-                  <span className="text-xs text-f1accent font-semibold">
-                    Locks {format(lockTime, 'MMM d, HH:mm')} UTC
-                  </span>
+                  {lockTime && (
+                    <div className="flex items-center gap-1">
+                      <Timer className="w-3 h-3 text-f1accent" />
+                      <span className="text-xs text-f1accent font-semibold">
+                        Locks {format(lockTime, 'MMM d, HH:mm')} UTC
+                      </span>
+                      {raceDate && (
+                        <span className="text-xs text-gray-400 ml-1">· Race: {format(raceDate, 'MMM d')}</span>
+                      )}
+                    </div>
+                  )}
+                  {submitSuccess ? (
+                    <div className="flex items-center gap-2 text-green-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-semibold">Picks saved!</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!pickedA || !pickedB || submitting}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      {submitting ? 'Saving…' : 'Submit Picks'}
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+                  {submitError && (
+                    <div className="flex items-center gap-1 text-xs text-red-300">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {submitError}
+                    </div>
+                  )}
                 </>
-              )}
-              {raceDate && (
-                <span className="text-xs text-gray-400 ml-2">
-                  Race: {format(raceDate, 'MMM d')}
-                </span>
               )}
             </div>
           </div>
 
-          {/* Submit area — shown right below the race header */}
-          {!locked && (
-            <div className="card">
-              {submitSuccess ? (
-                <div className="flex items-center gap-3 text-green-400">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold">Picks saved!</p>
-                    <p className="text-xs text-gray-400">
-                      {pickedA?.name} (Podium) · {pickedB?.name} (Top 10)
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="text-sm text-gray-300">
-                    {pickedA && pickedB ? (
-                      <>
-                        <span className="text-f1gold font-semibold">{pickedA.name}</span>
-                        <span className="text-gray-500 mx-1">·</span>
-                        <span className="text-green-400 font-semibold">{pickedB.name}</span>
-                      </>
-                    ) : (
-                      <span className="text-gray-500">Select both drivers to submit</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!pickedA || !pickedB || submitting}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    {submitting ? 'Saving…' : 'Submit Picks'}
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              {submitError && (
-                <div className="mt-3 flex items-start gap-2 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2 text-sm text-red-300">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  {submitError}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Survival logic reminder */}
+          <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-sm text-gray-400">
+            <strong className="text-white">Survival rule:</strong> You advance if at least one pick succeeds.
+            Both succeed → earn 1 bonus point. Both fail → eliminated.{' '}
+            <span className="text-gray-500">Each driver can be used once per column, all season.</span>
+          </div>
 
           {locked && prevPickForRace && (
             <div className="card bg-f1dark/50">
@@ -368,6 +356,7 @@ export default function PickSubmissionPage() {
                   selectedDriver={pickedA}
                   usedDriverIds={effectiveUsedA}
                   onSelect={(d) => setPickedA(d)}
+                  saved={!!prevPickForRace?.columnA?.driverId}
                 />
                 <ColumnPick
                   column="B"
@@ -376,6 +365,7 @@ export default function PickSubmissionPage() {
                   selectedDriver={pickedB}
                   usedDriverIds={effectiveUsedB}
                   onSelect={(d) => setPickedB(d)}
+                  saved={!!prevPickForRace?.columnB?.driverId}
                 />
               </>
             )}
@@ -384,12 +374,6 @@ export default function PickSubmissionPage() {
             <DriverPanel raceId={selectedRace?.id} />
           </div>
 
-          {/* Survival logic reminder */}
-          <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-sm text-gray-400">
-            <strong className="text-white">Survival rule:</strong> You advance if at least one pick succeeds.
-            Both succeed → earn 1 bonus point. Both fail → eliminated.{' '}
-            <span className="text-gray-500">Each driver can be used once per column, all season.</span>
-          </div>
         </>
       )}
     </div>

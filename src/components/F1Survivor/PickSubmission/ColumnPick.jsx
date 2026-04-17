@@ -35,7 +35,7 @@ function DriverOption({ driver, disabled, selected, onSelect }) {
   )
 }
 
-export default function ColumnPick({ column, label, description, selectedDriver, usedDriverIds, onSelect, onInspect }) {
+export default function ColumnPick({ column, label, description, selectedDriver, usedDriverIds, onSelect, onInspect, saved }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -66,8 +66,13 @@ export default function ColumnPick({ column, label, description, selectedDriver,
     <div className={`card border ${borderColor}`}>
       {/* Column header */}
       <div className="mb-3">
-        <div className="flex items-center gap-2 mb-0.5">
+        <div className="flex items-center justify-between mb-0.5">
           <span className={`text-xs font-black ${labelColor} tracking-widest`}>{column === 'A' ? 'PODIUM PICK' : 'TOP 10 PICK'}</span>
+          {saved && (
+            <span className="flex items-center gap-1 text-xs text-green-400 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
         </div>
         <p className="text-xs text-gray-400">{description}</p>
       </div>
