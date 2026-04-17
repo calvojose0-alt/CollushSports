@@ -170,9 +170,9 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const canPick = !locked
   const hasCommunity = communityStats && communityStats.total > 0
 
-  // ── Scoring overlay (only for non-R32 matches with a saved result) ──────────
+  // ── Scoring overlay (all rounds, including R32) ───────────────────────────
   // Convention: admin saves winner as homeTeam with homeScore=1, awayScore=0
-  const resultKnown  = !isR32 && result?.status === 'final' && !!result?.homeTeam
+  const resultKnown  = result?.status === 'final' && !!result?.homeTeam
   const actualWinner = resultKnown
     ? (result.homeScore > result.awayScore ? result.homeTeam : result.awayTeam)
     : null
@@ -192,15 +192,17 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
       : (picked === awayTeamId ? 'wrong'   : 'eliminated')
     : null
 
-  // Card border & background
-  const borderColor = isR32 ? '#374151'
-    : resultKnown
-      ? pickCorrect ? '#22C55E' : pickWrong ? '#EF4444' : '#4B5563'
-      : picked ? '#CA8A04' : '#4B5563'
-  const cardBg = isR32 ? 'rgba(17,24,39,0.85)'
-    : resultKnown
-      ? pickCorrect ? 'rgba(20,83,45,0.22)' : pickWrong ? 'rgba(127,29,29,0.20)' : '#1F2937'
-      : '#1F2937'
+  // Card border & background:
+  // - When result is known: green/red overlay applies to ALL rounds (including R32)
+  // - Before result: R32 keeps its subdued look; R16+ shows yellow when picked
+  const borderColor = resultKnown
+    ? pickCorrect ? '#22C55E' : pickWrong ? '#EF4444' : '#4B5563'
+    : isR32 ? '#374151'
+    : picked ? '#CA8A04' : '#4B5563'
+  const cardBg = resultKnown
+    ? pickCorrect ? 'rgba(20,83,45,0.22)' : pickWrong ? 'rgba(127,29,29,0.20)' : '#1F2937'
+    : isR32 ? 'rgba(17,24,39,0.85)'
+    : '#1F2937'
 
   return (
     <div className="relative">
@@ -621,7 +623,7 @@ export default function BracketPage() {
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-yellow-900/30 border border-yellow-600/40">
           <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0" />
           <div>
-            <p className="text-xs text-yellow-500 font-semibold uppercase tracking-wider">Your Predicted Champion</p>
+            <p className="text-xs text-yellow-400 font-bold uppercase tracking-wider">Your Predicted Champion</p>
             <p className="text-white font-bold">{champion.flag} {champion.name}</p>
           </div>
         </div>
@@ -661,10 +663,10 @@ export default function BracketPage() {
 
       {/* Note about R32 auto-fill */}
       {r32PicksDone < 12 && (
-        <div className="flex items-start gap-2 text-xs text-gray-500 bg-gray-800/50 border border-gray-700/40 rounded-lg px-3 py-2">
-          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-600" />
+        <div className="card flex items-start gap-2 text-xs text-gray-400">
+          <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
           <span>
-            R32 slots are filled from your <strong className="text-gray-400">Group Stage Picks</strong> predictions.
+            R32 slots are filled from your <strong className="text-gray-300">Group Stage Picks</strong> predictions.
             Complete more group picks to see your predicted R32 matchups.
           </span>
         </div>
