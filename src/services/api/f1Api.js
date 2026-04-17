@@ -22,9 +22,9 @@ async function apiFetch(path, params = {}) {
  * Get a driver's stats for the driver panel.
  * Returns podium probability, top10 probability, last 5 races, track history.
  */
-export async function getDriverStats(driverId, raceId) {
+export async function getDriverStats(driverId, raceId, storedResults = []) {
   // Always start from seed stats — they encode real driver form & are instant
-  const base = buildDriverStats(driverId, raceId)
+  const base = buildDriverStats(driverId, raceId, storedResults)
 
   if (IS_DEMO) return base
 
@@ -66,17 +66,74 @@ export async function getDriverStats(driverId, raceId) {
   return base
 }
 
-export function buildDriverStats(driverId, raceId) {
+// Blend weights: 25% career baseline, 75% recent form (last 5 races)
+const CAREER_WEIGHT = 0.25
+const RECENT_WEIGHT = 0.75
+const PODIUM_FLOOR  = 0.02   // 2% minimum — anything can happen
+const WINDOW        = 5      // number of recent races to consider
+
+/**
+ * Build driver stats for the Driver Analysis panel.
+ * @param {string}  driverId      - driver ID (e.g. 'NOR')
+ * @param {string}  raceId        - current race ID (for track history lookup)
+ * @param {Array}   storedResults - all race results from getAllRaceResults()
+ *                                  Each item: { raceId, results: [{position, driverId}] }
+ */
+export function buildDriverStats(driverId, raceId, storedResults = []) {
   const seed = DRIVER_STATS[driverId] || { podiumRate: 0.05, top10Rate: 0.4, recentFinishes: [10, 12, 14, 11, 13] }
+
+  // ── Build recentFinishes from actual stored results ──────────────────────
+  // Sort completed races by round number, take last WINDOW races
+  const completedRaces = storedResults
+    .filter((r) => Array.isArray(r.results) && r.results.length > 0)
+    .sort((a, b) => {
+      const rA = RACES_2026.find((r) => r.id === a.raceId)?.round ?? 0
+      const rB = RACES_2026.find((r) => r.id === b.raceId)?.round ?? 0
+      return rA - rB
+    })
+    .slice(-WINDOW)
+
+  let recentFinishes
+  let recentRaceLabels
+
+  if (completedRaces.length > 0) {
+    // Extract this driver's finishing position per race (20 = DNF / not classified)
+    const liveFinishes = completedRaces.map((r) => {
+      const entry = r.results.find((e) => e.driverId === driverId)
+      return entry ? entry.position : 20
+    })
+    const liveLabels = completedRaces.map((r) => {
+      const race = RACES_2026.find((rc) => rc.id === r.raceId)
+      return race ? `R${race.round}` : r.raceId
+    })
+
+    // Pad front with seed data when fewer than WINDOW real races exist
+    const seedCount = WINDOW - liveFinishes.length
+    recentFinishes  = [...seed.recentFinishes.slice(0, seedCount), ...liveFinishes]
+    recentRaceLabels = [...RECENT_RACE_LABELS.slice(0, seedCount), ...liveLabels]
+  } else {
+    // No real results yet — use seed data entirely
+    recentFinishes   = seed.recentFinishes
+    recentRaceLabels = RECENT_RACE_LABELS
+  }
+
+  // ── Blended probability ───────────────────────────────────────────────────
+  const n = recentFinishes.length || 1
+  const recentPodiumRate = recentFinishes.filter((p) => p <= 3).length / n
+  const recentTop10Rate  = recentFinishes.filter((p) => p <= 10).length / n
+
+  const blendedPodium = (seed.podiumRate * CAREER_WEIGHT) + (recentPodiumRate * RECENT_WEIGHT)
+  const blendedTop10  = (seed.top10Rate  * CAREER_WEIGHT) + (recentTop10Rate  * RECENT_WEIGHT)
+
   return {
     driverId,
     driver: DRIVER_MAP[driverId],
-    podiumProbability: Math.round(seed.podiumRate * 100),
-    top10Probability: Math.round(seed.top10Rate * 100),
-    recentFinishes: seed.recentFinishes,
-    recentRaceLabels: RECENT_RACE_LABELS,
+    podiumProbability: Math.round(Math.max(blendedPodium, PODIUM_FLOOR) * 100),
+    top10Probability:  Math.round(blendedTop10 * 100),
+    recentFinishes,
+    recentRaceLabels,
     trackHistory: getTrackHistoryForDriver(driverId, raceId),
-    dataSource: 'Seed',
+    dataSource: completedRaces.length > 0 ? 'Live results' : 'Seed estimates',
   }
 }
 

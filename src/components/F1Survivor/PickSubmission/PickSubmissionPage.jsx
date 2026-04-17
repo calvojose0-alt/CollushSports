@@ -146,7 +146,7 @@ function RaceFinishingOrder({ raceId }) {
 
 export default function PickSubmissionPage() {
   const { user } = useAuth()
-  const { currentRace, usedDrivers, myPicks, myPlayer, gameId, refreshPicks } = useF1Game()
+  const { currentRace, usedDrivers, myPicks, myPlayer, gameId, refreshPicks, raceResults } = useF1Game()
 
   const [selectedRace, setSelectedRace] = useState(null)
   const [pickedA, setPickedA] = useState(null)
@@ -371,7 +371,7 @@ export default function PickSubmissionPage() {
             )}
 
             {/* Driver Analysis Panel — always the 3rd column, self-contained */}
-            <DriverPanel raceId={selectedRace?.id} />
+            <DriverPanel raceId={selectedRace?.id} raceResults={raceResults} />
           </div>
 
         </>

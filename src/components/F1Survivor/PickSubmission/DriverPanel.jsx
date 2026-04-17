@@ -97,9 +97,9 @@ function DriverDropdown({ selectedId, onChange }) {
   )
 }
 
-export default function DriverPanel({ raceId }) {
+export default function DriverPanel({ raceId, raceResults }) {
   const [selectedId, setSelectedId] = useState(DRIVERS_2026[0]?.id ?? null)
-  const { stats } = useDriverStats(selectedId, raceId)
+  const { stats } = useDriverStats(selectedId, raceId, raceResults)
   const driver = DRIVER_MAP[selectedId]
 
   return (
