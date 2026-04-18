@@ -37,11 +37,21 @@ export default function WorldCupLayout() {
   const {
     myPlayer,
     leaderboard,
+    allPicks,
     completedGroupMatches,
     totalGroupMatches,
     loading,
     error,
   } = useWCGame()
+
+  // Compute My Stats in real-time from allPicks so they always stay in sync
+  // with the leaderboard, regardless of whether stored wc_players values are stale.
+  const myPicksScored = allPicks.filter((p) => p.userId === user?.uid && p.pointsEarned !== null)
+  const myGroupPoints  = myPicksScored.reduce((sum, p) => sum + (p.pointsEarned || 0), 0)
+  const myExactHits    = myPicksScored.filter((p) => p.isExact).length
+  const myOutcomeHits  = myPicksScored.filter((p) => p.isCorrectOutcome).length
+  const myPlayoffPoints = myPlayer?.playoffPoints || 0
+  const myTotalPoints  = myGroupPoints + myPlayoffPoints
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
   const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)
@@ -105,16 +115,22 @@ export default function WorldCupLayout() {
               <>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Total Points</span>
-                  <span className="font-bold text-yellow-400">{myPlayer.totalPoints || 0}</span>
+                  <span className="font-bold text-yellow-400">{myTotalPoints}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Exact Scores</span>
-                  <span className="font-bold text-green-400">{myPlayer.exactHits || 0}</span>
+                  <span className="font-bold text-green-400">{myExactHits}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Correct Outcomes</span>
-                  <span className="font-bold text-blue-400">{myPlayer.outcomeHits || 0}</span>
+                  <span className="font-bold text-blue-400">{myOutcomeHits}</span>
                 </div>
+                {myPlayoffPoints > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Knockout Pts</span>
+                    <span className="font-bold text-yellow-300">+{myPlayoffPoints}</span>
+                  </div>
+                )}
                 {myRank && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">Rank</span>
