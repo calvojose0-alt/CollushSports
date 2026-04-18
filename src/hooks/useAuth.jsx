@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { onAuthStateChange, signOut, updateDisplayName } from '@/services/firebase/auth'
 import { updatePlayerDisplayName } from '@/services/firebase/firestore'
 import { updateWCPlayerDisplayName } from '@/services/firebase/wc2026Service'
+import { supabase, isSupabaseConfigured } from '@/supabase'
 
 const AuthContext = createContext(null)
 
@@ -16,6 +17,14 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       setProfile(userProfile)
       setLoading(false)
+      // Track last login timestamp (requires: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_login_at timestamptz)
+      if (firebaseUser?.uid && isSupabaseConfigured && supabase) {
+        supabase
+          .from('profiles')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', firebaseUser.uid)
+          .then(() => {}) // silent — column may not exist yet
+      }
     })
     return unsubscribe
   }, [])

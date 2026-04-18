@@ -1,7 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { LogOut, User, ChevronDown, Pencil } from 'lucide-react'
+import { LogOut, ChevronDown, Pencil, Shield } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+
+const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 export default function Header() {
   const { user, profile, logout } = useAuth()
@@ -16,6 +18,8 @@ export default function Header() {
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [])
+
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
 
   const handleLogout = async () => {
     await logout()
@@ -87,6 +91,20 @@ export default function Header() {
                   <Pencil className="w-4 h-4" />
                   Edit Profile
                 </Link>
+                {isAdmin && (
+                  <>
+                    <div className="border-t border-f1light" />
+                    <Link
+                      to="/admin"
+                      onClick={() => setDropOpen(false)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-orange-400 hover:bg-f1light hover:text-orange-300 transition-colors"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Admin Dashboard
+                    </Link>
+                  </>
+                )}
+                <div className="border-t border-f1light" />
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-f1light hover:text-red-300 transition-colors"

@@ -14,6 +14,9 @@ import HomePage from '@/components/Home/HomePage'
 // Profile
 import ProfilePage from '@/components/Profile/ProfilePage'
 
+// Site Admin
+import SiteAdminPage from '@/components/Admin/SiteAdminPage'
+
 // F1 Survivor
 import F1SurvivorLayout from '@/components/F1Survivor/F1SurvivorLayout'
 import PickSubmissionPage from '@/components/F1Survivor/PickSubmission/PickSubmissionPage'
@@ -135,6 +138,18 @@ function AppRoutes() {
           <Route path="groups" element={<WCGroupsPage />} />
           <Route path="admin" element={<AdminRoute fallback="/world-cup"><WCAdminPage /></AdminRoute>} />
         </Route>
+
+        {/* Site Admin dashboard */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute fallback="/">
+              <AppLayout>
+                <SiteAdminPage />
+              </AppLayout>
+            </AdminRoute>
+          }
+        />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
