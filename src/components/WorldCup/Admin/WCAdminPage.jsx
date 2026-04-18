@@ -851,7 +851,7 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
   return (
     <div className="space-y-3">
       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Random Score Fill</p>
-      <div className="card bg-yellow-900/20 border-yellow-700/40 text-xs text-yellow-300">
+      <div className="card bg-yellow-900/60 border-yellow-600 text-xs text-yellow-200">
         Fills matches with random scores (0–3 each team) and saves + scores them. Existing results will be overwritten.
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
