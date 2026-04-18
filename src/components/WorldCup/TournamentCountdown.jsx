@@ -46,23 +46,49 @@ function Colon({ urgent }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function TournamentCountdown() {
+// compact=true → small pill badge for page headers
+export default function TournamentCountdown({ compact = false }) {
   const [timeLeft, setTimeLeft] = useState(calcTimeLeft)
 
   useEffect(() => {
-    // Already expired on mount
     if (!timeLeft) return
-
     const id = setInterval(() => {
       const next = calcTimeLeft()
       setTimeLeft(next)
       if (!next) clearInterval(id)
     }, 1000)
-
     return () => clearInterval(id)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Locked state ──────────────────────────────────────────────────────────
+  const urgent = timeLeft ? timeLeft.days === 0 : false
+  const soon   = timeLeft ? timeLeft.days <= 3  : false
+
+  // ── Compact bubble (header variant) ───────────────────────────────────────
+  if (compact) {
+    if (!timeLeft) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border bg-red-900/30 border-red-700/60 text-red-300 text-xs font-semibold">
+          <Lock className="w-3 h-3" /> Locked
+        </span>
+      )
+    }
+    const pillColor = urgent
+      ? 'bg-red-900/30 border-red-700/50 text-red-300'
+      : soon
+      ? 'bg-orange-900/30 border-orange-700/50 text-orange-300'
+      : 'bg-green-900/20 border-green-700/40 text-green-400'
+    const timeStr = timeLeft.days > 0
+      ? `${timeLeft.days}d ${pad(timeLeft.hours)}h ${pad(timeLeft.minutes)}m`
+      : `${pad(timeLeft.hours)}h ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold tabular-nums ${pillColor}`}>
+        <Clock className="w-3 h-3 flex-shrink-0" />
+        {timeStr}
+      </span>
+    )
+  }
+
+  // ── Full bar (original) ────────────────────────────────────────────────────
   if (!timeLeft) {
     return (
       <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-900/20 border border-red-700/40 text-sm text-red-300">
@@ -73,32 +99,23 @@ export default function TournamentCountdown() {
     )
   }
 
-  const urgent = timeLeft.days === 0   // less than 24 h left → red accents
-  const soon   = timeLeft.days <= 3    // 3 days or fewer → orange banner tint
-
   const bannerClass = urgent
     ? 'bg-red-900/20 border-red-700/40'
     : soon
     ? 'bg-orange-900/20 border-orange-700/40'
     : 'bg-green-900/15 border-green-700/30'
-
   const labelColor = urgent ? 'text-red-400' : soon ? 'text-orange-400' : 'text-green-700'
   const iconColor  = urgent ? 'text-red-400' : soon ? 'text-orange-400' : 'text-green-700'
 
   return (
     <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${bannerClass}`}>
-      {/* Icon + label */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <Clock className={`w-4 h-4 ${iconColor}`} />
         <span className={`text-xs font-semibold hidden sm:block ${labelColor}`}>
-          {urgent ? 'Picks close soon!' : soon ? 'Picks close in' : 'Picks close in'}
+          {urgent ? 'Picks close soon!' : 'Picks close in'}
         </span>
       </div>
-
-      {/* Divider */}
       <div className="w-px h-6 bg-gray-700 hidden sm:block flex-shrink-0" />
-
-      {/* Clock units */}
       <div className="flex items-end gap-1.5">
         <Unit value={timeLeft.days}    label="days" urgent={urgent} />
         <Colon urgent={urgent} />
@@ -108,8 +125,6 @@ export default function TournamentCountdown() {
         <Colon urgent={urgent} />
         <Unit value={timeLeft.seconds} label="sec"  urgent={urgent} />
       </div>
-
-      {/* Deadline text */}
       <div className="ml-auto hidden md:block text-right flex-shrink-0">
         <p className="text-[10px] text-gray-500 leading-tight">Deadline</p>
         <p className="text-[11px] text-gray-400 font-semibold leading-tight">Jun 11, 2026</p>

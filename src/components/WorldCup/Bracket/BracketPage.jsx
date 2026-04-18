@@ -626,7 +626,8 @@ export default function BracketPage() {
             Round of 32 is auto-filled from your group picks. Click teams to advance them.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-2">
+          {!locked && <TournamentCountdown compact />}
           {locked && (
             <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
               <Lock className="w-3 h-3" /> Locked
@@ -657,9 +658,6 @@ export default function BracketPage() {
           </div>
         </div>
       )}
-
-      {/* Countdown */}
-      {!locked && <TournamentCountdown />}
 
       {/* Info + progress */}
       <div className="card space-y-2">

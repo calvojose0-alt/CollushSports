@@ -386,15 +386,15 @@ export default function MyPicksPage() {
           <Flag className="w-5 h-5 text-yellow-400" />
           <h2 className="font-bold text-blue-800">My Group Stage Picks</h2>
         </div>
-        {locked && (
-          <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
-            <Lock className="w-3 h-3" /> Picks Locked
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-1.5">
+          {!locked && <TournamentCountdown compact />}
+          {locked && (
+            <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
+              <Lock className="w-3 h-3" /> Picks Locked
+            </span>
+          )}
+        </div>
       </div>
-
-      {/* Countdown */}
-      {!locked && <TournamentCountdown />}
 
       {/* Scoring legend */}
       <div className="bg-f1dark border border-f1light rounded-xl px-4 py-3 text-xs text-gray-400 flex flex-wrap gap-4">
