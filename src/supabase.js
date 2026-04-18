@@ -11,7 +11,10 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo'
+
 export const isSupabaseConfigured =
+  !isDemoMode &&
   !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'your_supabase_url_here')
 
 let supabase = null

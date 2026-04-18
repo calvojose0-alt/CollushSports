@@ -174,7 +174,7 @@ export async function joinWCGame({ userId, displayName }) {
 export async function getWCPlayer(userId) {
   const playerId = `${WC_GAME_ID}_${userId}`
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from('wc_players').select('*').eq('id', playerId).single()
+    const { data, error } = await supabase.from('wc_players').select('*').eq('id', playerId).maybeSingle()
     if (error) return null
     return mapPlayer(data)
   }
@@ -407,7 +407,7 @@ export async function saveMatchResult({ matchId, homeScore, awayScore, homeTeam,
 export async function getMatchResult(matchId) {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
-      .from('wc_match_results').select('*').eq('match_id', matchId).single()
+      .from('wc_match_results').select('*').eq('match_id', matchId).maybeSingle()
     if (error) return null
     return mapResult(data)
   }
@@ -438,8 +438,8 @@ export async function getTournamentMeta() {
   const defaults = { id: WC_GAME_ID, actualTotalGoals: null, groupStageFinalized: false, tournamentFinished: false }
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
-      .from('wc_tournament_totals').select('*').eq('id', WC_GAME_ID).single()
-    if (error) return defaults
+      .from('wc_tournament_totals').select('*').eq('id', WC_GAME_ID).maybeSingle()
+    if (error || !data) return defaults
     return {
       id: data.id,
       actualTotalGoals:    data.actual_total_goals    ?? null,

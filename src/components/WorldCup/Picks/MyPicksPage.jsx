@@ -6,7 +6,7 @@ import { saveGroupPick, updateWCPlayer } from '@/services/firebase/wc2026Service
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
-import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users } from 'lucide-react'
+import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users, RefreshCw } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Score input component ────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ export default function MyPicksPage() {
   const { user } = useAuth()
   const {
     myPicks, myPicksByMatchId, resultsByMatchId,
-    myPlayer, refreshPicks, reload, allPicks,
+    myPlayer, refreshPicks, reload, allPicks, loading, error,
   } = useWCGame()
 
   const locked = isPicksLocked()
@@ -351,6 +351,32 @@ export default function MyPicksPage() {
   const groupIdx   = GROUP_LETTERS.indexOf(activeGroup)
   const prevGroup  = groupIdx > 0 ? GROUP_LETTERS[groupIdx - 1] : null
   const nextGroup  = groupIdx < GROUP_LETTERS.length - 1 ? GROUP_LETTERS[groupIdx + 1] : null
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader className="w-7 h-7 animate-spin text-yellow-500" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-900/40 border border-red-700 rounded-xl px-4 py-4 text-red-300 text-sm space-y-3">
+        <div className="flex items-center gap-2 font-bold">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Error loading picks
+        </div>
+        <p className="font-mono text-xs text-red-400">{error}</p>
+        <button
+          onClick={reload}
+          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-800 hover:bg-red-700 transition-colors"
+        >
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
