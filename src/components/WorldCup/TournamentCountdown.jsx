@@ -67,23 +67,25 @@ export default function TournamentCountdown({ compact = false }) {
   if (compact) {
     if (!timeLeft) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border bg-red-900/30 border-red-700/60 text-red-300 text-xs font-semibold">
-          <Lock className="w-3 h-3" /> Locked
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-red-900/30 border-red-700/60 text-red-300 text-xs font-semibold">
+          <Lock className="w-3 h-3" /> Picks Locked
         </span>
       )
     }
     const pillColor = urgent
-      ? 'bg-red-900/30 border-red-700/50 text-red-300'
+      ? 'bg-red-900/30 border-red-600 text-red-200'
       : soon
-      ? 'bg-orange-900/30 border-orange-700/50 text-orange-300'
-      : 'bg-green-900/20 border-green-700/40 text-green-400'
+      ? 'bg-orange-900/30 border-orange-600 text-orange-200'
+      : 'bg-green-900/40 border-green-600 text-green-200'
     const timeStr = timeLeft.days > 0
       ? `${timeLeft.days}d ${pad(timeLeft.hours)}h ${pad(timeLeft.minutes)}m`
       : `${pad(timeLeft.hours)}h ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold tabular-nums ${pillColor}`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold tabular-nums ${pillColor}`}>
         <Clock className="w-3 h-3 flex-shrink-0" />
-        {timeStr}
+        <span className="opacity-80">Picks Close In:</span>
+        <span className="font-bold">{timeStr}</span>
+        <span className="opacity-60">· Jun 11</span>
       </span>
     )
   }
