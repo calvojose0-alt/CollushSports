@@ -225,13 +225,6 @@ export default function SiteAdminPage() {
         </div>
       </div>
 
-      {/* Last-login note */}
-      <p className="text-xs text-gray-600 text-center">
-        "Last Login" requires a one-time SQL migration in Supabase:&nbsp;
-        <code className="font-mono bg-gray-800 px-1.5 py-0.5 rounded text-gray-400">
-          ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
-        </code>
-      </p>
     </div>
   )
 }
