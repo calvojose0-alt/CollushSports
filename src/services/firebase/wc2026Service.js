@@ -499,9 +499,16 @@ export async function updateTournamentMeta(updates) {
 }
 
 // ── GROUPS (reuse existing groups + group_members tables) ─────────────────────
-import { createGroup as _createGroup, joinGroupByCode as _joinGroupByCode } from './firestore'
-export const createGroup    = _createGroup
-export const joinGroupByCode = _joinGroupByCode
+import {
+  createGroup as _createGroup,
+  joinGroupByCode as _joinGroupByCode,
+  getGroupByCode as _getGroupByCode,
+  removeGroupMember as _removeGroupMember,
+} from './firestore'
+export const createGroup       = _createGroup
+export const joinGroupByCode   = _joinGroupByCode
+export const getGroupByCode    = _getGroupByCode
+export const removeGroupMember = _removeGroupMember
 
 export async function getWCGroupsForUser(userId) {
   if (isSupabaseConfigured && supabase) {

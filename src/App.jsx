@@ -17,6 +17,9 @@ import ProfilePage from '@/components/Profile/ProfilePage'
 // Site Admin
 import SiteAdminPage from '@/components/Admin/SiteAdminPage'
 
+// Group invite join
+import JoinGroupPage from '@/components/Groups/JoinGroupPage'
+
 // F1 Survivor
 import F1SurvivorLayout from '@/components/F1Survivor/F1SurvivorLayout'
 import PickSubmissionPage from '@/components/F1Survivor/PickSubmission/PickSubmissionPage'
@@ -150,6 +153,9 @@ function AppRoutes() {
             </AdminRoute>
           }
         />
+
+        {/* Group invite link — public, works for both logged-in and new users */}
+        <Route path="/join/:code" element={<JoinGroupPage />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />

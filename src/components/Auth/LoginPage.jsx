@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { signIn } from '@/services/firebase/auth'
 import { Flag, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/'
+
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -16,7 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await signIn({ email: form.email, password: form.password })
-      navigate('/')
+      navigate(redirectTo)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -97,7 +100,10 @@ export default function LoginPage() {
           <div className="mt-4 pt-4 border-t border-f1light text-center">
             <p className="text-sm text-gray-400">
               Don't have an account?{' '}
-              <Link to="/register" className="text-f1accent hover:text-orange-400 font-medium">
+              <Link
+                to={redirectTo !== '/' ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'}
+                className="text-f1accent hover:text-orange-400 font-medium"
+              >
                 Create one
               </Link>
             </p>

@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
-import { createGroup, joinGroupByCode, getWCGroupsForUser } from '@/services/firebase/wc2026Service'
-import { Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trophy, Calendar } from 'lucide-react'
+import {
+  createGroup, joinGroupByCode, getWCGroupsForUser, removeGroupMember,
+} from '@/services/firebase/wc2026Service'
+import {
+  Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
+  ChevronUp, Trophy, Calendar, Link2, Settings, Trash2,
+} from 'lucide-react'
 import { WC_TEAMS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES } from '@/data/wc2026Schedule'
 
@@ -16,25 +21,19 @@ function generateCode() {
 function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUserId }) {
   const [open, setOpen] = useState(true)
 
-  // First group match that hasn't been finalised yet
   const nextMatch = useMemo(() => {
-    const sorted = [...GROUP_MATCHES].sort((a, b) =>
-      new Date(a.date) - new Date(b.date)
-    )
+    const sorted = [...GROUP_MATCHES].sort((a, b) => new Date(a.date) - new Date(b.date))
     return sorted.find((m) => resultsByMatchId[m.id]?.status !== 'final') || null
   }, [resultsByMatchId])
 
-  // Build a picks map for this match: { userId -> { homeScore, awayScore } }
   const picksByUser = useMemo(() => {
     if (!nextMatch) return {}
     const map = {}
-    allPicks.forEach((p) => {
-      if (p.matchId === nextMatch.id) map[p.userId] = p
-    })
+    allPicks.forEach((p) => { if (p.matchId === nextMatch.id) map[p.userId] = p })
     return map
   }, [nextMatch, allPicks])
 
-  if (!nextMatch) return null   // all group matches completed
+  if (!nextMatch) return null
 
   const homeTeam = WC_TEAMS[nextMatch.homeTeam]
   const awayTeam = WC_TEAMS[nextMatch.awayTeam]
@@ -44,26 +43,19 @@ function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUser
 
   return (
     <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">
-      {/* Header — toggles the section */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
       >
         <div className="flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5 text-green-500" />
-          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
-            Next Match Picks
-          </p>
+          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Next Match Picks</p>
         </div>
-        {open
-          ? <ChevronUp   className="w-3.5 h-3.5 text-gray-500" />
-          : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
-        }
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
       </button>
 
       {open && (
         <div className="border-t border-f1light">
-          {/* Match header */}
           <div className="px-3 py-2.5 bg-gray-900/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">{homeTeam?.flag}</span>
@@ -77,18 +69,13 @@ function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUser
               {nextMatch.time && <p className="text-[10px] text-gray-600">{nextMatch.time}</p>}
             </div>
           </div>
-
-          {/* Per-member picks */}
           <div className="divide-y divide-f1light/60">
             {memberPlayers.map((player) => {
               const pick = picksByUser[player.userId]
               const hasPick = pick && pick.homeScore !== null && pick.awayScore !== null
               const isMe = player.userId === currentUserId
               return (
-                <div
-                  key={player.userId}
-                  className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
-                >
+                <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
                   <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
                     {player.displayName?.[0]?.toUpperCase()}
                   </div>
@@ -115,34 +102,55 @@ function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUser
   )
 }
 
-// ── Group viewer ──────────────────────────────────────────────────────────────
-function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId }) {
+// ── Group viewer (detail + management) ───────────────────────────────────────
+function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId, onGroupsChanged }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(null) // 'code' | 'link' | null
+  const [managing, setManaging] = useState(false)
+  const [removing, setRemoving] = useState(null)
 
   const group = groups.find((g) => g.id === selectedGroupId) || groups[0]
   if (!group) return null
 
+  const isCreator = group.createdBy === currentUserId
   const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
-  const sorted = [...memberPlayers].sort((a, b) =>
-    (b.totalPoints || 0) - (a.totalPoints || 0) ||
-    (b.exactHits   || 0) - (a.exactHits   || 0)
+  const sorted = [...memberPlayers].sort(
+    (a, b) => (b.totalPoints || 0) - (a.totalPoints || 0) || (b.exactHits || 0) - (a.exactHits || 0)
   )
 
-  const handleCopy = () => {
+  const inviteLink = `${window.location.origin}/join/${group.inviteCode}`
+
+  const handleCopyCode = () => {
     navigator.clipboard.writeText(group.inviteCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied('code')
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteLink)
+    setCopied('link')
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const handleRemove = async (userId) => {
+    if (!window.confirm('Remove this member from the group?')) return
+    setRemoving(userId)
+    try {
+      await removeGroupMember(group.id, userId)
+      await onGroupsChanged()
+    } finally {
+      setRemoving(null)
+    }
   }
 
   return (
     <div className="card space-y-4">
-      {/* Group selector + invite code */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative flex-1">
+      {/* Group selector + invite actions */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[160px]">
           <select
             value={selectedGroupId}
-            onChange={(e) => { setSelectedGroupId(e.target.value); setCopied(false) }}
+            onChange={(e) => { setSelectedGroupId(e.target.value); setCopied(null); setManaging(false) }}
             className="w-full appearance-none bg-f1dark border border-f1light rounded-xl px-4 py-2.5 pr-9 text-white font-bold text-base focus:outline-none focus:border-yellow-500 cursor-pointer"
           >
             {groups.map((g) => (
@@ -151,19 +159,75 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
+
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-gray-500 font-mono bg-f1dark border border-f1light px-2 py-1 rounded-lg">
             {group.inviteCode}
           </span>
-          <button onClick={handleCopy} className="btn-secondary p-2 text-xs" title="Copy invite code">
-            {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+          <button onClick={handleCopyCode} className="btn-secondary p-2 text-xs" title="Copy invite code">
+            {copied === 'code' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
           </button>
+          <button onClick={handleCopyLink} className="btn-secondary p-2 text-xs" title="Copy invite link">
+            {copied === 'link' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Link2 className="w-4 h-4" />}
+          </button>
+          {isCreator && (
+            <button
+              onClick={() => setManaging((v) => !v)}
+              className={`p-2 rounded-lg border text-xs transition-colors ${managing ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' : 'btn-secondary'}`}
+              title="Manage group"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
+      {copied === 'link' && (
+        <p className="text-xs text-green-400 -mt-2">✓ Invite link copied! Share it with friends.</p>
+      )}
+
       <p className="text-xs text-gray-400 -mt-2">
         {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
+        {isCreator && <span className="text-gray-600 ml-1">(you created this group)</span>}
       </p>
+
+      {/* Manage panel — creator only */}
+      {isCreator && managing && (
+        <div className="bg-f1dark rounded-xl overflow-hidden border border-yellow-700/30">
+          <div className="px-3 py-2 border-b border-f1light flex items-center gap-2">
+            <Settings className="w-3.5 h-3.5 text-yellow-400" />
+            <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Manage Members</p>
+          </div>
+          <div className="divide-y divide-f1light">
+            {(group.members || []).map((uid) => {
+              const player = players.find((p) => p.userId === uid)
+              const displayName = player?.displayName || uid.slice(0, 8) + '…'
+              const isMe = uid === currentUserId
+              return (
+                <div key={uid} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="w-7 h-7 rounded-full bg-yellow-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                    {displayName[0]?.toUpperCase()}
+                  </div>
+                  <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                    {displayName}
+                    {isMe && <span className="text-xs text-yellow-400 ml-1">(You · Creator)</span>}
+                  </span>
+                  {!isMe && (
+                    <button
+                      onClick={() => handleRemove(uid)}
+                      disabled={removing === uid}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-900/30 text-xs transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {removing === uid ? 'Removing…' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Next Match Picks */}
       <NextMatchPicks
@@ -193,7 +257,6 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                 <span className={`text-sm flex-1 ${player.userId === currentUserId ? 'text-white font-semibold' : 'text-gray-300'}`}>
                   {player.displayName}
                   {player.userId === currentUserId && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
-                  {player.groupStageLeader && <span className="text-xs text-green-400 font-bold ml-1">G</span>}
                 </span>
                 <div className="text-right">
                   <div className="text-sm font-bold text-yellow-400">{player.totalPoints || 0}</div>
@@ -210,12 +273,13 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
       )}
 
       <p className="text-xs text-gray-500">
-        Share invite code <strong className="text-gray-400 font-mono">{group.inviteCode}</strong> with friends.
+        Share invite code <strong className="text-gray-400 font-mono">{group.inviteCode}</strong> or copy the invite link to add friends.
       </p>
     </div>
   )
 }
 
+// ── Groups summary (top card) ─────────────────────────────────────────────────
 function MySummary({ groups, currentUserId, players }) {
   if (!groups.length) return null
   return (
@@ -229,7 +293,7 @@ function MySummary({ groups, currentUserId, players }) {
           const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
           const sorted = [...memberPlayers].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
           const myRank = sorted.findIndex((p) => p.userId === currentUserId) + 1
-          const me     = sorted.find((p) => p.userId === currentUserId)
+          const me = sorted.find((p) => p.userId === currentUserId)
           return (
             <div key={group.id} className="flex items-center gap-3 py-2.5">
               <div className="flex-1 min-w-0">
@@ -265,12 +329,12 @@ export default function WCGroupsPage() {
   const { user } = useAuth()
   const { players, allPicks, resultsByMatchId } = useWCGame()
 
-  const [groups, setGroups]   = useState([])
+  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
-  const [mode, setMode]       = useState(null)
+  const [mode, setMode] = useState(null)
   const [groupName, setGroupName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
-  const [error, setError]     = useState(null)
+  const [error, setError] = useState(null)
   const [working, setWorking] = useState(false)
 
   const loadGroups = async () => {
@@ -412,6 +476,7 @@ export default function WCGroupsPage() {
             players={players}
             allPicks={allPicks}
             resultsByMatchId={resultsByMatchId}
+            onGroupsChanged={loadGroups}
           />
         </>
       )}

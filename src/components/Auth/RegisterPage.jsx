@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { registerUser } from '@/services/firebase/auth'
 import { Flag, AlertCircle, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/'
   const [form, setForm] = useState({ displayName: '', email: '', password: '', confirm: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -81,7 +83,7 @@ export default function RegisterPage() {
               Click the link in the email to activate your account, then come back to sign in.
             </p>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate(redirectTo !== '/' ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login')}
               className="btn-primary w-full py-2.5 mt-2"
             >
               Go to Sign In
@@ -200,7 +202,10 @@ export default function RegisterPage() {
           <div className="mt-4 pt-4 border-t border-f1light text-center">
             <p className="text-sm text-gray-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-f1accent hover:text-orange-400 font-medium">
+              <Link
+                to={redirectTo !== '/' ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'}
+                className="text-f1accent hover:text-orange-400 font-medium"
+              >
                 Sign in
               </Link>
             </p>

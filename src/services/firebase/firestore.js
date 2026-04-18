@@ -509,3 +509,46 @@ export async function getGroupsForUser(userId) {
   }
   return LS.getAll('groups').filter((g) => g.members?.includes(userId))
 }
+
+// Fetch a single group by invite code + creator display name (used by join link page)
+export async function getGroupByCode(inviteCode) {
+  if (isSupabaseConfigured && supabase) {
+    const { data: groups, error } = await supabase
+      .from('groups')
+      .select('*, group_members(user_id)')
+      .eq('invite_code', inviteCode)
+    if (error) throw new Error(error.message)
+    if (!groups || groups.length === 0) throw new Error('Invalid invite code')
+    const group = mapGroup(groups[0])
+    // Fetch creator display name from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', group.createdBy)
+      .single()
+    return { ...group, creatorName: profile?.display_name || profile?.email || 'Unknown' }
+  }
+  const all = LS.getAll('groups')
+  const group = all.find((g) => g.inviteCode === inviteCode)
+  if (!group) throw new Error('Invalid invite code')
+  return { ...group, creatorName: 'Unknown' }
+}
+
+// Remove a member from a group (creator-only action)
+export async function removeGroupMember(groupId, userId) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
+    return true
+  }
+  const all = LS.getAll('groups')
+  const group = all.find((g) => g.id === groupId)
+  if (group) {
+    LS.update('groups', groupId, { members: group.members.filter((id) => id !== userId) })
+  }
+  return true
+}
