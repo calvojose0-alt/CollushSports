@@ -722,8 +722,172 @@ function MessageBox({ msg }) {
   )
 }
 
+// ── Random Score Fill ─────────────────────────────────────────────────────────
+function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
+  const [status, setStatus] = useState([])
+  const [running, setRunning] = useState(false)
+
+  const randScore = () => Math.floor(Math.random() * 4) // 0–3
+
+  const resolveSlot = (slot, slotMap, koWinners) => {
+    if (!slot) return null
+    if (slot.startsWith('W_')) return koWinners['ko_' + slot.slice(2)] || null
+    if (/^3[A-L]{2,}/.test(slot) || slot.startsWith('3rd') || slot.startsWith('L_')) return null
+    return slotMap[slot] || null
+  }
+
+  const buildSlotMap = (localResults) => {
+    const map = {}
+    GROUP_LETTERS.forEach((group) => {
+      const groupMatchList = GROUP_MATCHES.filter((m) => m.group === group)
+      const picks = groupMatchList.map((m) => {
+        const r = localResults[m.id]
+        return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null }
+      })
+      const standingsMap = computeGroupStandings(group, picks)
+      const sorted = Object.values(standingsMap).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      sorted.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
+    })
+    return map
+  }
+
+  const fillGroupMatches = async (matches, localResults, log) => {
+    for (const match of matches) {
+      const hs = randScore()
+      const as = randScore()
+      await saveMatchResult({ matchId: match.id, homeScore: hs, awayScore: as })
+      await processMatchResult(match.id, { homeScore: hs, awayScore: as, status: 'final' })
+      localResults[match.id] = { homeScore: hs, awayScore: as, homeTeam: match.homeTeam, awayTeam: match.awayTeam, status: 'final' }
+      log(`✓ ${match.id}: ${WC_TEAMS[match.homeTeam]?.shortName} ${hs}–${as} ${WC_TEAMS[match.awayTeam]?.shortName}`)
+    }
+  }
+
+  const fillKnockoutStage = async (stage, slotMap, koWinners, log) => {
+    const matches = KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
+    for (const match of matches) {
+      const homeTeam = resolveSlot(match.homeSlot, slotMap, koWinners)
+      const awayTeam = resolveSlot(match.awaySlot, slotMap, koWinners)
+      if (!homeTeam || !awayTeam) {
+        log(`⚠ ${match.id}: Could not resolve teams (${match.homeSlot} vs ${match.awaySlot})`)
+        continue
+      }
+      const winner = Math.random() < 0.5 ? homeTeam : awayTeam
+      const loser  = winner === homeTeam ? awayTeam : homeTeam
+      koWinners[match.id] = winner
+      await saveMatchResult({ matchId: match.id, homeScore: null, awayScore: null, homeTeam: winner, awayTeam: loser })
+      log(`✓ ${match.id}: ${WC_TEAMS[winner]?.shortName} wins`)
+    }
+  }
+
+  const buildRoundsFromWinners = (koWinners, slotMap) => {
+    const r32Set = new Set()
+    GROUP_LETTERS.forEach((g) => { if (slotMap[`1${g}`]) r32Set.add(slotMap[`1${g}`]); if (slotMap[`2${g}`]) r32Set.add(slotMap[`2${g}`]) })
+    const r16Set   = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => koWinners[m.id]).filter(Boolean))
+    const qfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => koWinners[m.id]).filter(Boolean))
+    const sfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => koWinners[m.id]).filter(Boolean))
+    const finalM   = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
+    const winnerSet = new Set(finalM && koWinners[finalM.id] ? [koWinners[finalM.id]] : [])
+    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, winner: winnerSet }
+  }
+
+  const handleFill = async (mode) => {
+    setStatus([])
+    setRunning(true)
+    const log = (msg) => setStatus((prev) => [...prev, msg])
+    const localResults = { ...resultsByMatchId }
+    const koWinners = {}
+
+    try {
+      if (mode === 1) {
+        log('— Filling first 31 group stage games —')
+        await fillGroupMatches(GROUP_MATCHES.slice(0, 31), localResults, log)
+      } else if (mode === 2) {
+        log('— Filling all 72 group stage games —')
+        await fillGroupMatches(GROUP_MATCHES, localResults, log)
+      } else if (mode === 3) {
+        log('— Filling all 72 group stage games —')
+        await fillGroupMatches(GROUP_MATCHES, localResults, log)
+        const slotMap = buildSlotMap(localResults)
+        log('— Filling Round of 32 —')
+        await fillKnockoutStage('r32', slotMap, koWinners, log)
+        log('— Filling Round of 16 —')
+        await fillKnockoutStage('r16', slotMap, koWinners, log)
+        log('— Filling Quarterfinals —')
+        await fillKnockoutStage('qf', slotMap, koWinners, log)
+        await recalculatePlayoffPoints(buildRoundsFromWinners(koWinners, slotMap))
+      } else if (mode === 4) {
+        log('— Filling all 72 group stage games —')
+        await fillGroupMatches(GROUP_MATCHES, localResults, log)
+        const slotMap = buildSlotMap(localResults)
+        log('— Filling Round of 32 —')
+        await fillKnockoutStage('r32', slotMap, koWinners, log)
+        log('— Filling Round of 16 —')
+        await fillKnockoutStage('r16', slotMap, koWinners, log)
+        log('— Filling Quarterfinals —')
+        await fillKnockoutStage('qf', slotMap, koWinners, log)
+        log('— Filling Semifinals —')
+        await fillKnockoutStage('sf', slotMap, koWinners, log)
+        log('— Filling Final —')
+        await fillKnockoutStage('final', slotMap, koWinners, log)
+        await recalculatePlayoffPoints(buildRoundsFromWinners(koWinners, slotMap))
+      }
+
+      log('🎉 Done! Refreshing data...')
+      await onRefresh()
+    } catch (err) {
+      log(`❌ Error: ${err.message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const FILL_BUTTONS = [
+    { mode: 1, label: 'Fill First 31 Games',        desc: 'First 31 group stage matches',           color: 'bg-blue-700 hover:bg-blue-600' },
+    { mode: 2, label: 'Fill Group Stage (72)',       desc: 'All 72 group stage matches',             color: 'bg-green-700 hover:bg-green-600' },
+    { mode: 3, label: 'Fill Through Quarterfinals', desc: 'Group stage + R32 + R16 + QF',           color: 'bg-orange-700 hover:bg-orange-600' },
+    { mode: 4, label: 'Fill Entire Tournament',     desc: 'Everything including the Final',          color: 'bg-red-700 hover:bg-red-600' },
+  ]
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Random Score Fill</p>
+      <div className="card bg-yellow-900/20 border-yellow-700/40 text-xs text-yellow-300">
+        Fills matches with random scores (0–3 each team) and saves + scores them. Existing results will be overwritten.
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {FILL_BUTTONS.map(({ mode, label, desc, color }) => (
+          <button
+            key={mode}
+            onClick={() => handleFill(mode)}
+            disabled={running}
+            className={`flex flex-col items-start px-4 py-3 rounded-lg text-left transition-colors disabled:opacity-50 ${color} text-white`}
+          >
+            <span className="font-semibold text-sm">{label}</span>
+            <span className="text-xs opacity-75 mt-0.5">{desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {status.length > 0 && (
+        <div className="card bg-gray-900 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
+          {running && <div className="text-yellow-400 flex items-center gap-1"><Loader className="w-3 h-3 animate-spin" /> Running...</div>}
+          {status.map((line, i) => (
+            <div key={i} className={
+              line.startsWith('✓') || line.startsWith('🎉') ? 'text-green-400' :
+              line.startsWith('❌') ? 'text-red-400' :
+              line.startsWith('⚠') ? 'text-yellow-400' : 'text-gray-500'
+            }>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Dev Tools — test data seeder ─────────────────────────────────────────────
-function DevToolsAdmin() {
+function DevToolsAdmin({ onRefresh, resultsByMatchId }) {
   const [status, setStatus] = useState([])
   const [running, setRunning] = useState(false)
 
@@ -754,61 +918,65 @@ function DevToolsAdmin() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="card bg-purple-900/20 border-purple-700/40 text-xs text-black">
-        <strong>Dev only.</strong> Inserts 3 simulated players with full picks. Safe to run multiple times (upserts). Remove cleans up all test data.
-      </div>
+    <div className="space-y-6">
+      <RandomFillAdmin onRefresh={onRefresh} resultsByMatchId={resultsByMatchId} />
 
-      {/* Test users summary */}
-      <div className="card space-y-2">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Test Users</p>
-        {TEST_USERS.map((u) => (
-          <div key={u.userId} className="flex items-center gap-3 text-sm">
-            <div className="w-7 h-7 rounded-full bg-purple-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              {u.displayName[0]}
-            </div>
-            <div>
-              <span className="text-white font-semibold">{u.displayName}</span>
-              <span className="ml-2 text-gray-500 text-xs font-mono">{u.userId}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+      <div className="border-t border-f1light pt-4 space-y-4">
+        <div className="card bg-purple-900/20 border-purple-700/40 text-xs text-black">
+          <strong>Dev only.</strong> Inserts 3 simulated players with full picks. Safe to run multiple times (upserts). Remove cleans up all test data.
+        </div>
 
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleSeed}
-          disabled={running}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-purple-700 hover:bg-purple-600 text-white disabled:opacity-50 transition-colors"
-        >
-          {running ? <Loader className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
-          Seed Test Users
-        </button>
-        <button
-          onClick={handleRemove}
-          disabled={running}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-f1dark border border-red-800 text-red-400 hover:bg-red-900/30 disabled:opacity-50 transition-colors"
-        >
-          {running ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          Remove Test Users
-        </button>
-      </div>
-
-      {/* Log output */}
-      {status.length > 0 && (
-        <div className="card bg-gray-900 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
-          {status.map((line, i) => (
-            <div key={i} className={
-              line.startsWith('✓') || line.startsWith('🎉') ? 'text-green-400' :
-              line.startsWith('❌') ? 'text-red-400' :
-              line.startsWith('⚠') ? 'text-yellow-400' : 'text-gray-400'
-            }>
-              {line}
+        {/* Test users summary */}
+        <div className="card space-y-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Test Users</p>
+          {TEST_USERS.map((u) => (
+            <div key={u.userId} className="flex items-center gap-3 text-sm">
+              <div className="w-7 h-7 rounded-full bg-purple-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                {u.displayName[0]}
+              </div>
+              <div>
+                <span className="text-white font-semibold">{u.displayName}</span>
+                <span className="ml-2 text-gray-500 text-xs font-mono">{u.userId}</span>
+              </div>
             </div>
           ))}
         </div>
-      )}
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleSeed}
+            disabled={running}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-purple-700 hover:bg-purple-600 text-white disabled:opacity-50 transition-colors"
+          >
+            {running ? <Loader className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+            Seed Test Users
+          </button>
+          <button
+            onClick={handleRemove}
+            disabled={running}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-f1dark border border-red-800 text-red-400 hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+          >
+            {running ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Remove Test Users
+          </button>
+        </div>
+
+        {/* Log output */}
+        {status.length > 0 && (
+          <div className="card bg-gray-900 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
+            {status.map((line, i) => (
+              <div key={i} className={
+                line.startsWith('✓') || line.startsWith('🎉') ? 'text-green-400' :
+                line.startsWith('❌') ? 'text-red-400' :
+                line.startsWith('⚠') ? 'text-yellow-400' : 'text-gray-400'
+              }>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -869,7 +1037,7 @@ export default function WCAdminPage() {
       {activeTab === 'group'    && <GroupStageAdmin matchResults={matchResults} onRefresh={handleRefresh} resultsByMatchId={resultsByMatchId} />}
       {activeTab === 'playoff'  && <PlayoffAdmin onRefresh={handleRefresh} />}
       {activeTab === 'settings' && <TournamentSettingsAdmin tournamentMeta={tournamentMeta} onRefresh={handleRefresh} />}
-      {activeTab === 'devtools' && <DevToolsAdmin />}
+      {activeTab === 'devtools' && <DevToolsAdmin onRefresh={handleRefresh} resultsByMatchId={resultsByMatchId} />}
     </div>
   )
 }
