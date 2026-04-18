@@ -39,8 +39,39 @@ function bCardTop(roundIdx, matchIdx) {
 function bResolveSlot(slot, slotMap, picks) {
   if (!slot) return null
   if (slot.startsWith('W_')) return picks['ko_' + slot.slice(2)] || null
-  if (/^3[A-L]{2,}/.test(slot) || slot.startsWith('3rd') || slot.startsWith('L_')) return null
-  return slotMap[slot] || null
+  if (slot.startsWith('3rd') || slot.startsWith('L_')) return null
+  return slotMap[slot] || null  // handles 1X, 2X, 3X, and 3XXXX (best-3rd) slots
+}
+
+// Rank all 12 third-place teams and assign the top 8 to the R32 "3XXXX" slot codes.
+// Mutates `map` in place; call after the group standings loop.
+function computeThirdPlaceAssignments(map, resultsById) {
+  const allThirdPlace = []
+  GROUP_LETTERS.forEach((group) => {
+    const groupMatchList = GROUP_MATCHES.filter((m) => m.group === group)
+    const picks = groupMatchList.map((m) => {
+      const r = resultsById[m.id]
+      return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null }
+    })
+    const standings = computeGroupStandings(group, picks)
+    if (standings[2]) allThirdPlace.push({ group, ...standings[2] })
+  })
+  // Rank all 12 third-place teams; top 8 advance to R32.
+  allThirdPlace.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+  const qualified = allThirdPlace.slice(0, 8)
+  // Collect the unique 3XXXX slot codes from R32 matches.
+  const r32ThirdCodes = []
+  KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32').forEach((m) => {
+    if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
+    if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
+  })
+  // Greedy: for each slot code pick the best qualified team whose group is eligible.
+  const assigned = new Set()
+  for (const code of r32ThirdCodes) {
+    const eligible = code.slice(1).split('')
+    const pick = qualified.find((t) => eligible.includes(t.group) && !assigned.has(t.teamId))
+    if (pick) { map[code] = pick.teamId; assigned.add(pick.teamId) }
+  }
 }
 
 function bFormatSlot(slot) {
@@ -417,6 +448,8 @@ function PlayoffAdmin({ onRefresh }) {
       )
       sorted.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
     })
+    // Assign the 8 best 3rd-place teams to their R32 slots (e.g. "3ABCDF")
+    computeThirdPlaceAssignments(map, resultsByMatchId)
     return map
   }, [resultsByMatchId])
 
@@ -732,8 +765,8 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
   const resolveSlot = (slot, slotMap, koWinners) => {
     if (!slot) return null
     if (slot.startsWith('W_')) return koWinners['ko_' + slot.slice(2)] || null
-    if (/^3[A-L]{2,}/.test(slot) || slot.startsWith('3rd') || slot.startsWith('L_')) return null
-    return slotMap[slot] || null
+    if (slot.startsWith('3rd') || slot.startsWith('L_')) return null
+    return slotMap[slot] || null  // handles 1X, 2X, and 3XXXX (best-3rd) slots
   }
 
   const buildSlotMap = (localResults) => {
@@ -748,6 +781,8 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
       const sorted = Object.values(standingsMap).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
       sorted.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
     })
+    // Assign the 8 best 3rd-place teams to their R32 slots (e.g. "3ABCDF")
+    computeThirdPlaceAssignments(map, localResults)
     return map
   }
 
@@ -781,7 +816,13 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
 
   const buildRoundsFromWinners = (koWinners, slotMap) => {
     const r32Set = new Set()
-    GROUP_LETTERS.forEach((g) => { if (slotMap[`1${g}`]) r32Set.add(slotMap[`1${g}`]); if (slotMap[`2${g}`]) r32Set.add(slotMap[`2${g}`]) })
+    // All 32 R32 teams: 1st + 2nd from each group + 8 best 3rd-place qualifiers
+    KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32').forEach((m) => {
+      const home = resolveSlot(m.homeSlot, slotMap, {})
+      const away = resolveSlot(m.awaySlot, slotMap, {})
+      if (home) r32Set.add(home)
+      if (away) r32Set.add(away)
+    })
     const r16Set   = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => koWinners[m.id]).filter(Boolean))
     const qfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => koWinners[m.id]).filter(Boolean))
     const sfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => koWinners[m.id]).filter(Boolean))
