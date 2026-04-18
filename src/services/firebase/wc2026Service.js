@@ -432,6 +432,39 @@ export async function deleteMatchResult(matchId) {
   LS.delete('match_results', matchId)
 }
 
+// Bulk-clear all group stage results + reset pick scoring (dev tools)
+export async function clearGroupStageResultsAndPicks() {
+  if (isSupabaseConfigured && supabase) {
+    const { error: e1 } = await supabase.from('wc_match_results').delete().like('match_id', 'gs_%')
+    if (e1) throw new Error(e1.message)
+    const { error: e2 } = await supabase.from('wc_picks').update({
+      points_earned: null, is_exact: null, is_correct_outcome: null,
+    }).like('match_id', 'gs_%')
+    if (e2) throw new Error(e2.message)
+    return
+  }
+  // localStorage demo mode
+  const results = LS.getAll('match_results').filter((r) => !String(r.id).startsWith('gs_'))
+  localStorage.setItem('collush_wc_match_results', JSON.stringify(results))
+  const picks = LS.getAll('picks').map((p) =>
+    String(p.matchId).startsWith('gs_')
+      ? { ...p, pointsEarned: null, isExact: null, isCorrectOutcome: null }
+      : p
+  )
+  localStorage.setItem('collush_wc_picks', JSON.stringify(picks))
+}
+
+// Bulk-clear all knockout stage results (dev tools)
+export async function clearKnockoutResults() {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('wc_match_results').delete().like('match_id', 'ko_%')
+    if (error) throw new Error(error.message)
+    return
+  }
+  const results = LS.getAll('match_results').filter((r) => !String(r.id).startsWith('ko_'))
+  localStorage.setItem('collush_wc_match_results', JSON.stringify(results))
+}
+
 // ── TOURNAMENT METADATA ───────────────────────────────────────────────────────
 
 export async function getTournamentMeta() {

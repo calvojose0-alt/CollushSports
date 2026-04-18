@@ -7,6 +7,8 @@ import {
   deleteMatchResult,
   updateTournamentMeta,
   getWCGroupsForUser,
+  clearGroupStageResultsAndPicks,
+  clearKnockoutResults,
 } from '@/services/firebase/wc2026Service'
 import {
   processMatchResult,
@@ -882,11 +884,51 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
     }
   }
 
+  const handleClearGroupStage = async () => {
+    setStatus([])
+    setRunning(true)
+    const log = (msg) => setStatus((prev) => [...prev, msg])
+    try {
+      log('— Clearing all group stage results —')
+      await clearGroupStageResultsAndPicks()
+      log('✓ Deleted group stage results & reset pick scores')
+      await recalculateAllPlayerTotals()
+      log('✓ Player totals recalculated')
+      log('🎉 Done!')
+      await onRefresh()
+    } catch (err) {
+      log(`❌ Error: ${err.message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const handleClearKnockoutStage = async () => {
+    setStatus([])
+    setRunning(true)
+    const log = (msg) => setStatus((prev) => [...prev, msg])
+    try {
+      log('— Clearing all knockout stage results —')
+      await clearKnockoutResults()
+      log('✓ Deleted knockout match results')
+      await recalculatePlayoffPoints({ r32: new Set(), r16: new Set(), qf: new Set(), sf: new Set(), winner: new Set() })
+      log('✓ Playoff points reset to 0')
+      await recalculateAllPlayerTotals()
+      log('✓ Player totals recalculated')
+      log('🎉 Done!')
+      await onRefresh()
+    } catch (err) {
+      log(`❌ Error: ${err.message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
   const FILL_BUTTONS = [
-    { mode: 1, label: 'Fill First 31 Games',        desc: 'First 31 group stage matches',           color: 'bg-blue-700 hover:bg-blue-600' },
-    { mode: 2, label: 'Fill Group Stage (72)',       desc: 'All 72 group stage matches',             color: 'bg-green-700 hover:bg-green-600' },
-    { mode: 3, label: 'Fill Through Quarterfinals', desc: 'Group stage + R32 + R16 + QF',           color: 'bg-orange-700 hover:bg-orange-600' },
-    { mode: 4, label: 'Fill Entire Tournament',     desc: 'Everything including the Final',          color: 'bg-red-700 hover:bg-red-600' },
+    { mode: 1, label: 'Fill 31 Games',    color: 'bg-blue-700 hover:bg-blue-600' },
+    { mode: 2, label: 'Fill 72 Games',    color: 'bg-green-700 hover:bg-green-600' },
+    { mode: 3, label: 'Fill Through QF',  color: 'bg-orange-700 hover:bg-orange-600' },
+    { mode: 4, label: 'Fill Entire',      color: 'bg-red-700 hover:bg-red-600' },
   ]
 
   return (
@@ -895,18 +937,34 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
       <div className="card bg-yellow-900/60 border-yellow-600 text-xs text-yellow-200">
         Fills matches with random scores (0–3 each team) and saves + scores them. Existing results will be overwritten.
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {FILL_BUTTONS.map(({ mode, label, desc, color }) => (
+      <div className="flex flex-wrap items-center gap-2">
+        {FILL_BUTTONS.map(({ mode, label, color }) => (
           <button
             key={mode}
             onClick={() => handleFill(mode)}
             disabled={running}
-            className={`flex flex-col items-start px-4 py-3 rounded-lg text-left transition-colors disabled:opacity-50 ${color} text-white`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${color} text-white`}
           >
-            <span className="font-semibold text-sm">{label}</span>
-            <span className="text-xs opacity-75 mt-0.5">{desc}</span>
+            {label}
           </button>
         ))}
+
+        <div className="w-px h-5 bg-gray-600 mx-1" />
+
+        <button
+          onClick={handleClearGroupStage}
+          disabled={running}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 bg-gray-700 hover:bg-red-900 border border-gray-600 hover:border-red-700 text-gray-200"
+        >
+          Clear Group Stage
+        </button>
+        <button
+          onClick={handleClearKnockoutStage}
+          disabled={running}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 bg-gray-700 hover:bg-red-900 border border-gray-600 hover:border-red-700 text-gray-200"
+        >
+          Clear Knockout Stage
+        </button>
       </div>
 
       {status.length > 0 && (
