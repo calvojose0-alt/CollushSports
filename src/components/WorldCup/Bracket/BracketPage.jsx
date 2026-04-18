@@ -5,7 +5,7 @@ import { savePlayoffPick } from '@/services/firebase/wc2026Service'
 import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
-import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users } from 'lucide-react'
+import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
@@ -621,7 +621,10 @@ export default function BracketPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-bold text-blue-800 text-lg">Knockout Bracket</h2>
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-yellow-400" />
+            <h2 className="font-bold text-blue-800 text-lg">Knockout Bracket</h2>
+          </div>
           <p className="text-xs text-gray-400 mt-0.5">
             Round of 32 is auto-filled from your group picks. Click teams to advance them.
           </p>
