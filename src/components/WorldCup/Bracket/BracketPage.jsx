@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { savePlayoffPick } from '@/services/firebase/wc2026Service'
-import { WC_TEAMS, WC_GROUPS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
+import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users } from 'lucide-react'
@@ -42,10 +42,8 @@ function resolveSlot(slot, slotMap, picks) {
     const matchId = 'ko_' + slot.slice(2)
     return picks[matchId] || null
   }
-  // 3rd-place qualifier: '3ABCDF', '3CDFGH', etc. — TBD until group stage ends
-  if (/^3[A-L]{2,}/.test(slot)) return null
   if (slot.startsWith('3rd') || slot.startsWith('L_')) return null
-  return slotMap[slot] || null
+  return slotMap[slot] || null  // handles 1X, 2X, and 3XXXX (best-3rd) slots
 }
 
 // Format a TBD slot label for display
@@ -447,42 +445,52 @@ export default function BracketPage() {
   const [saving, setSaving]             = useState(false)
   const [msg, setMsg]                   = useState(null)
 
-  // ── Compute predicted group standings from user's group picks ──────────────
-  const predictedStandings = useMemo(() => {
-    const result = {}
+  // ── Build slot map: '1A'→teamId, '2B'→teamId, and '3XXXX'→best-3rd teamId ──
+  // Prefers actual admin-entered results; falls back to user's group picks.
+  const slotMap = useMemo(() => {
+    const map = {}
+    const allThirdPlace = []  // { group, teamId, pts, gd, gf }
+
     GROUP_LETTERS.forEach(group => {
       const groupMatchList = GROUP_MATCHES.filter(m => m.group === group)
       const picks = groupMatchList.map(m => {
-        const p = myPicksByMatchId[m.id]
+        const actual = resultsByMatchId[m.id]
+        const pred   = myPicksByMatchId[m.id]
+        // Use actual result if the admin has scored it, otherwise use user's prediction
+        const r = (actual?.homeScore != null && actual?.awayScore != null) ? actual : pred
         return {
-          homeTeam: m.homeTeam,
-          awayTeam: m.awayTeam,
-          homeScore: p?.homeScore ?? null,
-          awayScore: p?.awayScore ?? null,
+          homeTeam:  m.homeTeam,
+          awayTeam:  m.awayTeam,
+          homeScore: r?.homeScore ?? null,
+          awayScore: r?.awayScore ?? null,
         }
       })
-      const standingsMap = computeGroupStandings(group, picks)
-      const sorted = Object.values(standingsMap).sort((a, b) => {
-        if (b.pts !== a.pts) return b.pts - a.pts
-        if (b.gd !== a.gd)  return b.gd - a.gd
-        return b.gf - a.gf
-      })
-      result[group] = sorted.map(s => s.teamId)
+      const standings = computeGroupStandings(group, picks)
+      standings.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
+      if (standings[2]) allThirdPlace.push({ group, ...standings[2] })
     })
-    return result
-  }, [myPicksByMatchId])
 
-  // ── Build slot map: '1A' → teamId, '2B' → teamId, etc. ───────────────────
-  const slotMap = useMemo(() => {
-    const map = {}
-    GROUP_LETTERS.forEach(group => {
-      const rankings = predictedStandings[group] || WC_GROUPS[group]
-      rankings.forEach((teamId, idx) => {
-        map[`${idx + 1}${group}`] = teamId
-      })
+    // Rank all 12 third-place teams; top 8 qualify for R32
+    allThirdPlace.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+    const qualified = allThirdPlace.slice(0, 8)
+
+    // Collect the 8 unique 3XXXX slot codes from R32 matches
+    const r32ThirdCodes = []
+    KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').forEach(m => {
+      if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
+      if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
     })
+
+    // Greedy assignment: best available qualified team whose group is eligible
+    const assigned = new Set()
+    for (const code of r32ThirdCodes) {
+      const eligible = code.slice(1).split('')
+      const pick = qualified.find(t => eligible.includes(t.group) && !assigned.has(t.teamId))
+      if (pick) { map[code] = pick.teamId; assigned.add(pick.teamId) }
+    }
+
     return map
-  }, [predictedStandings])
+  }, [myPicksByMatchId, resultsByMatchId])
 
   // ── Initialize bracket picks from saved playoff data (once) ───────────────
   useEffect(() => {
@@ -562,12 +570,14 @@ export default function BracketPage() {
     setSaving(true)
     setMsg(null)
     try {
-      // r32: 1st + 2nd from each group (auto from predictions)
-      const r32Teams = []
-      GROUP_LETTERS.forEach(g => {
-        if (slotMap[`1${g}`]) r32Teams.push(slotMap[`1${g}`])
-        if (slotMap[`2${g}`]) r32Teams.push(slotMap[`2${g}`])
-      })
+      // r32: all 32 teams — 1st + 2nd from each group + 8 best 3rd-place qualifiers
+      const r32Teams = KNOCKOUT_MATCHES
+        .filter(m => m.stage === 'r32')
+        .flatMap(m => [
+          resolveSlot(m.homeSlot, slotMap, {}),
+          resolveSlot(m.awaySlot, slotMap, {}),
+        ])
+        .filter(Boolean)
 
       const r16Teams = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32')
         .map(m => bracketPicks[m.id]).filter(Boolean)
