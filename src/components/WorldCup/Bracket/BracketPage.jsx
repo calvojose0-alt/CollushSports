@@ -166,8 +166,8 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
         )
       ) : (
         <>
-          <span className="w-3.5 h-3.5 rounded-full bg-gray-700 flex-shrink-0" />
-          <span className="text-[9px] text-gray-600 truncate">{formatSlotLabel(slotLabel)}</span>
+          <span className="w-3.5 h-3.5 rounded-full bg-gray-500 flex-shrink-0" />
+          <span className="text-[9px] text-gray-300 truncate">{formatSlotLabel(slotLabel)}</span>
         </>
       )}
     </div>
@@ -228,7 +228,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
         {/* Venue + community toggle */}
         <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
           style={{ height: 14 }}>
-          <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate flex-1">{venue}</span>
+          <span className="text-[8px] text-gray-300 uppercase tracking-wide truncate flex-1">{venue}</span>
           {hasCommunity && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowCommunity(v => !v) }}
@@ -281,8 +281,8 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
             </>
           ) : (
             <>
-              <span className="text-[8px] text-gray-600">{fmtDate(match.date)}</span>
-              <span className="text-[8px] text-gray-600">{fmtTime(match.time)}</span>
+              <span className="text-[8px] text-gray-300">{fmtDate(match.date)}</span>
+              <span className="text-[8px] text-gray-300">{fmtTime(match.time)}</span>
             </>
           )}
         </div>
