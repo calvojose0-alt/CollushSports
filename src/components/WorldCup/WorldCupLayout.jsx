@@ -1,8 +1,9 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Globe, Trophy, Users, Settings, ChevronLeft, Flag } from 'lucide-react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Globe, Trophy, Users, Settings, ChevronLeft, Flag, Info } from 'lucide-react'
 import { useWCGame } from '@/hooks/useWCGame'
 import { useAuth } from '@/hooks/useAuth'
-import { isPicksLocked, PICK_LOCK_TIME } from '@/data/wc2026Teams'
+import { isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
+import { KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -32,14 +33,18 @@ function LockCountdown() {
 }
 
 export default function WorldCupLayout() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const { user }  = useAuth()
+  const onBracket = location.pathname === '/world-cup/bracket'
+
   const {
     myPlayer,
     leaderboard,
     allPicks,
     completedGroupMatches,
     totalGroupMatches,
+    myPlayoffPicksByRound,
     loading,
     error,
   } = useWCGame()
@@ -151,6 +156,69 @@ export default function WorldCupLayout() {
             <div className="border-t border-f1light pt-2" />
             <LockCountdown />
           </div>
+
+          {/* Bracket info — only shown on Knockout Bracket page */}
+          {onBracket && (() => {
+            const r16Done  = (myPlayoffPicksByRound?.r16?.teamIds  || []).length
+            const qfDone   = (myPlayoffPicksByRound?.qf?.teamIds   || []).length
+            const sfDone   = (myPlayoffPicksByRound?.sf?.teamIds   || []).length
+            const finDone  = (myPlayoffPicksByRound?.winner?.teamIds || []).length
+            const groupsDone = completedGroupMatches < totalGroupMatches
+
+            const rounds = [
+              { label: 'R16 picks',  done: r16Done,  total: 16 },
+              { label: 'QF picks',   done: qfDone,   total: 8  },
+              { label: 'SF picks',   done: sfDone,   total: 4  },
+              { label: 'Final pick', done: finDone,  total: 2  },
+            ]
+
+            return (
+              <>
+                {/* Scoring legend + progress */}
+                <div className="mt-3 card text-xs space-y-2">
+                  <div className="flex items-start gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-gray-400 leading-relaxed">
+                      Pts per qualifier:&nbsp;
+                      <span className="text-yellow-400 font-semibold">R16 +{SCORING.PLAYOFF_R16}</span>
+                      {' · '}
+                      <span className="text-yellow-400 font-semibold">QF +{SCORING.PLAYOFF_QF}</span>
+                      {' · '}
+                      <span className="text-yellow-400 font-semibold">SF +{SCORING.PLAYOFF_SF}</span>
+                      {' · '}
+                      <span className="text-yellow-400 font-semibold">🏆 +{SCORING.PLAYOFF_WINNER}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    {rounds.map(r => {
+                      const pct = Math.round((r.done / r.total) * 100)
+                      return (
+                        <div key={r.label} className="flex items-center gap-2">
+                          <span className="text-gray-500 w-16 flex-shrink-0">{r.label}</span>
+                          <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-yellow-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-gray-500 w-8 text-right">{r.done}/{r.total}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* R32 auto-fill notice */}
+                {groupsDone && (
+                  <div className="mt-2 card flex items-start gap-1.5 text-xs text-gray-400">
+                    <Info className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <span>
+                      R32 slots are filled from your{' '}
+                      <strong className="text-gray-300">Group Stage Picks</strong>.
+                      Complete more group picks to see your R32 matchups.
+                    </span>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </aside>
 
         {/* Main content */}

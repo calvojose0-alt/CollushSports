@@ -5,7 +5,7 @@ import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Servi
 import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
-import { Save, Loader, Lock, Info, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
+import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
@@ -616,7 +616,6 @@ export default function BracketPage() {
   }
 
   // ── Count picks made ──────────────────────────────────────────────────────
-  const r32PicksDone   = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32' && bracketPicks[m.id]).length
   const finalPick      = bracketPicks[KNOCKOUT_MATCHES.find(m => m.stage === 'final')?.id]
   const champion       = finalPick ? WC_TEAMS[finalPick] : null
 
@@ -672,21 +671,6 @@ export default function BracketPage() {
         </div>
       )}
 
-      {/* Info + progress */}
-      <div className="card space-y-2">
-        <div className="flex items-start gap-2">
-          <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-gray-400">
-            Points per correctly predicted qualifier: &nbsp;
-            <span className="text-yellow-400 font-semibold">R16 +{SCORING.PLAYOFF_R16}</span> ·
-            <span className="text-yellow-400 font-semibold"> QF +{SCORING.PLAYOFF_QF}</span> ·
-            <span className="text-yellow-400 font-semibold"> SF +{SCORING.PLAYOFF_SF}</span> ·
-            <span className="text-yellow-400 font-semibold"> Champion +{SCORING.PLAYOFF_WINNER}</span>
-          </p>
-        </div>
-        <PickProgress bracketPicks={bracketPicks} />
-      </div>
-
       {/* Save message */}
       {msg && (
         <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm border ${
@@ -698,17 +682,6 @@ export default function BracketPage() {
             ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             : <AlertCircle  className="w-4 h-4 flex-shrink-0" />}
           {msg.text}
-        </div>
-      )}
-
-      {/* Note about R32 auto-fill */}
-      {r32PicksDone < 12 && (
-        <div className="card flex items-start gap-2 text-xs text-gray-400">
-          <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <span>
-            R32 slots are filled from your <strong className="text-gray-300">Group Stage Picks</strong> predictions.
-            Complete more group picks to see your predicted R32 matchups.
-          </span>
         </div>
       )}
 
