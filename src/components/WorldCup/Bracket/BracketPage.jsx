@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
-import { savePlayoffPick } from '@/services/firebase/wc2026Service'
+import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
 import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
@@ -436,14 +436,19 @@ function PickProgress({ bracketPicks }) {
 // ── Main bracket page ─────────────────────────────────────────────────────────
 export default function BracketPage() {
   const { user }         = useAuth()
-  const { myPicks, myPicksByMatchId, myPlayoffPicksByRound, refreshPicks, allPlayoffPicks, resultsByMatchId } = useWCGame()
+  const {
+    myPicks, myPicksByMatchId, myPlayoffPicksByRound,
+    refreshPicks, allPlayoffPicks, resultsByMatchId,
+    myPlayer, reload,
+  } = useWCGame()
 
   const locked = isPicksLocked()
 
-  const [bracketPicks, setBracketPicks] = useState({})
-  const [initialized, setInitialized]   = useState(false)
-  const [saving, setSaving]             = useState(false)
-  const [msg, setMsg]                   = useState(null)
+  const [bracketPicks, setBracketPicks]     = useState({})
+  const [initialized, setInitialized]       = useState(false)
+  const [saving, setSaving]                   = useState(false)
+  const [msg, setMsg]                         = useState(null)
+  const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
 
   // ── Build slot map: '1A'→teamId, '2B'→teamId, and '3XXXX'→best-3rd teamId ──
   // Prefers actual admin-entered results; falls back to user's group picks.
@@ -588,13 +593,18 @@ export default function BracketPage() {
       const finalM   = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
       const winner   = finalM && bracketPicks[finalM.id] ? [bracketPicks[finalM.id]] : []
 
-      await Promise.all([
+      const saves = [
         savePlayoffPick({ userId: user.uid, round: 'r32',    teamIds: r32Teams }),
         savePlayoffPick({ userId: user.uid, round: 'r16',    teamIds: r16Teams }),
         savePlayoffPick({ userId: user.uid, round: 'qf',     teamIds: qfTeams  }),
         savePlayoffPick({ userId: user.uid, round: 'sf',     teamIds: sfTeams  }),
         savePlayoffPick({ userId: user.uid, round: 'winner', teamIds: winner   }),
-      ])
+      ]
+      const goalsVal = parseInt(totalGoalsGuess, 10)
+      if (!isNaN(goalsVal) && goalsVal >= 0) {
+        saves.push(updateWCPlayer(user.uid, { totalGoalsGuess: goalsVal }))
+      }
+      await Promise.all(saves)
       await refreshPicks()
       setMsg({ type: 'success', text: 'Bracket saved!' })
       setTimeout(() => setMsg(null), 3000)
@@ -728,6 +738,37 @@ export default function BracketPage() {
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Tiebreaker */}
+      <div className="card border-yellow-700/40 bg-gray-900">
+        <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-1">
+          Tiebreaker — Total Tournament Goals
+        </p>
+        <p className="text-xs text-gray-400 mb-3">
+          Predict the total goals scored across all <span className="text-white font-semibold">104 games</span> of
+          the 2026 World Cup (72 group stage + 32 knockout). Used as the 3rd tiebreaker.
+        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            type="number"
+            min="0"
+            max="500"
+            value={totalGoalsGuess}
+            onChange={(e) => setTotalGoalsGuess(e.target.value)}
+            disabled={locked}
+            placeholder="e.g. 170"
+            className="input-field w-24 text-center font-bold text-white"
+          />
+          {myPlayer?.totalGoalsGuess != null && (
+            <span className="text-xs text-green-400 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Saved: {myPlayer.totalGoalsGuess}
+            </span>
+          )}
+          {!locked && (
+            <span className="text-xs text-gray-500 italic">Saved with the bracket above ↑</span>
+          )}
         </div>
       </div>
 

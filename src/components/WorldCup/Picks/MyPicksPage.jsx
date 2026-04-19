@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
-import { saveGroupPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
+import { saveGroupPick } from '@/services/firebase/wc2026Service'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
@@ -215,9 +215,6 @@ export default function MyPicksPage() {
   const [localScores, setLocalScores] = useState({}) // { matchId: { home, away } }
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState(null)
-  const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
-  const [savingGoals, setSavingGoals] = useState(false)
-
   const groupMatches = useMemo(() => getGroupMatches(activeGroup), [activeGroup])
 
   // Build score state: prefer localScores, then saved picks
@@ -311,25 +308,7 @@ export default function MyPicksPage() {
     }
   }
 
-  const handleSaveGoals = async () => {
-    const v = parseInt(totalGoalsGuess, 10)
-    if (isNaN(v) || v < 0) {
-      setSaveMsg({ type: 'error', text: 'Enter a valid total goals prediction.' })
-      return
-    }
-    setSavingGoals(true)
-    try {
-      await updateWCPlayer(user.uid, { totalGoalsGuess: v })
-      await reload()
-      setSaveMsg({ type: 'success', text: 'Total goals prediction saved!' })
-    } catch (err) {
-      setSaveMsg({ type: 'error', text: err.message })
-    } finally {
-      setSavingGoals(false)
-    }
-  }
-
-  // Count saved picks per group
+// Count saved picks per group
   const savedCountByGroup = useMemo(() => {
     const counts = {}
     GROUP_LETTERS.forEach((g) => {
@@ -557,42 +536,6 @@ export default function MyPicksPage() {
             </div>
           </div>
 
-          {/* Total Goals Tiebreaker */}
-          <div className="card border-yellow-700/40 bg-gray-900">
-            <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">
-              Tiebreaker — Total Tournament Goals
-            </p>
-            <p className="text-xs text-gray-400 mb-3">
-              Predict the total goals scored in the entire 2026 World Cup. Used as the 3rd tiebreaker.
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                max="500"
-                value={totalGoalsGuess}
-                onChange={(e) => setTotalGoalsGuess(e.target.value)}
-                disabled={locked}
-                placeholder="e.g. 170"
-                className="input-field w-24 text-center font-bold text-white"
-              />
-              {!locked && (
-                <button
-                  onClick={handleSaveGoals}
-                  disabled={savingGoals}
-                  className="btn-secondary text-xs py-2 px-3 flex items-center gap-1"
-                >
-                  {savingGoals ? <Loader className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                  Save
-                </button>
-              )}
-              {myPlayer?.totalGoalsGuess !== null && myPlayer?.totalGoalsGuess !== undefined && (
-                <span className="text-xs text-green-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Saved: {myPlayer.totalGoalsGuess}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
