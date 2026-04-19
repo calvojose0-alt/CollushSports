@@ -45,6 +45,31 @@ function bResolveSlot(slot, slotMap, picks) {
   return slotMap[slot] || null  // handles 1X, 2X, 3X, and 3XXXX (best-3rd) slots
 }
 
+// Backtracking assignment of top-8 3rd-place teams to R32 slot codes.
+// Greedy ordering can leave slots empty when teams shared across slots get
+// consumed early. Backtracking finds a valid assignment whenever one exists,
+// while still preferring higher-ranked teams (qualified is sorted best-first).
+function assignBestThird(qualified, r32ThirdCodes) {
+  const result = {}
+  const used   = new Set()
+  function bt(i) {
+    if (i === r32ThirdCodes.length) return true
+    const eligible = r32ThirdCodes[i].slice(1).split('')
+    for (const team of qualified) {
+      if (!used.has(team.teamId) && eligible.includes(team.group)) {
+        used.add(team.teamId)
+        result[r32ThirdCodes[i]] = team.teamId
+        if (bt(i + 1)) return true
+        used.delete(team.teamId)
+        delete result[r32ThirdCodes[i]]
+      }
+    }
+    return false
+  }
+  bt(0)
+  return result
+}
+
 // Rank all 12 third-place teams and assign the top 8 to the R32 "3XXXX" slot codes.
 // Mutates `map` in place; call after the group standings loop.
 function computeThirdPlaceAssignments(map, resultsById) {
@@ -67,13 +92,9 @@ function computeThirdPlaceAssignments(map, resultsById) {
     if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
     if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
   })
-  // Greedy: for each slot code pick the best qualified team whose group is eligible.
-  const assigned = new Set()
-  for (const code of r32ThirdCodes) {
-    const eligible = code.slice(1).split('')
-    const pick = qualified.find((t) => eligible.includes(t.group) && !assigned.has(t.teamId))
-    if (pick) { map[code] = pick.teamId; assigned.add(pick.teamId) }
-  }
+  // Use backtracking to guarantee all eligible slots are filled.
+  const assigned = assignBestThird(qualified, r32ThirdCodes)
+  Object.assign(map, assigned)
 }
 
 function bFormatSlot(slot) {

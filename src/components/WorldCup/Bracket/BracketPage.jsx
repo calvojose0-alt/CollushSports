@@ -122,7 +122,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   } else if (resultStatus === 'eliminated') {
     colorClass = 'text-gray-600 opacity-50'
   } else {
-    colorClass = team && clickable ? 'hover:bg-white/5 text-gray-200' : 'text-gray-500'
+    colorClass = team && clickable ? 'hover:bg-white/5 text-white' : 'text-gray-500'
   }
 
   // Pick indicator icon
@@ -486,13 +486,26 @@ export default function BracketPage() {
       if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
     })
 
-    // Greedy assignment: best available qualified team whose group is eligible
-    const assigned = new Set()
-    for (const code of r32ThirdCodes) {
-      const eligible = code.slice(1).split('')
-      const pick = qualified.find(t => eligible.includes(t.group) && !assigned.has(t.teamId))
-      if (pick) { map[code] = pick.teamId; assigned.add(pick.teamId) }
+    // Backtracking assignment — guarantees all eligible slots are filled
+    // even when greedy ordering would leave some empty.
+    const used   = new Set()
+    const btResult = {}
+    function bt(i) {
+      if (i === r32ThirdCodes.length) return true
+      const eligible = r32ThirdCodes[i].slice(1).split('')
+      for (const team of qualified) {
+        if (!used.has(team.teamId) && eligible.includes(team.group)) {
+          used.add(team.teamId)
+          btResult[r32ThirdCodes[i]] = team.teamId
+          if (bt(i + 1)) return true
+          used.delete(team.teamId)
+          delete btResult[r32ThirdCodes[i]]
+        }
+      }
+      return false
     }
+    bt(0)
+    Object.assign(map, btResult)
 
     return map
   }, [myPicksByMatchId, resultsByMatchId])
