@@ -200,7 +200,7 @@ export default function WCLeaderboardPage() {
           <Trophy className="w-5 h-5 text-yellow-400" />
           <h2 className="font-bold text-blue-800">Leaderboard</h2>
         </div>
-        <p className="text-xs text-gray-300 mt-0.5">
+        <p className="text-xs text-blue-700 mt-0.5">
           Rankings include everyone in the community. To see standings within your group of friends, go to <strong className="text-gray-300">My Groups</strong>.
         </p>
       </div>
