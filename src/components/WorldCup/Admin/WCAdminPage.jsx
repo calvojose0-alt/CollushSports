@@ -585,12 +585,12 @@ function PlayoffAdmin({ onRefresh }) {
         </button>
       </div>
 
-      {/* Warning: R32 points only awarded when group stage is complete */}
+      {/* Warning: group qualification bonus points only awarded when group stage is complete */}
       {!groupStageComplete && (
         <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>
-            R32 qualification points (+{SCORING.PLAYOFF_R32}/team) will only be awarded once all {totalGroupMatches} group stage matches are entered
+            Group qualification bonus points will only be awarded once all {totalGroupMatches} group stage matches are entered
             ({completedGroupMatches}/{totalGroupMatches} done).
           </span>
         </div>

@@ -35,6 +35,7 @@ import BracketPage from '@/components/WorldCup/Bracket/BracketPage'
 import WCLeaderboardPage from '@/components/WorldCup/Leaderboard/WCLeaderboardPage'
 import WCGroupsPage from '@/components/WorldCup/Groups/WCGroupsPage'
 import WCAdminPage from '@/components/WorldCup/Admin/WCAdminPage'
+import WCScoringPage from '@/components/WorldCup/Scoring/WCScoringPage'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -139,6 +140,7 @@ function AppRoutes() {
           <Route path="bracket" element={<BracketPage />} />
           <Route path="leaderboard" element={<WCLeaderboardPage />} />
           <Route path="groups" element={<WCGroupsPage />} />
+          <Route path="scoring" element={<WCScoringPage />} />
           <Route path="admin" element={<AdminRoute fallback="/world-cup"><WCAdminPage /></AdminRoute>} />
         </Route>
 

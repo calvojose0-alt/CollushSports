@@ -96,13 +96,15 @@ export const GROUP_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L']
 
 // ── Scoring constants ──────────────────────────────────────────────────────────
 export const SCORING = {
-  GROUP_EXACT_SCORE:    5,
-  GROUP_CORRECT_OUTCOME: 3,
-  PLAYOFF_R32:    5,
-  PLAYOFF_R16:    8,
-  PLAYOFF_QF:    10,
-  PLAYOFF_SF:    15,
-  PLAYOFF_WINNER: 25,
+  GROUP_EXACT_SCORE:       4,
+  GROUP_CORRECT_OUTCOME:   2,
+  GROUP_QUALIFY_EXACT:     4,  // picked team to qualify AND in the exact position
+  GROUP_QUALIFY_POSITION:  2,  // picked team to qualify but in the wrong position
+  PLAYOFF_R32:     0,  // no points — R32 advancement is covered by group qualification scoring
+  PLAYOFF_R16:     5,  // per team correctly predicted to reach Round of 16
+  PLAYOFF_QF:      8,  // per team correctly predicted to reach Quarterfinals
+  PLAYOFF_SF:     10,  // per team correctly predicted to reach Semifinals
+  PLAYOFF_WINNER: 15,  // champion
 }
 
 // Pick lock: 1 hour before first match (June 11, 2026 ~8PM ET → 23:00 UTC)

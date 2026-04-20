@@ -3,17 +3,20 @@
 // Required Supabase tables (run this SQL in Supabase SQL editor):
 // ─────────────────────────────────────────────────────────────────
 // CREATE TABLE wc_players (
-//   id           text PRIMARY KEY,   -- 'wc2026_{userId}'
-//   user_id      text NOT NULL,
-//   display_name text,
-//   total_points integer DEFAULT 0,
-//   exact_hits   integer DEFAULT 0,
-//   outcome_hits integer DEFAULT 0,
-//   playoff_points integer DEFAULT 0,
-//   total_goals_guess integer,        -- tiebreaker 3: user's predicted total goals
-//   group_stage_leader boolean DEFAULT false,
-//   joined_at    timestamptz DEFAULT now()
+//   id                   text PRIMARY KEY,   -- 'wc2026_{userId}'
+//   user_id              text NOT NULL,
+//   display_name         text,
+//   total_points         integer DEFAULT 0,
+//   exact_hits           integer DEFAULT 0,
+//   outcome_hits         integer DEFAULT 0,
+//   playoff_points       integer DEFAULT 0,
+//   qualification_points integer DEFAULT 0,  -- bonus pts for predicting group qualifiers
+//   total_goals_guess    integer,             -- tiebreaker 3: user's predicted total goals
+//   group_stage_leader   boolean DEFAULT false,
+//   joined_at            timestamptz DEFAULT now()
 // );
+// -- If upgrading an existing DB, run:
+// -- ALTER TABLE wc_players ADD COLUMN IF NOT EXISTS qualification_points integer DEFAULT 0;
 // CREATE TABLE wc_picks (
 //   id              text PRIMARY KEY,  -- 'wc2026_{userId}_{matchId}'
 //   user_id         text NOT NULL,
@@ -99,13 +102,14 @@ function mapPlayer(row) {
     id:                row.id,
     userId:            row.user_id,
     displayName:       row.display_name,
-    totalPoints:       row.total_points       ?? 0,
-    exactHits:         row.exact_hits         ?? 0,
-    outcomeHits:       row.outcome_hits       ?? 0,
-    playoffPoints:     row.playoff_points     ?? 0,
-    totalGoalsGuess:   row.total_goals_guess  ?? null,
-    groupStageLeader:  row.group_stage_leader ?? false,
-    joinedAt:          row.joined_at,
+    totalPoints:          row.total_points          ?? 0,
+    exactHits:            row.exact_hits            ?? 0,
+    outcomeHits:          row.outcome_hits          ?? 0,
+    playoffPoints:        row.playoff_points        ?? 0,
+    qualificationPoints:  row.qualification_points  ?? 0,
+    totalGoalsGuess:      row.total_goals_guess     ?? null,
+    groupStageLeader:     row.group_stage_leader    ?? false,
+    joinedAt:             row.joined_at,
   }
 }
 
@@ -215,12 +219,13 @@ export async function updateWCPlayer(userId, updates) {
   const playerId = `${WC_GAME_ID}_${userId}`
   if (isSupabaseConfigured && supabase) {
     const dbUpdates = {}
-    if (updates.totalPoints       !== undefined) dbUpdates.total_points        = updates.totalPoints
-    if (updates.exactHits         !== undefined) dbUpdates.exact_hits          = updates.exactHits
-    if (updates.outcomeHits       !== undefined) dbUpdates.outcome_hits        = updates.outcomeHits
-    if (updates.playoffPoints     !== undefined) dbUpdates.playoff_points      = updates.playoffPoints
-    if (updates.totalGoalsGuess   !== undefined) dbUpdates.total_goals_guess   = updates.totalGoalsGuess
-    if (updates.groupStageLeader  !== undefined) dbUpdates.group_stage_leader  = updates.groupStageLeader
+    if (updates.totalPoints          !== undefined) dbUpdates.total_points          = updates.totalPoints
+    if (updates.exactHits            !== undefined) dbUpdates.exact_hits            = updates.exactHits
+    if (updates.outcomeHits          !== undefined) dbUpdates.outcome_hits          = updates.outcomeHits
+    if (updates.playoffPoints        !== undefined) dbUpdates.playoff_points        = updates.playoffPoints
+    if (updates.qualificationPoints  !== undefined) dbUpdates.qualification_points  = updates.qualificationPoints
+    if (updates.totalGoalsGuess      !== undefined) dbUpdates.total_goals_guess     = updates.totalGoalsGuess
+    if (updates.groupStageLeader     !== undefined) dbUpdates.group_stage_leader    = updates.groupStageLeader
     const { error } = await supabase.from('wc_players').update(dbUpdates).eq('id', playerId)
     if (error) throw new Error(error.message)
     return

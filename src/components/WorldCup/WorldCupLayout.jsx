@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Globe, Trophy, Users, Settings, ChevronLeft, Flag, Info } from 'lucide-react'
+import { Globe, Trophy, Users, Settings, ChevronLeft, Flag, Info, Star } from 'lucide-react'
 import { useWCGame } from '@/hooks/useWCGame'
 import { useAuth } from '@/hooks/useAuth'
 import { isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
@@ -12,6 +12,7 @@ const ALL_NAV = [
   { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', icon: Globe              },
   { to: '/world-cup/leaderboard',label: 'Leaderboard',icon: Trophy               },
   { to: '/world-cup/groups',     label: 'Groups',     icon: Users                },
+  { to: '/world-cup/scoring',    label: 'Scoring',    icon: Star                 },
   { to: '/world-cup/admin',      label: 'Admin',      icon: Settings, adminOnly: true },
 ]
 
@@ -176,19 +177,25 @@ export default function WorldCupLayout() {
               <>
                 {/* Scoring legend + progress */}
                 <div className="mt-3 card text-xs space-y-2">
-                  <div className="flex items-start gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-gray-400 leading-relaxed">
-                      Pts per qualifier:&nbsp;
-                      <span className="text-yellow-400 font-semibold">R16 +{SCORING.PLAYOFF_R16}</span>
-                      {' · '}
-                      <span className="text-yellow-400 font-semibold">QF +{SCORING.PLAYOFF_QF}</span>
-                      {' · '}
-                      <span className="text-yellow-400 font-semibold">SF +{SCORING.PLAYOFF_SF}</span>
-                      {' · '}
-                      <span className="text-yellow-400 font-semibold">🏆 +{SCORING.PLAYOFF_WINNER}</span>
-                    </p>
-                  </div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Knockout Scoring</p>
+                  <table className="w-full text-xs mt-1">
+                    <tbody className="divide-y divide-gray-800">
+                      {[
+                        { label: 'Round of 16',    sub: 'R32 qualifiers', pts: SCORING.PLAYOFF_R16  },
+                        { label: 'Quarterfinals',  sub: 'R16 qualifiers', pts: SCORING.PLAYOFF_QF   },
+                        { label: 'Semifinals',     sub: 'QF qualifiers',  pts: SCORING.PLAYOFF_SF   },
+                        { label: 'Champion',       sub: null,             pts: SCORING.PLAYOFF_WINNER},
+                      ].map(({ label, sub, pts }) => (
+                        <tr key={label}>
+                          <td className="py-1 pr-2 text-gray-400">
+                            {label}
+                            {sub && <span className="text-gray-600 ml-1">({sub})</span>}
+                          </td>
+                          <td className="py-1 text-right font-bold text-yellow-400 whitespace-nowrap">+{pts} pts</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   <div className="space-y-1.5 pt-1">
                     {rounds.map(r => {
                       const pct = Math.round((r.done / r.total) * 100)
