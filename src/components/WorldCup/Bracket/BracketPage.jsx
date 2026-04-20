@@ -9,13 +9,13 @@ import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } f
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
-const CARD_H   = 80    // px – match card height
-const GAP      = 6     // px – gap between consecutive R32 cards
-const UNIT     = CARD_H + GAP   // 86px per bracket slot
-const TOTAL_H  = 16 * UNIT      // 1376px
-const COL_W    = 186            // px – match card column width
-const CONN_W   = 44             // px – connector SVG width
-const HDR_H    = 36             // px – column header height
+const CARD_H   = 104   // px – match card height
+const GAP      = 8     // px – gap between consecutive R32 cards
+const UNIT     = CARD_H + GAP   // 112px per bracket slot
+const TOTAL_H  = 16 * UNIT      // 1792px
+const COL_W    = 224            // px – match card column width
+const CONN_W   = 54             // px – connector SVG width
+const HDR_H    = 44             // px – column header height
 
 // Top-edge position of a match card (roundIdx 0=R32…4=Final, matchIdx 0-based)
 function cardTop(roundIdx, matchIdx) {
@@ -127,11 +127,11 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
 
   // Pick indicator icon
   const indicator = selected
-    ? resultStatus === 'correct' ? <span className="ml-auto text-green-400 text-[9px] font-bold">✓</span>
-    : resultStatus === 'wrong'   ? <span className="ml-auto text-red-400   text-[9px] font-bold">✗</span>
-    :                              <span className="ml-auto text-yellow-400 text-[8px]">▶</span>
+    ? resultStatus === 'correct' ? <span className="ml-auto text-green-400 text-[11px] font-bold">✓</span>
+    : resultStatus === 'wrong'   ? <span className="ml-auto text-red-400   text-[11px] font-bold">✗</span>
+    :                              <span className="ml-auto text-yellow-400 text-[10px]">▶</span>
     : resultStatus === 'actual-winner'
-      ? <span className="ml-auto text-green-400 text-[9px] font-bold">✓</span>
+      ? <span className="ml-auto text-green-400 text-[11px] font-bold">✓</span>
       : null
 
   // Wrong pick: show struck-through picked team + actual winner beside it
@@ -144,30 +144,30 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
         ${clickable && teamId ? 'cursor-pointer' : 'cursor-default'}
         ${colorClass}
       `}
-      style={{ height: (CARD_H - 28) / 2 }}
+      style={{ height: (CARD_H - 36) / 2 }}
     >
       {team ? (
         showWrongWithWinner ? (
           // Wrong pick: ~~MEX~~ → 🇿🇦 RSA ✗
           <>
-            <span className="text-[12px] leading-none flex-shrink-0 opacity-40">{team.flag}</span>
-            <span className="text-[10px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
-            <span className="text-[8px] text-gray-400 flex-shrink-0">→</span>
-            <span className="text-[12px] leading-none flex-shrink-0">{actualWinner.flag}</span>
-            <span className="text-[10px] font-bold text-white truncate">{actualWinner.shortName}</span>
-            <span className="ml-auto text-red-400 text-[9px] font-bold flex-shrink-0">✗</span>
+            <span className="text-[14px] leading-none flex-shrink-0 opacity-40">{team.flag}</span>
+            <span className="text-[12px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
+            <span className="text-[10px] text-gray-400 flex-shrink-0">→</span>
+            <span className="text-[14px] leading-none flex-shrink-0">{actualWinner.flag}</span>
+            <span className="text-[12px] font-bold text-white truncate">{actualWinner.shortName}</span>
+            <span className="ml-auto text-red-400 text-[11px] font-bold flex-shrink-0">✗</span>
           </>
         ) : (
           <>
-            <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
-            <span className="text-[11px] font-semibold truncate">{team.shortName}</span>
+            <span className="text-[15px] leading-none flex-shrink-0">{team.flag}</span>
+            <span className="text-[13px] font-semibold truncate">{team.shortName}</span>
             {indicator}
           </>
         )
       ) : (
         <>
-          <span className="w-3.5 h-3.5 rounded-full bg-gray-500 flex-shrink-0" />
-          <span className="text-[9px] text-gray-300 truncate">{formatSlotLabel(slotLabel)}</span>
+          <span className="w-4 h-4 rounded-full bg-gray-500 flex-shrink-0" />
+          <span className="text-[11px] text-gray-300 truncate">{formatSlotLabel(slotLabel)}</span>
         </>
       )}
     </div>
@@ -227,15 +227,15 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
       >
         {/* Venue + community toggle */}
         <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
-          style={{ height: 14 }}>
-          <span className="text-[8px] text-gray-300 uppercase tracking-wide truncate flex-1">{venue}</span>
+          style={{ height: 18 }}>
+          <span className="text-[10px] text-gray-300 uppercase tracking-wide truncate flex-1">{venue}</span>
           {hasCommunity && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowCommunity(v => !v) }}
               className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0 ml-1"
             >
-              <Users className="w-2 h-2" />
-              <span className="text-[7px]">{communityStats.total}</span>
+              <Users className="w-2.5 h-2.5" />
+              <span className="text-[9px]">{communityStats.total}</span>
             </button>
           )}
         </div>
@@ -267,22 +267,22 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
 
         {/* Date / time  — or result badge when result is known */}
         <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
-          style={{ height: 14 }}>
+          style={{ height: 18 }}>
           {resultKnown ? (
             <>
-              <span className={`text-[8px] font-bold ${
+              <span className={`text-[10px] font-bold ${
                 pickCorrect ? 'text-green-400' : pickWrong ? 'text-red-400' : 'text-gray-500'
               }`}>
                 {pickCorrect ? '✓ Correct' : pickWrong ? '✗ Wrong' : '● Final'}
               </span>
-              <span className="text-[8px] text-gray-400">
+              <span className="text-[10px] text-gray-400">
                 {WC_TEAMS[actualWinner]?.flag} wins
               </span>
             </>
           ) : (
             <>
-              <span className="text-[8px] text-gray-300">{fmtDate(match.date)}</span>
-              <span className="text-[8px] text-gray-300">{fmtTime(match.time)}</span>
+              <span className="text-[10px] text-gray-300">{fmtDate(match.date)}</span>
+              <span className="text-[10px] text-gray-300">{fmtTime(match.time)}</span>
             </>
           )}
         </div>
@@ -297,12 +297,12 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
         >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] font-bold text-green-700">{communityStats.homePct}%</span>
-              <span className="text-[9px] text-gray-500">{communityStats.homeTeam?.shortName}</span>
+              <span className="text-[11px] font-bold text-green-700">{communityStats.homePct}%</span>
+              <span className="text-[10px] text-gray-500">{communityStats.homeTeam?.shortName}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[9px] text-gray-500">{communityStats.awayTeam?.shortName}</span>
-              <span className="text-[10px] font-bold text-red-700">{communityStats.awayPct}%</span>
+              <span className="text-[10px] text-gray-500">{communityStats.awayTeam?.shortName}</span>
+              <span className="text-[11px] font-bold text-red-700">{communityStats.awayPct}%</span>
             </div>
           </div>
           <div className="flex rounded-full overflow-hidden h-1">
@@ -371,7 +371,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
     <div style={{ width: COL_W, flexShrink: 0 }}>
       {/* Header */}
       <div
-        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center border-b border-gray-700/60"
+        className="text-[12px] font-bold text-gray-400 uppercase tracking-wider text-center border-b border-gray-700/60"
         style={{ height: HDR_H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 6 }}
       >
         {STAGE_LABELS[stage]}

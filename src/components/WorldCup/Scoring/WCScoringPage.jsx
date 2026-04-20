@@ -208,7 +208,7 @@ export default function WCScoringPage() {
       </Section>
 
       {/* ── 5. Grand Total ──────────────────────────────────────────────────── */}
-      <div className="card bg-yellow-900/20 border-yellow-700/40 space-y-3">
+      <div className="card bg-gray-900 border-yellow-700/40 space-y-3">
         <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Maximum Possible Points</p>
         <div className="space-y-2 text-sm">
           {[
