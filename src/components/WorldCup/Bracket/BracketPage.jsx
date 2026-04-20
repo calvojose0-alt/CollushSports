@@ -647,7 +647,7 @@ export default function BracketPage() {
             <Globe className="w-5 h-5 text-yellow-400" />
             <h2 className="font-bold text-blue-800 text-lg">Knockout Bracket</h2>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-300 mt-0.5">
             Round of 32 is auto-filled from your group picks. Click teams to advance them.
           </p>
         </div>
