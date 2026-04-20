@@ -195,9 +195,14 @@ export default function WCLeaderboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <Trophy className="w-5 h-5 text-yellow-400" />
-        <h2 className="font-bold text-blue-800">Leaderboard</h2>
+      <div>
+        <div className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-yellow-400" />
+          <h2 className="font-bold text-blue-800">Leaderboard</h2>
+        </div>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Rankings include everyone in the community. To see standings within your group of friends, go to <strong className="text-gray-300">My Groups</strong>.
+        </p>
       </div>
 
       {/* Stats summary */}

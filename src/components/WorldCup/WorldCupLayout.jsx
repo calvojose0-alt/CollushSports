@@ -10,8 +10,8 @@ const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 const ALL_NAV = [
   { to: '/world-cup',            label: 'Group Stage Picks',    icon: Flag,  exact: true },
   { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', icon: Globe              },
+  { to: '/world-cup/groups',     label: 'My Groups',  icon: Users                },
   { to: '/world-cup/leaderboard',label: 'Leaderboard',icon: Trophy               },
-  { to: '/world-cup/groups',     label: 'Groups',     icon: Users                },
   { to: '/world-cup/scoring',    label: 'Scoring',    icon: Star                 },
   { to: '/world-cup/admin',      label: 'Admin',      icon: Settings, adminOnly: true },
 ]

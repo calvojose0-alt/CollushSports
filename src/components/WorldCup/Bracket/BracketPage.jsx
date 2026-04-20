@@ -228,11 +228,11 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
         {/* Venue + community toggle */}
         <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
           style={{ height: 18 }}>
-          <span className="text-[10px] text-gray-300 uppercase tracking-wide truncate flex-1">{venue}</span>
+          <span className="flex-1" />
           {hasCommunity && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowCommunity(v => !v) }}
-              className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0 ml-1"
+              className="flex items-center gap-0.5 text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
             >
               <Users className="w-2.5 h-2.5" />
               <span className="text-[9px]">{communityStats.total}</span>
