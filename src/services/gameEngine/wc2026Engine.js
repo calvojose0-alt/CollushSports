@@ -169,8 +169,8 @@ export async function recalculateAllPlayerTotals() {
       playerMap[pick.userId] = { totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0, qualificationPoints: 0 }
     }
     playerMap[pick.userId].totalPoints += pick.pointsEarned
-    if (pick.isExact)          playerMap[pick.userId].exactHits++
-    if (pick.isCorrectOutcome) playerMap[pick.userId].outcomeHits++
+    if (pick.isExact)                         playerMap[pick.userId].exactHits++
+    if (pick.isCorrectOutcome && !pick.isExact) playerMap[pick.userId].outcomeHits++
   })
 
   // Compute group qualification bonus points
