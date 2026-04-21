@@ -316,9 +316,26 @@ function GroupStageAdmin({ matchResults, onRefresh, resultsByMatchId }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-bold text-white flex items-center gap-2">
-        <Flag className="w-4 h-4 text-yellow-400" /> Group Stage Results
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-white flex items-center gap-2">
+          <Flag className="w-4 h-4 text-yellow-400" /> Group Stage Results
+        </h3>
+        <button
+          onClick={async () => {
+            try {
+              await recalculateAllPlayerTotals()
+              await onRefresh()
+              setMsg({ type: 'success', text: 'Group stage points recalculated.' })
+              setTimeout(() => setMsg(null), 3000)
+            } catch (err) {
+              setMsg({ type: 'error', text: err.message })
+            }
+          }}
+          className="text-xs text-yellow-400 hover:text-yellow-300 underline transition-colors"
+        >
+          ↺ Recalculate
+        </button>
+      </div>
 
       {/* Group tabs */}
       <div className="flex gap-1 flex-wrap">
