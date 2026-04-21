@@ -66,7 +66,7 @@ export default function WCScoringPage() {
         <Star className="w-5 h-5 text-yellow-400" />
         <h2 className="font-bold text-blue-800 text-lg">How Scoring Works</h2>
       </div>
-      <p className="text-sm text-gray-400 -mt-3">
+      <p className="text-sm text-blue-700 -mt-3">
         Points are awarded across three categories. The full tournament runs 104 games — 72 group stage and 32 knockout.
       </p>
 
