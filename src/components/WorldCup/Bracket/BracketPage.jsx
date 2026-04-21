@@ -179,7 +179,8 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const fmtTime = (t) => t || ''
-  const venue   = match.venue || ''
+  const venueParts = (match.venue || '').split(',')
+  const city    = [venueParts[1], venueParts[2]].filter(Boolean).map(s => s.trim()).join(', ')
   const [showCommunity, setShowCommunity] = useState(false)
 
   const canPick = !locked
@@ -228,7 +229,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
         {/* Venue + community toggle */}
         <div className="px-2 flex items-center flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
           style={{ height: 18 }}>
-          <span className="flex-1" />
+          <span className="text-[10px] text-gray-300 uppercase tracking-wide truncate flex-1">{city}</span>
           {hasCommunity && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowCommunity(v => !v) }}
@@ -647,7 +648,7 @@ export default function BracketPage() {
             <Globe className="w-5 h-5 text-yellow-400" />
             <h2 className="font-bold text-blue-800 text-lg">Knockout Bracket</h2>
           </div>
-          <p className="text-xs text-gray-300 mt-0.5">
+          <p className="text-xs text-blue-700 mt-0.5">
             Round of 32 is auto-filled from your group picks. Click teams to advance them.
           </p>
         </div>

@@ -245,25 +245,50 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Group Leaderboard</p>
           </div>
           <div className="divide-y divide-f1light">
-            {sorted.map((player, idx) => (
-              <div
-                key={player.id || player.userId}
-                className={`flex items-center gap-3 px-3 py-2.5 ${player.userId === currentUserId ? 'bg-yellow-900/10' : ''}`}
-              >
-                <span className="text-xs text-gray-500 w-5 text-center font-semibold">{idx + 1}</span>
-                <div className="w-7 h-7 rounded-full bg-yellow-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                  {player.displayName?.[0]?.toUpperCase()}
+            {sorted.map((player, idx) => {
+              const isMe = player.userId === currentUserId
+              return (
+                <div
+                  key={player.id || player.userId}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
+                >
+                  <span className="text-xs text-gray-500 w-5 text-center font-semibold flex-shrink-0">{idx + 1}</span>
+                  <div className="w-7 h-7 rounded-full bg-yellow-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                    {player.displayName?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-sm ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                        {player.displayName}
+                      </span>
+                      {isMe && <span className="text-xs text-yellow-400">(You)</span>}
+                    </div>
+                    <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
+                      <span className="text-xs text-gray-500">
+                        Exact: <strong className="text-green-400">{player.exactHits || 0}</strong>
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Outcome: <strong className="text-blue-400">{player.outcomeHits || 0}</strong>
+                      </span>
+                      {(player.qualificationPoints || 0) > 0 && (
+                        <span className="text-xs text-gray-500">
+                          Quali: <strong className="text-orange-400">+{player.qualificationPoints}</strong>
+                        </span>
+                      )}
+                      {(player.playoffPoints || 0) > 0 && (
+                        <span className="text-xs text-gray-500">
+                          Knockout: <strong className="text-yellow-400">+{player.playoffPoints}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold text-yellow-400">{player.totalPoints || 0}</div>
+                    <div className="text-xs text-gray-500">pts</div>
+                  </div>
                 </div>
-                <span className={`text-sm flex-1 ${player.userId === currentUserId ? 'text-white font-semibold' : 'text-gray-300'}`}>
-                  {player.displayName}
-                  {player.userId === currentUserId && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
-                </span>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-yellow-400">{player.totalPoints || 0}</div>
-                  <div className="text-xs text-gray-600">{player.exactHits || 0} exact</div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       ) : (
