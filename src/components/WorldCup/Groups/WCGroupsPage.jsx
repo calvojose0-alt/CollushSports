@@ -272,7 +272,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                       </span>
                       {(player.qualificationPoints || 0) > 0 && (
                         <span className="text-xs text-gray-500">
-                          Quali: <strong className="text-orange-400">+{player.qualificationPoints}</strong>
+                          Group Qualif.: <strong className="text-orange-400">+{player.qualificationPoints}</strong>
                         </span>
                       )}
                       {(player.playoffPoints || 0) > 0 && (
