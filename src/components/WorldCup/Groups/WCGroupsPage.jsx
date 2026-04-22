@@ -8,8 +8,8 @@ import {
   Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
   ChevronUp, Trophy, Calendar, Link2, Settings, Trash2,
 } from 'lucide-react'
-import { WC_TEAMS } from '@/data/wc2026Teams'
-import { GROUP_MATCHES } from '@/data/wc2026Schedule'
+import { WC_TEAMS, GROUP_LETTERS } from '@/data/wc2026Teams'
+import { GROUP_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
 
 const WC_GAME_ID = 'wc2026'
 
@@ -17,85 +17,168 @@ function generateCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
-// ── Next Match Picks section ──────────────────────────────────────────────────
-function NextMatchPicks({ memberPlayers, allPicks, resultsByMatchId, currentUserId }) {
-  const [open, setOpen] = useState(true)
+// ── Match Picks Explorer ──────────────────────────────────────────────────────
+function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, currentUserId }) {
+  const [open, setOpen]             = useState(true)
+  const [selectedGroup, setSelectedGroup] = useState('A')
+  const [selectedMatchId, setSelectedMatchId] = useState(null)
 
-  const nextMatch = useMemo(() => {
-    const sorted = [...GROUP_MATCHES].sort((a, b) => new Date(a.date) - new Date(b.date))
-    return sorted.find((m) => resultsByMatchId[m.id]?.status !== 'final') || null
-  }, [resultsByMatchId])
+  const groupMatches = getGroupMatches(selectedGroup)
+
+  // Auto-select first match when group changes
+  useEffect(() => {
+    if (groupMatches.length > 0) setSelectedMatchId(groupMatches[0].id)
+  }, [selectedGroup])
+
+  const selectedMatch = groupMatches.find((m) => m.id === selectedMatchId) || groupMatches[0]
 
   const picksByUser = useMemo(() => {
-    if (!nextMatch) return {}
+    if (!selectedMatchId) return {}
     const map = {}
-    allPicks.forEach((p) => { if (p.matchId === nextMatch.id) map[p.userId] = p })
+    allPicks.forEach((p) => { if (p.matchId === selectedMatchId) map[p.userId] = p })
     return map
-  }, [nextMatch, allPicks])
+  }, [selectedMatchId, allPicks])
 
-  if (!nextMatch) return null
+  const result = selectedMatch ? resultsByMatchId[selectedMatch.id] : null
 
-  const homeTeam = WC_TEAMS[nextMatch.homeTeam]
-  const awayTeam = WC_TEAMS[nextMatch.awayTeam]
-  const matchDate = new Date(nextMatch.date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  })
+  const fmtDate = (d) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+  const getPickColor = (pick, res) => {
+    if (!pick || pick.homeScore == null || !res || res.status !== 'final') return 'text-white'
+    const isExact = pick.homeScore === res.homeScore && pick.awayScore === res.awayScore
+    if (isExact) return 'text-green-400'
+    const outcome = (h, a) => h > a ? 'home' : h < a ? 'away' : 'draw'
+    return outcome(pick.homeScore, pick.awayScore) === outcome(res.homeScore, res.awayScore)
+      ? 'text-blue-400' : 'text-red-400'
+  }
 
   return (
     <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">
+      {/* Header */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Calendar className="w-3.5 h-3.5 text-green-500" />
-          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Next Match Picks</p>
+          <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Group Member Picks</p>
         </div>
         {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
       </button>
 
       {open && (
-        <div className="border-t border-f1light">
-          <div className="px-3 py-2.5 bg-gray-900/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{homeTeam?.flag}</span>
-              <span className="text-sm font-bold text-white">{homeTeam?.shortName}</span>
-              <span className="text-xs text-gray-500 font-semibold mx-1">vs</span>
-              <span className="text-sm font-bold text-white">{awayTeam?.shortName}</span>
-              <span className="text-lg">{awayTeam?.flag}</span>
-            </div>
-            <div className="text-right flex-shrink-0 ml-2">
-              <p className="text-[10px] text-gray-500">{matchDate}</p>
-              {nextMatch.time && <p className="text-[10px] text-gray-600">{nextMatch.time}</p>}
-            </div>
+        <div className="border-t border-f1light space-y-3 p-3">
+
+          {/* Group tabs A–L */}
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+            {GROUP_LETTERS.map((g) => (
+              <button
+                key={g}
+                onClick={() => setSelectedGroup(g)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
+                  g === selectedGroup
+                    ? 'bg-yellow-600 text-white shadow-lg'
+                    : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
           </div>
-          <div className="divide-y divide-f1light/60">
-            {memberPlayers.map((player) => {
-              const pick = picksByUser[player.userId]
-              const hasPick = pick && pick.homeScore !== null && pick.awayScore !== null
-              const isMe = player.userId === currentUserId
+
+          {/* Match bubbles — 6 per group, horizontally scrollable */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {groupMatches.map((match) => {
+              const home = WC_TEAMS[match.homeTeam]
+              const away = WC_TEAMS[match.awayTeam]
+              const isSelected = match.id === selectedMatchId
+              const done = resultsByMatchId[match.id]?.status === 'final'
               return (
-                <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
-                  <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
-                    {player.displayName?.[0]?.toUpperCase()}
+                <button
+                  key={match.id}
+                  onClick={() => setSelectedMatchId(match.id)}
+                  className={`flex-shrink-0 px-3 py-2 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? 'bg-yellow-600/20 border-yellow-500'
+                      : 'bg-gray-800/60 border-f1light hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
+                    <span className="text-sm">{home?.flag}</span>
+                    <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
+                    <span className="text-gray-600 mx-0.5">vs</span>
+                    <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
+                    <span className="text-sm">{away?.flag}</span>
                   </div>
-                  <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
-                    {player.displayName}
-                    {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
-                  </span>
-                  {hasPick ? (
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="text-lg font-black text-white tabular-nums">{pick.homeScore}</span>
-                      <span className="text-gray-500 font-bold text-sm">–</span>
-                      <span className="text-lg font-black text-white tabular-nums">{pick.awayScore}</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-600 italic flex-shrink-0">No pick yet</span>
-                  )}
-                </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {done
+                      ? <span className="text-[9px] text-green-400 font-bold">✓ Final</span>
+                      : <span className="text-[9px] text-gray-500">{fmtDate(match.date)}</span>
+                    }
+                  </div>
+                </button>
               )
             })}
           </div>
+
+          {/* Selected match — member picks */}
+          {selectedMatch && (
+            <div className="rounded-xl overflow-hidden border border-f1light">
+              {/* Match header */}
+              <div className="px-3 py-2 bg-gray-900/70 flex items-center justify-between border-b border-f1light">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{WC_TEAMS[selectedMatch.homeTeam]?.flag}</span>
+                  <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.homeTeam]?.shortName}</span>
+                  <span className="text-xs text-gray-500">vs</span>
+                  <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.awayTeam]?.shortName}</span>
+                  <span className="text-base">{WC_TEAMS[selectedMatch.awayTeam]?.flag}</span>
+                </div>
+                <div className="text-right flex-shrink-0 ml-2">
+                  {result?.status === 'final' ? (
+                    <span className="text-xs text-green-400 font-bold">
+                      Final: {result.homeScore}–{result.awayScore}
+                    </span>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-gray-400">{fmtDate(selectedMatch.date)}</p>
+                      {selectedMatch.time && <p className="text-[10px] text-gray-500">{selectedMatch.time}</p>}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Each group member's pick */}
+              <div className="divide-y divide-f1light/60">
+                {memberPlayers.map((player) => {
+                  const pick = picksByUser[player.userId]
+                  const hasPick = pick?.homeScore != null && pick?.awayScore != null
+                  const isMe = player.userId === currentUserId
+                  const pickColor = hasPick ? getPickColor(pick, result) : ''
+                  return (
+                    <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
+                      <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
+                        {player.displayName?.[0]?.toUpperCase()}
+                      </div>
+                      <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                        {player.displayName}
+                        {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
+                      </span>
+                      {hasPick ? (
+                        <div className={`flex items-center gap-1 flex-shrink-0 font-black text-lg tabular-nums ${pickColor}`}>
+                          <span>{pick.homeScore}</span>
+                          <span className="text-gray-500 font-bold text-sm">–</span>
+                          <span>{pick.awayScore}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-600 italic flex-shrink-0">No pick</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -229,14 +312,6 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
         </div>
       )}
 
-      {/* Next Match Picks */}
-      <NextMatchPicks
-        memberPlayers={memberPlayers}
-        allPicks={allPicks}
-        resultsByMatchId={resultsByMatchId}
-        currentUserId={currentUserId}
-      />
-
       {/* Group leaderboard */}
       {sorted.length > 0 ? (
         <div className="bg-f1dark rounded-xl overflow-hidden">
@@ -296,6 +371,14 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
           No players have joined the game yet or no picks scored.
         </p>
       )}
+
+      {/* Match Picks Explorer — below leaderboard */}
+      <MatchPicksExplorer
+        memberPlayers={memberPlayers}
+        allPicks={allPicks}
+        resultsByMatchId={resultsByMatchId}
+        currentUserId={currentUserId}
+      />
 
       <p className="text-xs text-gray-500">
         Share invite code <strong className="text-gray-400 font-mono">{group.inviteCode}</strong> or copy the invite link to add friends.
