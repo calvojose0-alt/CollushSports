@@ -599,7 +599,7 @@ export default function WCGroupsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-gray-400" />
-          <h2 className="font-bold text-blue-800">Groups</h2>
+          <h2 className="font-bold text-blue-800">My Groups</h2>
         </div>
         <div className="flex gap-2">
           <button

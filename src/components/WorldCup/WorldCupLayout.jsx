@@ -53,11 +53,12 @@ export default function WorldCupLayout() {
   // Compute My Stats in real-time from allPicks so they always stay in sync
   // with the leaderboard, regardless of whether stored wc_players values are stale.
   const myPicksScored = allPicks.filter((p) => p.userId === user?.uid && p.pointsEarned !== null)
-  const myGroupPoints  = myPicksScored.reduce((sum, p) => sum + (p.pointsEarned || 0), 0)
-  const myExactHits    = myPicksScored.filter((p) => p.isExact).length
-  const myOutcomeHits  = myPicksScored.filter((p) => p.isCorrectOutcome).length
-  const myPlayoffPoints = myPlayer?.playoffPoints || 0
-  const myTotalPoints  = myGroupPoints + myPlayoffPoints
+  const myGroupPoints      = myPicksScored.reduce((sum, p) => sum + (p.pointsEarned || 0), 0)
+  const myExactHits        = myPicksScored.filter((p) => p.isExact).length
+  const myOutcomeHits      = myPicksScored.filter((p) => p.isCorrectOutcome && !p.isExact).length
+  const myPlayoffPoints    = myPlayer?.playoffPoints || 0
+  const myQualPoints       = myPlayer?.qualificationPoints || 0
+  const myTotalPoints      = myGroupPoints + myQualPoints + myPlayoffPoints
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
   const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)

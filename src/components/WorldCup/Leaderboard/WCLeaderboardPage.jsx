@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGame } from '@/hooks/useWCGame'
 import { Trophy, ChevronDown, ChevronUp, Target, Users, Zap, Globe } from 'lucide-react'
-import { GROUP_LETTERS, WC_TEAMS } from '@/data/wc2026Teams'
+import { GROUP_LETTERS, WC_TEAMS, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches, getMatch } from '@/data/wc2026Schedule'
 
 function RankBadge({ rank }) {
@@ -135,8 +135,8 @@ function PickHistory({ player }) {
                 pick.isExact ? 'text-green-400' :
                 pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-600'
               }`}>
-                {pick.isExact ? '⭐ Exact +5' :
-                 pick.isCorrectOutcome ? '✓ Outcome +3' : '✗ 0 pts'}
+                {pick.isExact ? `⭐ Exact +${SCORING.GROUP_EXACT_SCORE}` :
+                 pick.isCorrectOutcome ? `✓ Outcome +${SCORING.GROUP_CORRECT_OUTCOME}` : '✗ 0 pts'}
               </span>
             </div>
           )
