@@ -552,3 +552,35 @@ export async function removeGroupMember(groupId, userId) {
   }
   return true
 }
+
+export async function renameGroup(groupId, newName) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('groups')
+      .update({ name: newName })
+      .eq('id', groupId)
+    if (error) throw new Error(error.message)
+    return true
+  }
+  LS.update('groups', groupId, { name: newName })
+  return true
+}
+
+export async function deleteGroup(groupId) {
+  if (isSupabaseConfigured && supabase) {
+    // Delete all members first, then the group row
+    const { error: membErr } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+    if (membErr) throw new Error(membErr.message)
+    const { error: grpErr } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId)
+    if (grpErr) throw new Error(grpErr.message)
+    return true
+  }
+  LS.remove?.('groups', groupId)
+  return true
+}

@@ -509,11 +509,15 @@ import {
   joinGroupByCode as _joinGroupByCode,
   getGroupByCode as _getGroupByCode,
   removeGroupMember as _removeGroupMember,
+  renameGroup as _renameGroup,
+  deleteGroup as _deleteGroup,
 } from './firestore'
 export const createGroup       = _createGroup
 export const joinGroupByCode   = _joinGroupByCode
 export const getGroupByCode    = _getGroupByCode
 export const removeGroupMember = _removeGroupMember
+export const renameGroup       = _renameGroup
+export const deleteGroup       = _deleteGroup
 
 export async function getWCGroupsForUser(userId) {
   if (isSupabaseConfigured && supabase) {
