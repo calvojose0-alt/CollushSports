@@ -3,10 +3,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { useF1Game, DEFAULT_GAME_ID } from '@/hooks/useF1Game'
 import {
   createGroup, joinGroupByCode, getGroupsForUser, removeGroupMember,
+  renameGroup, deleteGroup,
 } from '@/services/firebase/firestore'
 import {
   Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
-  Link2, Trash2, Settings,
+  Link2, Trash2, Settings, Pencil,
 } from 'lucide-react'
 
 function generateCode() {
@@ -63,9 +64,14 @@ function MyGroupsSummary({ groups, currentUserId, players }) {
 // ── Group viewer (detail + management) ───────────────────────────────────────
 function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
-  const [copied, setCopied] = useState(null) // 'code' | 'link' | null
-  const [managing, setManaging] = useState(false)
-  const [removing, setRemoving] = useState(null) // userId being removed
+  const [copied, setCopied]       = useState(null) // 'code' | 'link' | null
+  const [managing, setManaging]   = useState(false)
+  const [removing, setRemoving]   = useState(null)
+  const [renaming, setRenaming]   = useState(false)
+  const [newName, setNewName]     = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [deleting, setDeleting]   = useState(false)
+  const [manageError, setManageError] = useState(null)
 
   const group = groups.find((g) => g.id === selectedGroupId) || groups[0]
   if (!group) return null
@@ -101,6 +107,36 @@ function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
       await onGroupsChanged()
     } finally {
       setRemoving(null)
+    }
+  }
+
+  const handleRename = async () => {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === group.name) { setRenaming(false); return }
+    setSavingName(true)
+    setManageError(null)
+    try {
+      await renameGroup(group.id, trimmed)
+      await onGroupsChanged()
+      setRenaming(false)
+    } catch (err) {
+      setManageError(err.message || 'Failed to rename group.')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${group.name}"? This will remove all members and cannot be undone.`)) return
+    setDeleting(true)
+    setManageError(null)
+    try {
+      await deleteGroup(group.id)
+      await onGroupsChanged()
+      setManaging(false)
+    } catch (err) {
+      setManageError(err.message || 'Failed to delete group.')
+      setDeleting(false)
     }
   }
 
@@ -161,35 +197,105 @@ function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
         <div className="bg-f1dark rounded-xl overflow-hidden border border-f1red/30">
           <div className="px-3 py-2 border-b border-f1light flex items-center gap-2">
             <Settings className="w-3.5 h-3.5 text-f1red" />
-            <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Manage Members</p>
+            <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Manage Group</p>
           </div>
-          <div className="divide-y divide-f1light">
-            {(group.members || []).map((uid) => {
-              const player = players.find((p) => p.userId === uid)
-              const displayName = player?.displayName || uid.slice(0, 8) + '…'
-              const isMe = uid === currentUserId
-              return (
-                <div key={uid} className="flex items-center gap-3 px-3 py-2.5">
-                  <div className="w-7 h-7 rounded-full bg-f1red flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                    {displayName[0]?.toUpperCase()}
+
+          {/* Error banner */}
+          {manageError && (
+            <div className="flex items-center gap-2 text-xs text-red-300 bg-red-900/30 border-b border-red-700/50 px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{manageError}
+            </div>
+          )}
+
+          {/* ── Rename section ─────────────────────────────────── */}
+          <div className="px-3 py-3 border-b border-f1light">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Pencil className="w-3 h-3 text-blue-400" /> Rename Group
+            </p>
+            {renaming ? (
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  className="flex-1 bg-gray-800 border border-f1light rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-f1red"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  maxLength={40}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false) }}
+                />
+                <button
+                  onClick={handleRename}
+                  disabled={savingName || !newName.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {savingName ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setRenaming(false)}
+                  className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setNewName(group.name); setRenaming(true); setManageError(null) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-700/50 text-blue-400 hover:bg-blue-900/20 text-xs transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Rename "{group.name}"
+              </button>
+            )}
+          </div>
+
+          {/* ── Members section ────────────────────────────────── */}
+          <div className="border-b border-f1light">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 pt-3 pb-1 flex items-center gap-1.5">
+              <Users className="w-3 h-3 text-gray-400" /> Members
+            </p>
+            <div className="divide-y divide-f1light">
+              {(group.members || []).map((uid) => {
+                const player = players.find((p) => p.userId === uid)
+                const displayName = player?.displayName || uid.slice(0, 8) + '…'
+                const isMe = uid === currentUserId
+                return (
+                  <div key={uid} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="w-7 h-7 rounded-full bg-f1red flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                      {displayName[0]?.toUpperCase()}
+                    </div>
+                    <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                      {displayName}
+                      {isMe && <span className="text-xs text-f1red ml-1">(You · Creator)</span>}
+                    </span>
+                    {!isMe && (
+                      <button
+                        onClick={() => handleRemove(uid)}
+                        disabled={removing === uid}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-900/30 text-xs transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {removing === uid ? 'Removing…' : 'Remove'}
+                      </button>
+                    )}
                   </div>
-                  <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
-                    {displayName}
-                    {isMe && <span className="text-xs text-f1red ml-1">(You · Creator)</span>}
-                  </span>
-                  {!isMe && (
-                    <button
-                      onClick={() => handleRemove(uid)}
-                      disabled={removing === uid}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-900/30 text-xs transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      {removing === uid ? 'Removing…' : 'Remove'}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Delete group ───────────────────────────────────── */}
+          <div className="px-3 py-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Trash2 className="w-3 h-3 text-red-400" /> Danger Zone
+            </p>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-700/50 bg-red-900/10 text-red-400 hover:bg-red-900/30 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {deleting ? 'Deleting…' : `Delete "${group.name}"`}
+            </button>
+            <p className="text-[10px] text-gray-600 mt-1.5">This will permanently remove the group and all its members.</p>
           </div>
         </div>
       )}
