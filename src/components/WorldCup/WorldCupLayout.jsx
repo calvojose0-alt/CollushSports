@@ -8,12 +8,12 @@ import { KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 const ALL_NAV = [
-  { to: '/world-cup',            label: 'Group Stage Picks',    icon: Flag,  exact: true },
-  { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', icon: Globe              },
-  { to: '/world-cup/groups',     label: 'My Groups',  icon: Users                },
-  { to: '/world-cup/leaderboard',label: 'Leaderboard',icon: Trophy               },
-  { to: '/world-cup/scoring',    label: 'Scoring',    icon: Star                 },
-  { to: '/world-cup/admin',      label: 'Admin',      icon: Settings, adminOnly: true },
+  { to: '/world-cup',            label: 'Group Stage Picks',      mobileLabel: 'My Picks',  icon: Flag,  exact: true },
+  { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', mobileLabel: 'Bracket',   icon: Globe              },
+  { to: '/world-cup/groups',     label: 'My Groups',              mobileLabel: 'My Groups', icon: Users              },
+  { to: '/world-cup/leaderboard',label: 'Leaderboard',            mobileLabel: 'Standings', icon: Trophy             },
+  { to: '/world-cup/scoring',    label: 'Scoring',                mobileLabel: 'Scoring',   icon: Star               },
+  { to: '/world-cup/admin',      label: 'Admin',                  mobileLabel: 'Admin',     icon: Settings, adminOnly: true },
 ]
 
 function LockCountdown() {
@@ -90,6 +90,32 @@ export default function WorldCupLayout() {
             G — Group Stage Leader
           </span>
         )}
+      </div>
+
+      {/* ── Mobile tab strip (hidden on md+) ───────────────────────────────── */}
+      <div className="md:hidden -mx-4 px-4 mb-4 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1.5 min-w-max pb-1">
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1 px-3.5 py-2 rounded-xl border text-xs font-semibold flex-shrink-0 transition-all ${
+                    isActive
+                      ? 'bg-yellow-600 border-yellow-500 text-white shadow-lg shadow-yellow-600/20'
+                      : 'bg-f1dark border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.mobileLabel}</span>
+              </NavLink>
+            )
+          })}
+        </div>
       </div>
 
       <div className="flex gap-6">
