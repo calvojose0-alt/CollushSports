@@ -61,6 +61,32 @@ export default function F1SurvivorLayout() {
         )}
       </div>
 
+      {/* ── Mobile tab strip (hidden on md+) ───────────────────────────────── */}
+      <div className="md:hidden -mx-4 px-4 mb-4 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1.5 min-w-max pb-1">
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1 px-3.5 py-2 rounded-xl border text-xs font-semibold flex-shrink-0 transition-all ${
+                    isActive
+                      ? 'bg-f1red border-f1red/70 text-white shadow-lg shadow-f1red/20'
+                      : 'bg-f1dark border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </NavLink>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="flex gap-6">
         {/* Sidebar */}
         <aside className="w-52 flex-shrink-0 hidden md:block">
