@@ -144,74 +144,71 @@ export default function LeaderboardPage() {
               return (
                 <div key={player.id} className={`${isMe ? 'bg-f1red/10' : ''} ${player.status === 'eliminated' ? 'opacity-60' : ''}`}>
                   {/* Main row */}
-                  <div className="flex items-center gap-4 px-4 py-3">
-                    {/* Rank */}
-                    <div className="w-8 flex-shrink-0 flex items-center justify-center">
-                      <RankBadge rank={rank} />
-                    </div>
-
-                    {/* Avatar */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${
-                      player.status === 'alive' ? 'bg-f1red' : player.status === 'winner' ? 'bg-f1gold' : 'bg-f1light'
-                    }`}>
-                      {player.displayName?.[0]?.toUpperCase() || '?'}
-                    </div>
-
-                    {/* Name + status */}
-                    <div className="min-w-0 w-32 flex-shrink-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-semibold text-sm ${isMe ? 'text-white' : 'text-gray-200'}`}>
-                          {player.displayName}
-                        </span>
-                        {isMe && (
-                          <span className="text-xs bg-f1red/30 text-f1red border border-f1red/50 px-1.5 py-0.5 rounded-full font-medium">
-                            You
-                          </span>
-                        )}
+                  <div className="px-4 py-3 space-y-2">
+                    {/* Top line: rank + avatar + name + points */}
+                    <div className="flex items-center gap-3">
+                      {/* Rank */}
+                      <div className="w-7 flex-shrink-0 flex items-center justify-center">
+                        <RankBadge rank={rank} />
                       </div>
-                      <StatusChip status={player.status} />
+
+                      {/* Avatar */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${
+                        player.status === 'alive' ? 'bg-f1red' : player.status === 'winner' ? 'bg-f1gold' : 'bg-f1light'
+                      }`}>
+                        {player.displayName?.[0]?.toUpperCase() || '?'}
+                      </div>
+
+                      {/* Name + status */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`font-semibold text-sm truncate ${isMe ? 'text-white' : 'text-gray-200'}`}>
+                            {player.displayName}
+                          </span>
+                          {isMe && (
+                            <span className="text-xs bg-f1red/30 text-f1red border border-f1red/50 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+                              You
+                            </span>
+                          )}
+                          {player.tiebreaker && <Medal className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />}
+                        </div>
+                        <StatusChip status={player.status} />
+                      </div>
+
+                      {/* Points */}
+                      <div className="text-right flex-shrink-0">
+                        <div className={`font-black text-lg leading-none ${player.points > 0 ? 'text-f1gold' : 'text-gray-600'}`}>
+                          {player.points || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">pts</div>
+                      </div>
                     </div>
 
-                    {/* Past Results button */}
-                    <button
-                      onClick={() => togglePlayer(player.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-f1light bg-f1dark hover:bg-f1light text-gray-300 hover:text-white text-xs font-semibold transition-colors flex-shrink-0"
-                      style={{ marginLeft: '-35px' }}
-                    >
-                      <span style={{ fontSize: 10 }}>Past Results</span>
-                      {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    </button>
-
-                    {/* Drivers still available */}
-                    <div className="flex-1 min-w-0">
-                      {player.status !== 'eliminated' && (
-                        <>
-                          <p className="text-xs text-gray-500 mb-1">Drivers Still Available</p>
-                          <div className="flex items-center gap-3 flex-wrap">
+                    {/* Bottom line: drivers available + past results button */}
+                    <div className="flex items-start gap-2 pl-10">
+                      {/* Drivers still available */}
+                      <div className="flex-1 min-w-0">
+                        {player.status !== 'eliminated' && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-500">Available:</span>
                             {getTopRemaining(player.userId).map((driver) => (
-                              <div key={driver.id} className="flex items-center gap-1">
-                                <span className="text-xs font-semibold" style={{ color: driver.teamColor }}>
-                                  {driver.name}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  ({driver.availA && driver.availB ? 'Podium & Top 10' : driver.availA ? 'Podium Pick' : 'Top 10 Pick'})
-                                </span>
-                              </div>
+                              <span key={driver.id} className="text-xs font-semibold" style={{ color: driver.teamColor }}>
+                                {driver.name.split(' ').pop()}
+                              </span>
                             ))}
                           </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Points */}
-                    <div className="text-right flex-shrink-0">
-                      <div className={`font-black text-lg ${player.points > 0 ? 'text-f1gold' : 'text-gray-600'}`}>
-                        {player.points || 0}
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">pts</div>
-                    </div>
 
-                    {player.tiebreaker && <Medal className="w-4 h-4 text-yellow-400 flex-shrink-0" />}
+                      {/* Past Results button */}
+                      <button
+                        onClick={() => togglePlayer(player.id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-f1light bg-f1dark hover:bg-f1light text-gray-300 hover:text-white text-xs font-semibold transition-colors flex-shrink-0"
+                      >
+                        Results
+                        {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Expanded: Past Race Results */}
