@@ -8,6 +8,7 @@ import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCOR
 import { getGroupMatches } from '@/data/wc2026Schedule'
 import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users, RefreshCw } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
+import CountryFlag from '@/components/shared/CountryFlag'
 
 // ── Score input component ────────────────────────────────────────────────────
 function ScoreInput({ value, onChange, disabled }) {
@@ -89,7 +90,7 @@ function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, res
       {/* Teams + score inputs */}
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-xl">{homeTeam?.flag}</span>
+          <CountryFlag cc={homeTeam?.cc} size={22} alt={homeTeam?.name} />
           <span className="text-sm font-semibold text-white truncate">{homeTeam?.shortName}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -99,7 +100,7 @@ function MatchPickRow({ match, pick, homeScore, awayScore, onChange, locked, res
         </div>
         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
           <span className="text-sm font-semibold text-white truncate">{awayTeam?.shortName}</span>
-          <span className="text-xl">{awayTeam?.flag}</span>
+          <CountryFlag cc={awayTeam?.cc} size={22} alt={awayTeam?.name} />
         </div>
       </div>
 
@@ -179,7 +180,7 @@ function GroupStandingsTable({ standings }) {
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-gray-600 w-3">{idx + 1}</span>
-                    <span className="text-base">{team?.flag}</span>
+                    <CountryFlag cc={team?.cc} size={18} alt={team?.name} />
                     <span className={`font-semibold ${advancing ? 'text-green-300' : 'text-gray-300'}`}>
                       {team?.shortName}
                     </span>

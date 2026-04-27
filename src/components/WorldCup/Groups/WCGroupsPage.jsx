@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { WC_TEAMS, GROUP_LETTERS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
+import CountryFlag from '@/components/shared/CountryFlag'
 
 const WC_GAME_ID = 'wc2026'
 
@@ -106,11 +107,11 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                   }`}
                 >
                   <div className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
-                    <span className="text-sm">{home?.flag}</span>
+                    <CountryFlag cc={home?.cc} size={16} alt={home?.name} />
                     <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
                     <span className="text-gray-600 mx-0.5">vs</span>
                     <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
-                    <span className="text-sm">{away?.flag}</span>
+                    <CountryFlag cc={away?.cc} size={16} alt={away?.name} />
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {done
@@ -129,11 +130,11 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
               {/* Match header */}
               <div className="px-3 py-2 bg-gray-900/70 flex items-center justify-between border-b border-f1light">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">{WC_TEAMS[selectedMatch.homeTeam]?.flag}</span>
+                  <CountryFlag cc={WC_TEAMS[selectedMatch.homeTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.homeTeam]?.name} />
                   <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.homeTeam]?.shortName}</span>
                   <span className="text-xs text-gray-500">vs</span>
                   <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.awayTeam]?.shortName}</span>
-                  <span className="text-base">{WC_TEAMS[selectedMatch.awayTeam]?.flag}</span>
+                  <CountryFlag cc={WC_TEAMS[selectedMatch.awayTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.awayTeam]?.name} />
                 </div>
                 <div className="text-right flex-shrink-0 ml-2">
                   {result?.status === 'final' ? (

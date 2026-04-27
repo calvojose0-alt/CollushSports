@@ -7,6 +7,7 @@ import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
+import CountryFlag from '@/components/shared/CountryFlag'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const CARD_H   = 104   // px – match card height
@@ -150,16 +151,16 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
         showWrongWithWinner ? (
           // Wrong pick: ~~MEX~~ → 🇿🇦 RSA ✗
           <>
-            <span className="text-[14px] leading-none flex-shrink-0 opacity-40">{team.flag}</span>
+            <CountryFlag cc={team.cc} size={14} alt={team.name} className="opacity-40" />
             <span className="text-[12px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
             <span className="text-[10px] text-gray-400 flex-shrink-0">→</span>
-            <span className="text-[14px] leading-none flex-shrink-0">{actualWinner.flag}</span>
+            <CountryFlag cc={actualWinner.cc} size={14} alt={actualWinner.name} />
             <span className="text-[12px] font-bold text-white truncate">{actualWinner.shortName}</span>
             <span className="ml-auto text-red-400 text-[11px] font-bold flex-shrink-0">✗</span>
           </>
         ) : (
           <>
-            <span className="text-[15px] leading-none flex-shrink-0">{team.flag}</span>
+            <CountryFlag cc={team.cc} size={14} alt={team.name} />
             <span className="text-[13px] font-semibold truncate">{team.shortName}</span>
             {indicator}
           </>
@@ -276,8 +277,8 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
               }`}>
                 {pickCorrect ? '✓ Correct' : pickWrong ? '✗ Wrong' : '● Final'}
               </span>
-              <span className="text-[10px] text-gray-400">
-                {WC_TEAMS[actualWinner]?.flag} wins
+              <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                <CountryFlag cc={WC_TEAMS[actualWinner]?.cc} size={12} alt={WC_TEAMS[actualWinner]?.name} /> wins
               </span>
             </>
           ) : (
@@ -680,7 +681,7 @@ export default function BracketPage() {
           <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0" />
           <div>
             <p className="text-xs text-yellow-400 font-bold uppercase tracking-wider">Your Predicted Champion</p>
-            <p className="text-white font-bold">{champion.flag} {champion.name}</p>
+            <p className="text-white font-bold flex items-center gap-2"><CountryFlag cc={champion.cc} size={20} alt={champion.name} /> {champion.name}</p>
           </div>
         </div>
       )}

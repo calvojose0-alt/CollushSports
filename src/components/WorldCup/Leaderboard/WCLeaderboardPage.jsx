@@ -4,6 +4,7 @@ import { useWCGame } from '@/hooks/useWCGame'
 import { Trophy, ChevronDown, ChevronUp, Target, Users, Zap, Globe } from 'lucide-react'
 import { GROUP_LETTERS, WC_TEAMS, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches, getMatch } from '@/data/wc2026Schedule'
+import CountryFlag from '@/components/shared/CountryFlag'
 
 function RankBadge({ rank }) {
   if (rank === 1) return <span className="text-f1gold font-black text-lg">🥇</span>
@@ -117,12 +118,19 @@ function PickHistory({ player }) {
           const matchData = getMatch(pick.matchId)
           const homeTeam = matchData ? WC_TEAMS[matchData.homeTeam] : null
           const awayTeam = matchData ? WC_TEAMS[matchData.awayTeam] : null
-          const label = homeTeam && awayTeam
-            ? `${homeTeam.flag} ${homeTeam.shortName} vs ${awayTeam.shortName} ${awayTeam.flag}`
-            : pick.matchId
           return (
             <div key={pick.matchId} className="flex items-center gap-3 px-4 py-2">
-              <span className="text-xs text-gray-500 flex-shrink-0">{label}</span>
+              <span className="text-xs text-gray-500 flex-shrink-0 flex items-center gap-1">
+                {homeTeam && awayTeam ? (
+                  <>
+                    <CountryFlag cc={homeTeam.cc} size={14} alt={homeTeam.name} />
+                    {homeTeam.shortName}
+                    <span className="text-gray-600">vs</span>
+                    {awayTeam.shortName}
+                    <CountryFlag cc={awayTeam.cc} size={14} alt={awayTeam.name} />
+                  </>
+                ) : pick.matchId}
+              </span>
               <span className="text-xs text-gray-400 flex-shrink-0">
                 Picked: <strong className="text-white">{pick.homeScore}–{pick.awayScore}</strong>
               </span>

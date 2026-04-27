@@ -19,6 +19,7 @@ import {
 } from '@/services/gameEngine/wc2026Engine'
 import { SCORING, GROUP_LETTERS, WC_TEAMS, PLAYOFF_ROUNDS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
+import CountryFlag from '@/components/shared/CountryFlag'
 
 // ── Bracket layout constants (shared with visual bracket) ─────────────────────
 const B_CARD_H  = 80
@@ -155,7 +156,7 @@ function AdminTeamSlot({ teamId, slotLabel, selected, onClick }) {
     >
       {team ? (
         <>
-          <span className="text-[13px] leading-none flex-shrink-0">{team.flag}</span>
+          <CountryFlag cc={team.cc} size={14} alt={team.name} />
           <span className={`text-[11px] font-semibold truncate ${selected ? 'text-white' : ''}`}>
             {team.shortName}
           </span>
@@ -378,11 +379,11 @@ function GroupStageAdmin({ matchResults, onRefresh, resultsByMatchId }) {
                   <div className="flex items-center gap-3 flex-wrap">
                     {/* Teams */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-lg">{ht?.flag}</span>
+                      <CountryFlag cc={ht?.cc} size={20} alt={ht?.name} />
                       <span className="text-sm font-semibold text-white">{ht?.shortName}</span>
                       <span className="text-gray-500 text-sm">vs</span>
                       <span className="text-sm font-semibold text-white">{at?.shortName}</span>
-                      <span className="text-lg">{at?.flag}</span>
+                      <CountryFlag cc={at?.cc} size={20} alt={at?.name} />
                     </div>
                     {/* Score inputs */}
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -618,7 +619,7 @@ function PlayoffAdmin({ onRefresh }) {
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-green-900/30 border border-green-600/40">
           <Trophy className="w-4 h-4 text-green-400 flex-shrink-0" />
           <p className="text-sm font-bold text-white">
-            {champion.flag} {champion.name}
+            <CountryFlag cc={champion.cc} size={16} alt={champion.name} className="mr-1" /> {champion.name}
             <span className="text-green-400 font-normal text-xs ml-2">— Champion</span>
           </p>
         </div>
