@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useWCGame } from '@/hooks/useWCGame'
+import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import {
   createGroup, joinGroupByCode, getWCGroupsForUser, removeGroupMember,
   renameGroup, deleteGroup,

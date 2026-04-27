@@ -27,7 +27,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-f1dark border-b border-f1light sticky top-0 z-50">
+    <header className="bg-f1dark border-b border-f1light sticky top-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">

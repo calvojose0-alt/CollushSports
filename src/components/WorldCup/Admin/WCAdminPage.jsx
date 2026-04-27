@@ -1,7 +1,7 @@
 // Admin page — enter World Cup match results and trigger scoring
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useWCGame } from '@/hooks/useWCGame'
+import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import {
   saveMatchResult,
   deleteMatchResult,

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useWCGame } from '@/hooks/useWCGame'
+import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { saveGroupPick } from '@/services/firebase/wc2026Service'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'

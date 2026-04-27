@@ -4,6 +4,7 @@ import { useWCGame } from '@/hooks/useWCGame'
 import { useAuth } from '@/hooks/useAuth'
 import { isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
+import { WCGameContext } from '@/contexts/WCGameContext'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -39,6 +40,8 @@ export default function WorldCupLayout() {
   const { user }  = useAuth()
   const onBracket = location.pathname === '/world-cup/bracket'
 
+  // Single shared instance — provided to all child pages via WCGameContext
+  const wcGame = useWCGame()
   const {
     myPlayer,
     leaderboard,
@@ -48,7 +51,7 @@ export default function WorldCupLayout() {
     myPlayoffPicksByRound,
     loading,
     error,
-  } = useWCGame()
+  } = wcGame
 
   // Compute My Stats in real-time from allPicks so they always stay in sync
   // with the leaderboard, regardless of whether stored wc_players values are stale.
@@ -268,7 +271,11 @@ export default function WorldCupLayout() {
               <p className="font-mono text-xs">{error}</p>
             </div>
           )}
-          {!loading && <Outlet />}
+          {!loading && (
+            <WCGameContext.Provider value={wcGame}>
+              <Outlet />
+            </WCGameContext.Provider>
+          )}
         </main>
       </div>
     </div>

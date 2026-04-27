@@ -70,7 +70,7 @@ function AppLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-200">
       <Header />
-      <div className="min-h-[calc(100vh-56px)]">{children}</div>
+      <div className="min-h-[calc(100vh-56px)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>{children}</div>
     </div>
   )
 }

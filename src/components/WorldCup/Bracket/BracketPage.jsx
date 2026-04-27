@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useWCGame } from '@/hooks/useWCGame'
+import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
 import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'

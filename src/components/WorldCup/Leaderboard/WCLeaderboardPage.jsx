@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useWCGame } from '@/hooks/useWCGame'
+import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { Trophy, ChevronDown, ChevronUp, Target, Users, Zap, Globe } from 'lucide-react'
 import { GROUP_LETTERS, WC_TEAMS, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches, getMatch } from '@/data/wc2026Schedule'
