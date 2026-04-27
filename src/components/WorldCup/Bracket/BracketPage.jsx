@@ -453,7 +453,9 @@ export default function BracketPage() {
   const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
 
   // ── Build slot map: '1A'→teamId, '2B'→teamId, and '3XXXX'→best-3rd teamId ──
-  // Prefers actual admin-entered results; falls back to user's group picks.
+  // Always uses the user's own group stage picks to determine which teams
+  // qualify for R32. Actual admin results are never used here — they only
+  // affect the scoring overlays (✓/✗) shown on match cards.
   const slotMap = useMemo(() => {
     const map = {}
     const allThirdPlace = []  // { group, teamId, pts, gd, gf }
@@ -461,15 +463,12 @@ export default function BracketPage() {
     GROUP_LETTERS.forEach(group => {
       const groupMatchList = GROUP_MATCHES.filter(m => m.group === group)
       const picks = groupMatchList.map(m => {
-        const actual = resultsByMatchId[m.id]
-        const pred   = myPicksByMatchId[m.id]
-        // Use actual result if the admin has scored it, otherwise use user's prediction
-        const r = (actual?.homeScore != null && actual?.awayScore != null) ? actual : pred
+        const pred = myPicksByMatchId[m.id]
         return {
           homeTeam:  m.homeTeam,
           awayTeam:  m.awayTeam,
-          homeScore: r?.homeScore ?? null,
-          awayScore: r?.awayScore ?? null,
+          homeScore: pred?.homeScore ?? null,
+          awayScore: pred?.awayScore ?? null,
         }
       })
       const standings = computeGroupStandings(group, picks)
@@ -510,7 +509,7 @@ export default function BracketPage() {
     Object.assign(map, btResult)
 
     return map
-  }, [myPicksByMatchId, resultsByMatchId])
+  }, [myPicksByMatchId])
 
   // ── Initialize bracket picks from saved playoff data (once) ───────────────
   useEffect(() => {
