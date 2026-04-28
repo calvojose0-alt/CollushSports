@@ -117,14 +117,28 @@ const SPLASH_SVG = `<svg width="2732" height="2732" viewBox="0 0 2732 2732" fill
 </svg>`
 
 // ── iOS App Icon sizes required by Apple ──────────────────────────────────────
+// Each entry gets a UNIQUE filename using size@scale notation to avoid overwrites.
 const ICON_SIZES = [
-  { size: 20,  scales: [1, 2, 3] },
-  { size: 29,  scales: [1, 2, 3] },
-  { size: 40,  scales: [1, 2, 3] },
-  { size: 60,  scales: [2, 3]    },
-  { size: 76,  scales: [1, 2]    },
-  { size: 83.5,scales: [2]       },
-  { size: 1024,scales: [1]       },  // App Store
+  { size: 20,   scale: 1, idiom: 'iphone' },
+  { size: 20,   scale: 2, idiom: 'iphone' },
+  { size: 20,   scale: 3, idiom: 'iphone' },
+  { size: 29,   scale: 1, idiom: 'iphone' },
+  { size: 29,   scale: 2, idiom: 'iphone' },
+  { size: 29,   scale: 3, idiom: 'iphone' },
+  { size: 40,   scale: 2, idiom: 'iphone' },
+  { size: 40,   scale: 3, idiom: 'iphone' },
+  { size: 60,   scale: 2, idiom: 'iphone' },
+  { size: 60,   scale: 3, idiom: 'iphone' },
+  { size: 20,   scale: 1, idiom: 'ipad'   },
+  { size: 20,   scale: 2, idiom: 'ipad'   },
+  { size: 29,   scale: 1, idiom: 'ipad'   },
+  { size: 29,   scale: 2, idiom: 'ipad'   },
+  { size: 40,   scale: 1, idiom: 'ipad'   },
+  { size: 40,   scale: 2, idiom: 'ipad'   },
+  { size: 76,   scale: 1, idiom: 'ipad'   },
+  { size: 76,   scale: 2, idiom: 'ipad'   },
+  { size: 83.5, scale: 2, idiom: 'ipad'   },
+  { size: 1024, scale: 1, idiom: 'ios-marketing' },
 ]
 
 // ── Output paths ──────────────────────────────────────────────────────────────
@@ -139,20 +153,19 @@ console.log('Generating app icons…')
 
 const iconImages = []
 
-for (const { size, scales } of ICON_SIZES) {
-  for (const scale of scales) {
-    const px       = Math.round(size * scale)
-    const filename = `icon-${px}.png`
-    const outPath  = path.join(ICON_DIR, filename)
+for (const { size, scale, idiom } of ICON_SIZES) {
+  const px       = Math.round(size * scale)
+  // Unique filename: idiom-size@scalex.png  e.g. iphone-60@2x.png
+  const filename = `${idiom}-${size}@${scale}x.png`
+  const outPath  = path.join(ICON_DIR, filename)
 
-    await sharp(Buffer.from(ICON_SVG))
-      .resize(px, px)
-      .png()
-      .toFile(outPath)
+  await sharp(Buffer.from(ICON_SVG))
+    .resize(px, px)
+    .png()
+    .toFile(outPath)
 
-    iconImages.push({ idiom: 'universal', size: `${size}x${size}`, scale: `${scale}x`, filename })
-    console.log(`  ✓ ${filename} (${px}×${px})`)
-  }
+  iconImages.push({ idiom, size: `${size}x${size}`, scale: `${scale}x`, filename })
+  console.log(`  ✓ ${filename} (${px}×${px})`)
 }
 
 // Write Contents.json for Xcode
