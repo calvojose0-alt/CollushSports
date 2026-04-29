@@ -106,8 +106,8 @@ function BracketConnector({ fromRoundIdx, pairCount }) {
 }
 
 // ── Team slot within a match card ─────────────────────────────────────────────
-// resultStatus: 'correct' | 'wrong' | 'actual-winner' | 'eliminated' | null
-// actualWinnerId: teamId of the actual match winner (shown beside wrong picks)
+// resultStatus: 'correct' | 'wrong' | 'alive-wrong-path' | 'actual-winner' | 'eliminated' | null
+// actualWinnerId: teamId of the actual match winner (shown beside wrong/eliminated picks)
 function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus, actualWinnerId }) {
   const team         = teamId         ? WC_TEAMS[teamId]         : null
   const actualWinner = actualWinnerId ? WC_TEAMS[actualWinnerId] : null
@@ -115,8 +115,9 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   // Background / text color based on result state
   let colorClass
   if (selected) {
-    colorClass = resultStatus === 'correct'  ? 'bg-green-500/30 text-white'
-               : resultStatus === 'wrong'    ? 'bg-red-500/25 text-white'
+    colorClass = resultStatus === 'correct'          ? 'bg-green-500/30 text-white'
+               : resultStatus === 'wrong'            ? 'bg-red-500/25 text-white'
+               : resultStatus === 'alive-wrong-path' ? 'bg-amber-500/20 text-white'
                : 'bg-yellow-500/30 text-white'
   } else if (resultStatus === 'actual-winner') {
     colorClass = 'bg-green-500/10 text-green-300'
@@ -128,15 +129,18 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
 
   // Pick indicator icon
   const indicator = selected
-    ? resultStatus === 'correct' ? <span className="ml-auto text-green-400 text-[11px] font-bold">✓</span>
-    : resultStatus === 'wrong'   ? <span className="ml-auto text-red-400   text-[11px] font-bold">✗</span>
-    :                              <span className="ml-auto text-yellow-400 text-[10px]">▶</span>
+    ? resultStatus === 'correct'          ? <span className="ml-auto text-green-400 text-[11px] font-bold">✓</span>
+    : resultStatus === 'wrong'            ? <span className="ml-auto text-red-400   text-[11px] font-bold">✗</span>
+    : resultStatus === 'alive-wrong-path' ? <span className="ml-auto text-amber-400 text-[11px] font-bold">↺</span>
+    :                                       <span className="ml-auto text-yellow-400 text-[10px]">▶</span>
     : resultStatus === 'actual-winner'
       ? <span className="ml-auto text-green-400 text-[11px] font-bold">✓</span>
       : null
 
-  // Wrong pick: show struck-through picked team + actual winner beside it
+  // 'wrong': show struck-through picked team + actual winner beside it (team is out)
   const showWrongWithWinner = selected && resultStatus === 'wrong' && actualWinner
+  // 'alive-wrong-path': show team normally with amber ↺ — team IS still in tournament
+  const showAliveDifferentSlot = selected && resultStatus === 'alive-wrong-path'
 
   return (
     <div
@@ -149,7 +153,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
     >
       {team ? (
         showWrongWithWinner ? (
-          // Wrong pick: ~~MEX~~ → 🇿🇦 RSA ✗
+          // Eliminated: ~~MEX~~ → 🇿🇦 RSA ✗
           <>
             <CountryFlag cc={team.cc} size={14} alt={team.name} className="opacity-40" />
             <span className="text-[12px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
@@ -157,6 +161,13 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
             <CountryFlag cc={actualWinner.cc} size={14} alt={actualWinner.name} />
             <span className="text-[12px] font-bold text-white truncate">{actualWinner.shortName}</span>
             <span className="ml-auto text-red-400 text-[11px] font-bold flex-shrink-0">✗</span>
+          </>
+        ) : showAliveDifferentSlot ? (
+          // Different bracket slot — team still alive in actual tournament ↺
+          <>
+            <CountryFlag cc={team.cc} size={14} alt={team.name} />
+            <span className="text-[13px] font-semibold truncate">{team.shortName}</span>
+            <span className="ml-auto text-amber-400 text-[11px] font-bold flex-shrink-0">↺</span>
           </>
         ) : (
           <>
@@ -176,7 +187,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats, result }) {
+function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats, result, actualStageWinners }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const fmtTime = (t) => t || ''
@@ -194,30 +205,37 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const resultKnown  = result?.status === 'final' && !!result?.homeTeam
   const actualWinner = resultKnown ? result.homeTeam : null
 
-  const pickCorrect = !!(picked && actualWinner && picked === actualWinner)
-  const pickWrong   = !!(picked && actualWinner && picked !== actualWinner)
+  // 'alive-wrong-path': user's pick didn't win THIS slot, but that team DID
+  // advance in the real tournament through a different bracket position.
+  const pickCorrect        = !!(picked && actualWinner && picked === actualWinner)
+  const pickAliveWrongPath = !!(picked && actualWinner && picked !== actualWinner && actualStageWinners?.has(picked))
+  const pickWrong          = !!(picked && actualWinner && picked !== actualWinner && !actualStageWinners?.has(picked))
 
   // Per-slot result status
-  const homeResultStatus = (resultKnown && homeTeamId)
-    ? homeTeamId === actualWinner
-      ? (picked === homeTeamId ? 'correct' : 'actual-winner')
-      : (picked === homeTeamId ? 'wrong'   : 'eliminated')
-    : null
-  const awayResultStatus = (resultKnown && awayTeamId)
-    ? awayTeamId === actualWinner
-      ? (picked === awayTeamId ? 'correct' : 'actual-winner')
-      : (picked === awayTeamId ? 'wrong'   : 'eliminated')
-    : null
+  // 'wrong'            → team was eliminated here (red)
+  // 'alive-wrong-path' → team advanced but via a different bracket slot (amber)
+  const slotStatus = (teamId, isSelected) => {
+    if (!resultKnown || !teamId) return null
+    if (teamId === actualWinner) return isSelected ? 'correct' : 'actual-winner'
+    if (!isSelected) return 'eliminated'
+    return actualStageWinners?.has(teamId) ? 'alive-wrong-path' : 'wrong'
+  }
+  const homeResultStatus = slotStatus(homeTeamId, picked === homeTeamId && !!homeTeamId)
+  const awayResultStatus = slotStatus(awayTeamId, picked === awayTeamId && !!awayTeamId)
 
-  // Card border & background:
-  // - When result is known: green/red overlay applies to ALL rounds (including R32)
-  // - Before result: R32 keeps its subdued look; R16+ shows yellow when picked
+  // Card border & background — green / amber / red / neutral
   const borderColor = resultKnown
-    ? pickCorrect ? '#22C55E' : pickWrong ? '#EF4444' : '#4B5563'
+    ? pickCorrect        ? '#22C55E'
+    : pickAliveWrongPath ? '#f59e0b'
+    : pickWrong          ? '#EF4444'
+    :                      '#4B5563'
     : isR32 ? '#374151'
     : picked ? '#CA8A04' : '#4B5563'
   const cardBg = resultKnown
-    ? pickCorrect ? 'rgba(20,83,45,0.22)' : pickWrong ? 'rgba(127,29,29,0.20)' : '#1F2937'
+    ? pickCorrect        ? 'rgba(20,83,45,0.22)'
+    : pickAliveWrongPath ? 'rgba(120,77,0,0.20)'
+    : pickWrong          ? 'rgba(127,29,29,0.20)'
+    :                      '#1F2937'
     : isR32 ? 'rgba(17,24,39,0.85)'
     : '#1F2937'
 
@@ -267,15 +285,22 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           actualWinnerId={awayResultStatus === 'wrong' ? actualWinner : null}
         />
 
+
         {/* Date / time  — or result badge when result is known */}
         <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/40 border-t border-gray-700/40"
           style={{ height: 18 }}>
           {resultKnown ? (
             <>
               <span className={`text-[10px] font-bold ${
-                pickCorrect ? 'text-green-400' : pickWrong ? 'text-red-400' : 'text-gray-500'
+                pickCorrect        ? 'text-green-400'
+              : pickAliveWrongPath ? 'text-amber-400'
+              : pickWrong         ? 'text-red-400'
+              :                     'text-gray-500'
               }`}>
-                {pickCorrect ? '✓ Correct' : pickWrong ? '✗ Wrong' : '● Final'}
+                {pickCorrect        ? '✓ Correct'
+               : pickAliveWrongPath ? '↺ Different slot'
+               : pickWrong         ? '✗ Wrong'
+               :                     '● Final'}
               </span>
               <span className="text-[10px] text-gray-400 flex items-center gap-1">
                 <CountryFlag cc={WC_TEAMS[actualWinner]?.cc} size={12} alt={WC_TEAMS[actualWinner]?.name} /> wins
@@ -321,6 +346,19 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
 function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks, resultsByMatchId }) {
   const roundIdx = STAGE_ROUND_IDX[stage]
   const isR32    = stage === 'r32'
+
+  // Set of teams that actually WON their match in this stage.
+  // Used to distinguish 'alive-wrong-path' (amber) from 'wrong' (red):
+  // if the user's pick didn't win THIS slot but IS in this set, the team
+  // advanced in reality through a different bracket position.
+  const actualStageWinners = useMemo(() => {
+    const winners = new Set()
+    matches.forEach(m => {
+      const r = resultsByMatchId?.[m.id]
+      if (r?.status === 'final' && r?.homeTeam) winners.add(r.homeTeam)
+    })
+    return winners
+  }, [matches, resultsByMatchId])
 
   // For each bracket match, count how many users picked each team to advance.
   // allPlayoffPicks entries: { userId, round, teamIds: [teamId, ...] }
@@ -399,6 +437,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
                 isR32={isR32}
                 communityStats={communityStatsByMatch[match.id]}
                 result={resultsByMatchId?.[match.id] ?? null}
+                actualStageWinners={actualStageWinners}
               />
             </div>
           )

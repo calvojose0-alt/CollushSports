@@ -1,4 +1,4 @@
-import { Star, Flag, Medal, Trophy, Target } from 'lucide-react'
+import { Star, Flag, Medal, Trophy, Target, LayoutGrid } from 'lucide-react'
 import { SCORING } from '@/data/wc2026Teams'
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
@@ -207,7 +207,64 @@ export default function WCScoringPage() {
         </ol>
       </Section>
 
-      {/* ── 5. Grand Total ──────────────────────────────────────────────────── */}
+      {/* ── 5. Bracket Card Color Guide ─────────────────────────────────────── */}
+      <Section
+        icon={LayoutGrid}
+        iconColor="text-blue-400"
+        title="Bracket Card Colors"
+        subtitle="Once knockout results are entered, each bracket card is color-coded to show how your pick compares to the actual result."
+      >
+        <div className="space-y-2.5">
+          {[
+            {
+              border: '#22C55E',
+              bg:     'rgba(20,83,45,0.22)',
+              dot:    'bg-green-500',
+              label:  '✓ Correct',
+              labelColor: 'text-green-400',
+              desc:   'Your pick won this match and advanced.',
+            },
+            {
+              border: '#f59e0b',
+              bg:     'rgba(120,77,0,0.20)',
+              dot:    'bg-amber-500',
+              label:  '↺ Different slot',
+              labelColor: 'text-amber-400',
+              desc:   'Your pick advanced in the real tournament — just through a different bracket position than you predicted. You still earn points for predicting the team correctly.',
+            },
+            {
+              border: '#EF4444',
+              bg:     'rgba(127,29,29,0.20)',
+              dot:    'bg-red-500',
+              label:  '✗ Wrong',
+              labelColor: 'text-red-400',
+              desc:   'Your pick was eliminated at this round.',
+            },
+            {
+              border: '#4B5563',
+              bg:     '#1F2937',
+              dot:    'bg-gray-600',
+              label:  '● Pending',
+              labelColor: 'text-gray-400',
+              desc:   'Result not yet entered by the admin.',
+            },
+          ].map(({ border, bg, dot, label, labelColor, desc }) => (
+            <div
+              key={label}
+              className="flex items-start gap-3 rounded-lg border px-3 py-2.5"
+              style={{ borderColor: border, background: bg }}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${dot}`} />
+              <div>
+                <span className={`text-xs font-bold ${labelColor}`}>{label}</span>
+                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* ── 6. Grand Total ──────────────────────────────────────────────────── */}
       <div className="card bg-gray-900 border-yellow-700/40 space-y-3">
         <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Maximum Possible Points</p>
         <div className="space-y-2 text-sm">
