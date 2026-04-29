@@ -188,11 +188,11 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const hasCommunity = communityStats && communityStats.total > 0
 
   // ── Scoring overlay (all rounds, including R32) ───────────────────────────
-  // Convention: admin saves winner as homeTeam with homeScore=1, awayScore=0
+  // Convention: admin always stores the winner as `homeTeam`.
+  // homeScore/awayScore may be null for simulated matches, so we never use
+  // score comparison — that would make null > null → false → awayTeam (loser) "win".
   const resultKnown  = result?.status === 'final' && !!result?.homeTeam
-  const actualWinner = resultKnown
-    ? (result.homeScore > result.awayScore ? result.homeTeam : result.awayTeam)
-    : null
+  const actualWinner = resultKnown ? result.homeTeam : null
 
   const pickCorrect = !!(picked && actualWinner && picked === actualWinner)
   const pickWrong   = !!(picked && actualWinner && picked !== actualWinner)

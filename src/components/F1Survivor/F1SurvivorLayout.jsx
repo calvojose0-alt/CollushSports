@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import PullToRefresh from '@/components/shared/PullToRefresh'
 import {
   Flag, BarChart3, History, Settings, Users, ChevronLeft, Trophy,
 } from 'lucide-react'
@@ -28,7 +29,7 @@ function StatusBadge({ status }) {
 export default function F1SurvivorLayout() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { myPlayer, currentRace, leaderboard, loading, error } = useF1Game()
+  const { myPlayer, currentRace, leaderboard, loading, error, refreshResults, refreshPicks, reload } = useF1Game()
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
   const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)
@@ -156,7 +157,18 @@ export default function F1SurvivorLayout() {
               <p className="font-mono text-xs">{error}</p>
             </div>
           )}
-          {!loading && <Outlet />}
+          {!loading && (
+            <PullToRefresh
+              accentColor="#ef4444"
+              onRefresh={async () => {
+                await refreshResults()
+                await refreshPicks()
+                await reload()
+              }}
+            >
+              <Outlet />
+            </PullToRefresh>
+          )}
         </main>
       </div>
     </div>

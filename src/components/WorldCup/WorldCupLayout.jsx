@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { WCGameContext } from '@/contexts/WCGameContext'
+import PullToRefresh from '@/components/shared/PullToRefresh'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -51,6 +52,9 @@ export default function WorldCupLayout() {
     myPlayoffPicksByRound,
     loading,
     error,
+    reload,
+    refreshResults,
+    refreshPicks,
   } = wcGame
 
   // Compute My Stats in real-time from allPicks so they always stay in sync
@@ -273,7 +277,16 @@ export default function WorldCupLayout() {
           )}
           {!loading && (
             <WCGameContext.Provider value={wcGame}>
-              <Outlet />
+              <PullToRefresh
+                accentColor="#ca8a04"
+                onRefresh={async () => {
+                  await refreshResults()
+                  await refreshPicks()
+                  await reload()
+                }}
+              >
+                <Outlet />
+              </PullToRefresh>
             </WCGameContext.Provider>
           )}
         </main>
