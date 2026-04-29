@@ -553,47 +553,52 @@ export default function BracketPage() {
   // ── Initialize bracket picks from saved playoff data (once) ───────────────
   useEffect(() => {
     if (initialized) return
-    const r16Set    = new Set(myPlayoffPicksByRound.r16?.teamIds    || [])
-    const qfSet     = new Set(myPlayoffPicksByRound.qf?.teamIds     || [])
-    const sfSet     = new Set(myPlayoffPicksByRound.sf?.teamIds     || [])
-    const winnerSet = new Set(myPlayoffPicksByRound.winner?.teamIds || [])
-    const hasAny = r16Set.size || qfSet.size || sfSet.size || winnerSet.size
+    const r16Set      = new Set(myPlayoffPicksByRound.r16?.teamIds      || [])
+    const qfSet       = new Set(myPlayoffPicksByRound.qf?.teamIds       || [])
+    const sfSet       = new Set(myPlayoffPicksByRound.sf?.teamIds       || [])
+    // finalistSet = the 2 SF winners who reached the Final (saved separately so
+    // both can be restored — winnerSet only has 1 team and would lose the runner-up).
+    const finalistSet = new Set(myPlayoffPicksByRound.finalist?.teamIds || [])
+    const winnerSet   = new Set(myPlayoffPicksByRound.winner?.teamIds   || [])
+    const hasAny = r16Set.size || qfSet.size || sfSet.size || finalistSet.size || winnerSet.size
 
     // Only initialize once we have group picks or saved playoff picks
     if (!myPicks.length && !hasAny) return
 
     const newPicks = {}
 
-    // R32 → r16
+    // R32 → r16: who won each R32 match (= teams advancing to R16)
     KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').forEach(m => {
       const home = resolveSlot(m.homeSlot, slotMap, {})
       const away = resolveSlot(m.awaySlot, slotMap, {})
       if (home && r16Set.has(home)) newPicks[m.id] = home
       else if (away && r16Set.has(away)) newPicks[m.id] = away
     })
-    // R16 → qf
+    // R16 → qf: who won each R16 match (= teams advancing to QF)
     KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').forEach(m => {
       const home = resolveSlot(m.homeSlot, slotMap, newPicks)
       const away = resolveSlot(m.awaySlot, slotMap, newPicks)
       if (home && qfSet.has(home)) newPicks[m.id] = home
       else if (away && qfSet.has(away)) newPicks[m.id] = away
     })
-    // QF → sf
+    // QF → sf: who won each QF match (= teams advancing to SF)
     KNOCKOUT_MATCHES.filter(m => m.stage === 'qf').forEach(m => {
       const home = resolveSlot(m.homeSlot, slotMap, newPicks)
       const away = resolveSlot(m.awaySlot, slotMap, newPicks)
       if (home && sfSet.has(home)) newPicks[m.id] = home
       else if (away && sfSet.has(away)) newPicks[m.id] = away
     })
-    // SF → final
+    // SF → final: who won each SF match (= the 2 finalists).
+    // Use finalistSet (2 teams), NOT winnerSet (1 team) — the champion's
+    // semi-final was restorable before, but the other finalist was always lost.
     const finalMatch = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
     KNOCKOUT_MATCHES.filter(m => m.stage === 'sf').forEach(m => {
       const home = resolveSlot(m.homeSlot, slotMap, newPicks)
       const away = resolveSlot(m.awaySlot, slotMap, newPicks)
-      if (home && winnerSet.has(home)) newPicks[m.id] = home
-      else if (away && winnerSet.has(away)) newPicks[m.id] = away
+      if (home && finalistSet.has(home)) newPicks[m.id] = home
+      else if (away && finalistSet.has(away)) newPicks[m.id] = away
     })
-    // Final
+    // Final: the champion
     if (finalMatch) {
       const home = resolveSlot(finalMatch.homeSlot, slotMap, newPicks)
       const away = resolveSlot(finalMatch.awaySlot, slotMap, newPicks)
@@ -637,21 +642,28 @@ export default function BracketPage() {
         ])
         .filter(Boolean)
 
-      const r16Teams = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32')
+        const r16Teams      = KNOCKOUT_MATCHES.filter(m => m.stage === 'r32')
         .map(m => bracketPicks[m.id]).filter(Boolean)
-      const qfTeams  = KNOCKOUT_MATCHES.filter(m => m.stage === 'r16')
+      const qfTeams       = KNOCKOUT_MATCHES.filter(m => m.stage === 'r16')
         .map(m => bracketPicks[m.id]).filter(Boolean)
-      const sfTeams  = KNOCKOUT_MATCHES.filter(m => m.stage === 'qf')
+      const sfTeams       = KNOCKOUT_MATCHES.filter(m => m.stage === 'qf')
         .map(m => bracketPicks[m.id]).filter(Boolean)
-      const finalM   = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
-      const winner   = finalM && bracketPicks[finalM.id] ? [bracketPicks[finalM.id]] : []
+      // "finalist" = the 2 SF match winners who advance to the Final.
+      // This round is critical for restoring SF bracket picks on reload —
+      // winnerSet only has 1 team (the champion), so without this the other
+      // semi-final pick is permanently lost after navigating away.
+      const finalistTeams = KNOCKOUT_MATCHES.filter(m => m.stage === 'sf')
+        .map(m => bracketPicks[m.id]).filter(Boolean)
+      const finalM        = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
+      const winner        = finalM && bracketPicks[finalM.id] ? [bracketPicks[finalM.id]] : []
 
       const saves = [
-        savePlayoffPick({ userId: user.uid, round: 'r32',    teamIds: r32Teams }),
-        savePlayoffPick({ userId: user.uid, round: 'r16',    teamIds: r16Teams }),
-        savePlayoffPick({ userId: user.uid, round: 'qf',     teamIds: qfTeams  }),
-        savePlayoffPick({ userId: user.uid, round: 'sf',     teamIds: sfTeams  }),
-        savePlayoffPick({ userId: user.uid, round: 'winner', teamIds: winner   }),
+        savePlayoffPick({ userId: user.uid, round: 'r32',      teamIds: r32Teams      }),
+        savePlayoffPick({ userId: user.uid, round: 'r16',      teamIds: r16Teams      }),
+        savePlayoffPick({ userId: user.uid, round: 'qf',       teamIds: qfTeams       }),
+        savePlayoffPick({ userId: user.uid, round: 'sf',       teamIds: sfTeams       }),
+        savePlayoffPick({ userId: user.uid, round: 'finalist', teamIds: finalistTeams }),
+        savePlayoffPick({ userId: user.uid, round: 'winner',   teamIds: winner        }),
       ]
       const goalsVal = parseInt(totalGoalsGuess, 10)
       if (!isNaN(goalsVal) && goalsVal >= 0) {
