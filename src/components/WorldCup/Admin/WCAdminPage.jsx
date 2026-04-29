@@ -1122,7 +1122,7 @@ function DevToolsAdmin({ onRefresh, resultsByMatchId }) {
 // ── Main Admin Page ────────────────────────────────────────────────────────────
 export default function WCAdminPage() {
   const { user } = useAuth()
-  const { matchResults, resultsByMatchId, tournamentMeta, refreshResults, reload } = useWCGame()
+  const { matchResults, resultsByMatchId, tournamentMeta, refreshResults, refreshPicks, reload } = useWCGame()
   const [activeTab, setActiveTab] = useState('group')
 
   if (user?.email?.toLowerCase() !== ADMIN_EMAIL) {
@@ -1136,6 +1136,11 @@ export default function WCAdminPage() {
 
   const handleRefresh = async () => {
     await refreshResults()
+    // On iOS/Capacitor, Firebase's offline cache can serve stale data immediately
+    // after a write. A short delay lets Firestore pull the fresh data from the server
+    // before we refresh picks and player totals.
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    await refreshPicks()
     await reload()
   }
 

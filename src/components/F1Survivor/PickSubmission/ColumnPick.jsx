@@ -112,12 +112,12 @@ export default function ColumnPick({ column, label, description, selectedDriver,
           <div className="p-2 border-b border-f1light flex items-center gap-2">
             <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <input
-              autoFocus
               type="text"
               placeholder="Search drivers or teams…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+              className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">

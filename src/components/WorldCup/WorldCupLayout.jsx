@@ -95,8 +95,8 @@ export default function WorldCupLayout() {
         )}
       </div>
 
-      {/* ── Mobile tab strip (hidden on md+) ───────────────────────────────── */}
-      <div className="md:hidden -mx-4 px-4 mb-4 overflow-x-auto scrollbar-none">
+      {/* ── Mobile tab strip (hidden on lg+) ───────────────────────────────── */}
+      <div className="lg:hidden -mx-4 px-4 mb-4 overflow-x-auto scrollbar-none">
         <div className="flex gap-1.5 min-w-max pb-1">
           {NAV.map((item) => {
             const Icon = item.icon
@@ -123,7 +123,7 @@ export default function WorldCupLayout() {
 
       <div className="flex gap-6">
         {/* Sidebar */}
-        <aside className="w-52 flex-shrink-0 hidden md:block">
+        <aside className="w-52 flex-shrink-0 hidden lg:block">
           <nav className="space-y-1">
             {NAV.map((item) => {
               const Icon = item.icon
