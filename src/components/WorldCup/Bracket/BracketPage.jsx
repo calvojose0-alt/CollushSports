@@ -76,6 +76,62 @@ function cascadeClear(matchId, removedTeam, picks) {
   }
 }
 
+// ── Pre-result team entry status ──────────────────────────────────────────────
+// Answers: "Is this team even alive in the real tournament at this round?"
+// BEFORE the match in this bracket slot has a result entered.
+//
+// entryStatus: 'alive-correct' | 'alive-different' | 'eliminated' | 'unknown'
+//
+// For R32  — team enters via group stage qualification.
+//            Needs actual group results to compare against user's group picks.
+// For R16+ — team enters by winning a knockout feeding match.
+//            Needs the specific feeding match's result.
+function getEntryStatus(teamId, slotLabel, stage, {
+  actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, actualStageWinnersMap, resultsByMatchId,
+}) {
+  if (!teamId || !slotLabel) return 'unknown'
+
+  if (stage === 'r32') {
+    // 3rd-place slots need all 12 groups complete (best-8 ranking)
+    const isThirdSlot = /^3[A-L]{2,}/.test(slotLabel)
+    if (isThirdSlot) {
+      if (!allGroupsComplete) return 'unknown'
+    } else {
+      // '1A', '2B' — only need this specific group's results
+      const grp = slotLabel.slice(-1)
+      if (!groupsWithAllResults.has(grp)) return 'unknown'
+    }
+    // Find which actual slot this team occupies (if any)
+    const actualEntry = Object.entries(actualGroupSlotMap).find(([, v]) => v === teamId)
+    if (!actualEntry) return 'eliminated'
+    return actualEntry[0] === slotLabel ? 'alive-correct' : 'alive-different'
+  }
+
+  // R16 / QF / SF / Final — slot label is 'W_r32_1', 'W_r16_2', etc.
+  if (!slotLabel.startsWith('W_')) return 'unknown'
+
+  // Determine which feeding stage produced teams for this slot
+  const feedingStage =
+    slotLabel.startsWith('W_r32') ? 'r32' :
+    slotLabel.startsWith('W_r16') ? 'r16' :
+    slotLabel.startsWith('W_qf')  ? 'qf'  :
+    slotLabel.startsWith('W_sf')  ? 'sf'  : null
+  if (!feedingStage) return 'unknown'
+
+  const stageWinners = actualStageWinnersMap?.[feedingStage]
+  if (!stageWinners || stageWinners.size === 0) return 'unknown'
+
+  // Check whether this specific slot's feeding match was won by this team
+  const feedingMatchId = 'ko_' + slotLabel.slice(2)   // 'W_r32_1' → 'ko_r32_1'
+  const feedingResult  = resultsByMatchId?.[feedingMatchId]
+  if (!feedingResult || feedingResult.status !== 'final' || !feedingResult.homeTeam) return 'unknown'
+
+  if (feedingResult.homeTeam === teamId) return 'alive-correct'
+  // Team didn't win that specific match — but did they win a DIFFERENT match in same stage?
+  if (stageWinners.has(teamId)) return 'alive-different'
+  return 'eliminated'
+}
+
 // ── SVG connectors between two adjacent bracket columns ───────────────────────
 function BracketConnector({ fromRoundIdx, pairCount }) {
   const elems = []
@@ -107,10 +163,22 @@ function BracketConnector({ fromRoundIdx, pairCount }) {
 
 // ── Team slot within a match card ─────────────────────────────────────────────
 // resultStatus: 'correct' | 'wrong' | 'alive-wrong-path' | 'actual-winner' | 'eliminated' | null
+// entryStatus:  'alive-correct' | 'alive-different' | 'eliminated' | 'unknown' | null
+//               (pre-result indicator — is this team alive in the real tournament?)
 // actualWinnerId: teamId of the actual match winner (shown beside wrong/eliminated picks)
-function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus, actualWinnerId }) {
+function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatus, actualWinnerId, entryStatus }) {
   const team         = teamId         ? WC_TEAMS[teamId]         : null
   const actualWinner = actualWinnerId ? WC_TEAMS[actualWinnerId] : null
+
+  // Entry dot: only when there's no match result yet AND status is known
+  const showEntryDot = !resultStatus && entryStatus && entryStatus !== 'unknown' && !!team
+  const entryDotClass =
+    entryStatus === 'alive-correct'   ? 'bg-green-400' :
+    entryStatus === 'alive-different' ? 'bg-amber-400' :
+    /* eliminated */                    'bg-red-500'
+
+  // Dim non-selected teams that are eliminated before this match
+  const preResultEliminated = showEntryDot && entryStatus === 'eliminated' && !selected
 
   // Background / text color based on result state
   let colorClass
@@ -123,6 +191,8 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
     colorClass = 'bg-green-500/10 text-green-300'
   } else if (resultStatus === 'eliminated') {
     colorClass = 'text-gray-600 opacity-50'
+  } else if (preResultEliminated) {
+    colorClass = 'text-gray-500 opacity-55'
   } else {
     colorClass = team && clickable ? 'hover:bg-white/5 text-white' : 'text-gray-500'
   }
@@ -170,7 +240,9 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
             <span className="ml-auto text-amber-400 text-[11px] font-bold flex-shrink-0">↺</span>
           </>
         ) : (
+          // Normal render — with optional pre-result entry status dot
           <>
+            {showEntryDot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${entryDotClass}`} />}
             <CountryFlag cc={team.cc} size={14} alt={team.name} />
             <span className="text-[13px] font-semibold truncate">{team.shortName}</span>
             {indicator}
@@ -187,7 +259,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats, result, actualStageWinners }) {
+function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR32, communityStats, result, actualStageWinners, homeEntryStatus, awayEntryStatus }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const fmtTime = (t) => t || ''
@@ -269,6 +341,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           onClick={() => onPick(homeTeamId)}
           resultStatus={homeResultStatus}
           actualWinnerId={homeResultStatus === 'wrong' ? actualWinner : null}
+          entryStatus={homeEntryStatus}
         />
 
         {/* Divider */}
@@ -283,6 +356,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
           onClick={() => onPick(awayTeamId)}
           resultStatus={awayResultStatus}
           actualWinnerId={awayResultStatus === 'wrong' ? actualWinner : null}
+          entryStatus={awayEntryStatus}
         />
 
 
@@ -343,7 +417,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
 }
 
 // ── Bracket column ────────────────────────────────────────────────────────────
-function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks, resultsByMatchId }) {
+function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks, resultsByMatchId, getTeamEntryStatus }) {
   const roundIdx = STAGE_ROUND_IDX[stage]
   const isR32    = stage === 'r32'
 
@@ -359,6 +433,38 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
     })
     return winners
   }, [matches, resultsByMatchId])
+
+  // Pre-result entry status for every team chip in this column.
+  // Only evaluated for matches that don't have a final result yet
+  // (once a result is entered the card shows ✓/↺/✗ instead).
+  const entryStatusesByMatch = useMemo(() => {
+    if (!getTeamEntryStatus) return {}
+    const out = {}
+    matches.forEach(m => {
+      const r = resultsByMatchId?.[m.id]
+      if (r?.status === 'final') return   // post-result — skip
+      const homeId = resolveSlot(m.homeSlot, slotMap, bracketPicks)
+      const awayId = resolveSlot(m.awaySlot, slotMap, bracketPicks)
+      out[m.id] = {
+        home: getTeamEntryStatus(homeId, m.homeSlot, stage),
+        away: getTeamEntryStatus(awayId, m.awaySlot, stage),
+      }
+    })
+    return out
+  }, [matches, slotMap, bracketPicks, getTeamEntryStatus, stage, resultsByMatchId])
+
+  // Column header counter — aggregated entry-status tallies for pending matches
+  const headerCounts = useMemo(() => {
+    let correct = 0, different = 0, eliminated = 0
+    Object.values(entryStatusesByMatch).forEach(({ home, away }) => {
+      ;[home, away].forEach(s => {
+        if (s === 'alive-correct')   correct++
+        else if (s === 'alive-different') different++
+        else if (s === 'eliminated') eliminated++
+      })
+    })
+    return { correct, different, eliminated }
+  }, [entryStatusesByMatch])
 
   // For each bracket match, count how many users picked each team to advance.
   // allPlayoffPicks entries: { userId, round, teamIds: [teamId, ...] }
@@ -407,14 +513,41 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
     return stats
   }, [matches, slotMap, bracketPicks, allPlayoffPicks, stage])
 
+  const { correct, different, eliminated } = headerCounts
+  const hasHeaderCounts = correct > 0 || different > 0 || eliminated > 0
+
   return (
     <div style={{ width: COL_W, flexShrink: 0 }}>
       {/* Header */}
       <div
-        className="text-[12px] font-bold text-gray-400 uppercase tracking-wider text-center border-b border-gray-700/60"
-        style={{ height: HDR_H, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 6 }}
+        className="border-b border-gray-700/60 text-center"
+        style={{ height: HDR_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 5 }}
       >
-        {STAGE_LABELS[stage]}
+        <span className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
+          {STAGE_LABELS[stage]}
+        </span>
+        {hasHeaderCounts && (
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap justify-center">
+            {correct > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-semibold text-green-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                {correct}
+              </span>
+            )}
+            {different > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-semibold text-amber-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                {different} alive diff. path
+              </span>
+            )}
+            {eliminated > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-semibold text-red-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                {eliminated}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {/* Cards container */}
       <div className="relative" style={{ height: TOTAL_H }}>
@@ -422,6 +555,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
           const homeTeamId = resolveSlot(match.homeSlot, slotMap, bracketPicks)
           const awayTeamId = resolveSlot(match.awaySlot, slotMap, bracketPicks)
           const picked     = bracketPicks[match.id] || null
+          const matchEntry = entryStatusesByMatch[match.id] || {}
           return (
             <div
               key={match.id}
@@ -438,6 +572,8 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
                 communityStats={communityStatsByMatch[match.id]}
                 result={resultsByMatchId?.[match.id] ?? null}
                 actualStageWinners={actualStageWinners}
+                homeEntryStatus={matchEntry.home}
+                awayEntryStatus={matchEntry.away}
               />
             </div>
           )
@@ -549,6 +685,87 @@ export default function BracketPage() {
 
     return map
   }, [myPicksByMatchId])
+
+  // ── Actual group slot map (from real match results) ───────────────────────
+  // Same backtracking algorithm as slotMap, but uses admin-entered results
+  // instead of the user's picks. Used to power pre-result entry status dots.
+  const { actualGroupSlotMap, groupsWithAllResults, allGroupsComplete } = useMemo(() => {
+    const groupsWithAllResults = new Set()
+    const map = {}
+    const allThirdPlace = []
+
+    GROUP_LETTERS.forEach(group => {
+      const groupMatchList = GROUP_MATCHES.filter(m => m.group === group)
+      const complete = groupMatchList.every(m => {
+        const r = resultsByMatchId?.[m.id]
+        return r?.status === 'final' && r?.homeScore != null && r?.awayScore != null
+      })
+      if (!complete) return
+
+      groupsWithAllResults.add(group)
+      const picks = groupMatchList.map(m => {
+        const r = resultsByMatchId[m.id]
+        return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r.homeScore, awayScore: r.awayScore }
+      })
+      const standings = computeGroupStandings(group, picks)
+      standings.forEach((s, idx) => { map[`${idx + 1}${group}`] = s.teamId })
+      if (standings[2]) allThirdPlace.push({ group, ...standings[2] })
+    })
+
+    const allGroupsComplete = groupsWithAllResults.size === GROUP_LETTERS.length
+
+    if (allGroupsComplete && allThirdPlace.length >= 8) {
+      allThirdPlace.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      const qualified = allThirdPlace.slice(0, 8)
+
+      const r32ThirdCodes = []
+      KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').forEach(m => {
+        if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
+        if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
+      })
+      const used = new Set()
+      const btResult = {}
+      function bt(i) {
+        if (i === r32ThirdCodes.length) return true
+        const eligible = r32ThirdCodes[i].slice(1).split('')
+        for (const team of qualified) {
+          if (!used.has(team.teamId) && eligible.includes(team.group)) {
+            used.add(team.teamId)
+            btResult[r32ThirdCodes[i]] = team.teamId
+            if (bt(i + 1)) return true
+            used.delete(team.teamId)
+            delete btResult[r32ThirdCodes[i]]
+          }
+        }
+        return false
+      }
+      bt(0)
+      Object.assign(map, btResult)
+    }
+
+    return { actualGroupSlotMap: map, groupsWithAllResults, allGroupsComplete }
+  }, [resultsByMatchId])
+
+  // ── Actual knockout stage winners (per stage) ──────────────────────────────
+  const actualStageWinnersMap = useMemo(() => {
+    const map = { r32: new Set(), r16: new Set(), qf: new Set(), sf: new Set(), final: new Set() }
+    KNOCKOUT_MATCHES.forEach(m => {
+      const r = resultsByMatchId?.[m.id]
+      if (r?.status === 'final' && r?.homeTeam) map[m.stage]?.add(r.homeTeam)
+    })
+    return map
+  }, [resultsByMatchId])
+
+  // ── Stable callback for per-team entry status ──────────────────────────────
+  const getTeamEntryStatus = useCallback((teamId, slotLabel, stage) => {
+    return getEntryStatus(teamId, slotLabel, stage, {
+      actualGroupSlotMap,
+      groupsWithAllResults,
+      allGroupsComplete,
+      actualStageWinnersMap,
+      resultsByMatchId,
+    })
+  }, [actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, actualStageWinnersMap, resultsByMatchId])
 
   // ── Initialize bracket picks from saved playoff data (once) ───────────────
   useEffect(() => {
@@ -767,6 +984,7 @@ export default function BracketPage() {
                 locked={locked}
                 allPlayoffPicks={allPlayoffPicks}
                 resultsByMatchId={resultsByMatchId}
+                getTeamEntryStatus={getTeamEntryStatus}
               />
               {colIdx < columns.length - 1 && (
                 <BracketConnector
