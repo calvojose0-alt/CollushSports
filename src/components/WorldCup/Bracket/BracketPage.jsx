@@ -774,15 +774,21 @@ export default function BracketPage() {
   }, [resultsByMatchId])
 
   // ── Stable callback for per-team entry status ──────────────────────────────
-  const getTeamEntryStatus = useCallback((teamId, slotLabel, stage) => {
-    return getEntryStatus(teamId, slotLabel, stage, {
+  // Returns the team's overall real-world tournament status, propagated through
+  // every round: alive-correct / alive-different / eliminated / unknown.
+  // computeTeamOverallStatus walks group qualification THEN every knockout stage,
+  // so a green dot earned in R32 turns red the moment that team loses R16, and
+  // that red dot appears in every later column where the user still has them picked.
+  const getTeamEntryStatus = useCallback((teamId) => {
+    if (!teamId) return null
+    return computeTeamOverallStatus(teamId, {
       actualGroupSlotMap,
       groupsWithAllResults,
       allGroupsComplete,
-      actualStageWinnersMap,
       resultsByMatchId,
+      slotMap,
     })
-  }, [actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, actualStageWinnersMap, resultsByMatchId])
+  }, [actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, resultsByMatchId, slotMap])
 
   // ── Initialize bracket picks from saved playoff data (once) ───────────────
   useEffect(() => {
