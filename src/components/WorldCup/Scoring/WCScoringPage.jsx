@@ -1,4 +1,4 @@
-import { Star, Flag, Medal, Trophy, Target, LayoutGrid } from 'lucide-react'
+import { Star, Flag, Medal, Trophy, Target, LayoutGrid, Circle } from 'lucide-react'
 import { SCORING } from '@/data/wc2026Teams'
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
@@ -207,7 +207,49 @@ export default function WCScoringPage() {
         </ol>
       </Section>
 
-      {/* ── 5. Bracket Card Color Guide ─────────────────────────────────────── */}
+      {/* ── 5. Pre-result Status Dots ────────────────────────────────────────── */}
+      <Section
+        icon={Circle}
+        iconColor="text-gray-400"
+        title="Live Team Status Dots"
+        subtitle="Before a knockout match result is entered, a small dot appears next to each team in the bracket. It reflects that team's current real-world tournament status and updates automatically as the admin enters results."
+      >
+        <div className="space-y-3">
+          {[
+            {
+              dot:        'bg-green-400',
+              label:      '● Green — Alive (exact path)',
+              labelColor: 'text-green-400',
+              desc:       'Team qualified from their group in the same position you predicted, and has not yet been eliminated in the knockout stage.',
+            },
+            {
+              dot:        'bg-amber-400',
+              label:      '● Amber — Alive (different path)',
+              labelColor: 'text-amber-400',
+              desc:       'Team is still in the tournament but qualified through a different group position than you predicted (e.g., you picked them 1st but they finished 2nd, or advanced as best 3rd-place).',
+            },
+            {
+              dot:        'bg-red-500',
+              label:      '● Red + strikethrough — Eliminated',
+              labelColor: 'text-red-400',
+              desc:       "Team is out — either they didn't qualify from the group stage, or they've already lost a knockout match. Their name appears with a red strikethrough in every remaining round you predicted them to reach.",
+            },
+          ].map(({ dot, label, labelColor, desc }) => (
+            <div key={label} className="flex items-start gap-3">
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5 ${dot}`} />
+              <div>
+                <p className={`text-xs font-bold ${labelColor}`}>{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-gray-800/50 rounded-lg px-3 py-2.5 text-xs text-gray-400 leading-relaxed mt-1">
+          <span className="text-gray-300 font-semibold">Tip:</span> The column header above each round shows a count of green, amber, and red dots — so you can see at a glance how many of your picks are still alive across the entire bracket.
+        </div>
+      </Section>
+
+      {/* ── 6. Bracket Card Color Guide ─────────────────────────────────────── */}
       <Section
         icon={LayoutGrid}
         iconColor="text-blue-400"
@@ -264,7 +306,7 @@ export default function WCScoringPage() {
         </div>
       </Section>
 
-      {/* ── 6. Grand Total ──────────────────────────────────────────────────── */}
+      {/* ── 7. Grand Total ──────────────────────────────────────────────────── */}
       <div className="card bg-gray-900 border-yellow-700/40 space-y-3">
         <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Maximum Possible Points</p>
         <div className="space-y-2 text-sm">
