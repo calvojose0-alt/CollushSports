@@ -165,6 +165,12 @@ export default function WorldCupLayout() {
                   <span className="text-gray-400">Correct Outcomes</span>
                   <span className="font-bold text-blue-400">{myOutcomeHits}</span>
                 </div>
+                {myQualPoints > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Qualification Pts</span>
+                    <span className="font-bold text-orange-400">+{myQualPoints}</span>
+                  </div>
+                )}
                 {myPlayoffPoints > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">Knockout Pts</span>

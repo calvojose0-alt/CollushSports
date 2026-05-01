@@ -201,7 +201,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   let colorClass
   if (selected) {
     colorClass = resultStatus === 'correct'          ? 'bg-green-500/30 text-white'
-               : resultStatus === 'wrong'            ? 'bg-red-500/25 text-white'
+               : resultStatus === 'wrong'            ? 'text-white'
                : resultStatus === 'alive-wrong-path' ? 'bg-amber-500/20 text-white'
                : 'text-white'   // pending pick — no shading, arrow indicator only
   } else if (resultStatus === 'actual-winner') {
@@ -318,18 +318,16 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
   const homeResultStatus = slotStatus(homeTeamId, picked === homeTeamId && !!homeTeamId)
   const awayResultStatus = slotStatus(awayTeamId, picked === awayTeamId && !!awayTeamId)
 
-  // Card border & background — green / amber / red / neutral
+  // Card border & background — green / amber / neutral (no red tint for wrong picks)
   const borderColor = resultKnown
     ? pickCorrect        ? '#22C55E'
     : pickAliveWrongPath ? '#f59e0b'
-    : pickWrong          ? '#EF4444'
     :                      '#4B5563'
     : isR32 ? '#374151'
     : picked ? '#CA8A04' : '#4B5563'
   const cardBg = resultKnown
     ? pickCorrect        ? 'rgba(20,83,45,0.22)'
     : pickAliveWrongPath ? 'rgba(120,77,0,0.20)'
-    : pickWrong          ? 'rgba(127,29,29,0.20)'
     :                      '#1F2937'
     : isR32 ? 'rgba(17,24,39,0.85)'
     : '#1F2937'

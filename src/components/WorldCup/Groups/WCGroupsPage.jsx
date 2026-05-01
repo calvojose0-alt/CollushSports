@@ -9,8 +9,8 @@ import {
   Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
   ChevronUp, Trophy, Calendar, Link2, Settings, Trash2, Pencil,
 } from 'lucide-react'
-import { WC_TEAMS, GROUP_LETTERS } from '@/data/wc2026Teams'
-import { GROUP_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
+import { WC_TEAMS, GROUP_LETTERS, SCORING } from '@/data/wc2026Teams'
+import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 const WC_GAME_ID = 'wc2026'
@@ -21,9 +21,13 @@ function generateCode() {
 
 // ── Match Picks Explorer ──────────────────────────────────────────────────────
 function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, currentUserId }) {
+  const { allPlayoffPicks } = useWCGame()
+
   const [open, setOpen]             = useState(true)
+  const [explorerTab, setExplorerTab] = useState('group') // 'group' | 'bracket'
   const [selectedGroup, setSelectedGroup] = useState('A')
   const [selectedMatchId, setSelectedMatchId] = useState(null)
+  const [bracketRound, setBracketRound] = useState('r16')
 
   const groupMatches = getGroupMatches(selectedGroup)
 
@@ -55,6 +59,39 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
       ? 'text-blue-400' : 'text-red-400'
   }
 
+  // ── Bracket tab data ───────────────────────────────────────────────────────
+  const r32Matches = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32'),  [])
+  const r16Matches = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r16'),  [])
+  const qfMatches  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'qf'),   [])
+  const finalMatch = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'final'), [])
+
+  const actualR16    = useMemo(() => new Set(r32Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r32Matches, resultsByMatchId])
+  const actualQF     = useMemo(() => new Set(r16Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r16Matches, resultsByMatchId])
+  const actualSF     = useMemo(() => new Set(qfMatches.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [qfMatches,  resultsByMatchId])
+  const actualWinner = useMemo(() => new Set(finalMatch.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [finalMatch,  resultsByMatchId])
+
+  const roundMeta = {
+    r16:    { label: 'Round of 16',  actualSet: actualR16,   decided: r32Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_R16    },
+    qf:     { label: 'Quarterfinals', actualSet: actualQF,   decided: r16Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_QF     },
+    sf:     { label: 'Semifinals',    actualSet: actualSF,   decided: qfMatches.every((m)  => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_SF     },
+    winner: { label: 'Champion',      actualSet: actualWinner, decided: finalMatch.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_WINNER },
+  }
+
+  // Build a per-user map of playoff picks: { userId: { r16: [...], qf: [...], ... } }
+  const playoffPicksByUser = useMemo(() => {
+    const memberIds = new Set(memberPlayers.map((p) => p.userId))
+    const map = {}
+    allPlayoffPicks
+      .filter((p) => memberIds.has(p.userId))
+      .forEach((p) => {
+        if (!map[p.userId]) map[p.userId] = {}
+        map[p.userId][p.round] = p.teamIds || []
+      })
+    return map
+  }, [allPlayoffPicks, memberPlayers])
+
+  const currentRound = roundMeta[bracketRound]
+
   return (
     <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">
       {/* Header */}
@@ -64,123 +101,232 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
       >
         <div className="flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5 text-yellow-400" />
-          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Group Member Picks</p>
+          <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Member Picks Explorer</p>
         </div>
         {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
       </button>
 
       {open && (
-        <div className="border-t border-f1light space-y-3 p-3">
+        <div className="border-t border-f1light">
 
-          {/* Group tabs A–L */}
-          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-            {GROUP_LETTERS.map((g) => (
+          {/* Explorer tab strip */}
+          <div className="flex border-b border-f1light">
+            {[['group', 'Group Stage'], ['bracket', 'Bracket']].map(([key, label]) => (
               <button
-                key={g}
-                onClick={() => setSelectedGroup(g)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
-                  g === selectedGroup
-                    ? 'bg-yellow-600 text-white shadow-lg'
-                    : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                key={key}
+                onClick={() => setExplorerTab(key)}
+                className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                  explorerTab === key
+                    ? 'text-yellow-400 border-b-2 border-yellow-500 -mb-px'
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {g}
+                {label}
               </button>
             ))}
           </div>
 
-          {/* Match bubbles — 6 per group, horizontally scrollable */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {groupMatches.map((match) => {
-              const home = WC_TEAMS[match.homeTeam]
-              const away = WC_TEAMS[match.awayTeam]
-              const isSelected = match.id === selectedMatchId
-              const done = resultsByMatchId[match.id]?.status === 'final'
-              return (
-                <button
-                  key={match.id}
-                  onClick={() => setSelectedMatchId(match.id)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'bg-yellow-600/20 border-yellow-500'
-                      : 'bg-gray-800/60 border-f1light hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
-                    <CountryFlag cc={home?.cc} size={16} alt={home?.name} />
-                    <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
-                    <span className="text-gray-600 mx-0.5">vs</span>
-                    <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
-                    <CountryFlag cc={away?.cc} size={16} alt={away?.name} />
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {done
-                      ? <span className="text-[9px] text-green-400 font-bold">✓ Final</span>
-                      : <span className="text-[9px] text-gray-500">{fmtDate(match.date)}</span>
-                    }
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Selected match — member picks */}
-          {selectedMatch && (
-            <div className="rounded-xl overflow-hidden border border-f1light">
-              {/* Match header */}
-              <div className="px-3 py-2 bg-gray-900/70 flex items-center justify-between border-b border-f1light">
-                <div className="flex items-center gap-2">
-                  <CountryFlag cc={WC_TEAMS[selectedMatch.homeTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.homeTeam]?.name} />
-                  <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.homeTeam]?.shortName}</span>
-                  <span className="text-xs text-gray-500">vs</span>
-                  <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.awayTeam]?.shortName}</span>
-                  <CountryFlag cc={WC_TEAMS[selectedMatch.awayTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.awayTeam]?.name} />
-                </div>
-                <div className="text-right flex-shrink-0 ml-2">
-                  {result?.status === 'final' ? (
-                    <span className="text-xs text-green-400 font-bold">
-                      Final: {result.homeScore}–{result.awayScore}
-                    </span>
-                  ) : (
-                    <>
-                      <p className="text-[10px] text-gray-400">{fmtDate(selectedMatch.date)}</p>
-                      {selectedMatch.time && <p className="text-[10px] text-gray-500">{selectedMatch.time}</p>}
-                    </>
-                  )}
-                </div>
+          {/* ── Group Stage tab ────────────────────────────────────────────── */}
+          {explorerTab === 'group' && (
+            <div className="space-y-3 p-3">
+              {/* Group tabs A–L */}
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+                {GROUP_LETTERS.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setSelectedGroup(g)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
+                      g === selectedGroup
+                        ? 'bg-yellow-600 text-white shadow-lg'
+                        : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
               </div>
 
-              {/* Each group member's pick */}
-              <div className="divide-y divide-f1light/60">
-                {memberPlayers.map((player) => {
-                  const pick = picksByUser[player.userId]
-                  const hasPick = pick?.homeScore != null && pick?.awayScore != null
-                  const isMe = player.userId === currentUserId
-                  const pickColor = hasPick ? getPickColor(pick, result) : ''
+              {/* Match bubbles */}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {groupMatches.map((match) => {
+                  const home = WC_TEAMS[match.homeTeam]
+                  const away = WC_TEAMS[match.awayTeam]
+                  const isSelected = match.id === selectedMatchId
+                  const done = resultsByMatchId[match.id]?.status === 'final'
                   return (
-                    <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
-                      <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
-                        {player.displayName?.[0]?.toUpperCase()}
+                    <button
+                      key={match.id}
+                      onClick={() => setSelectedMatchId(match.id)}
+                      className={`flex-shrink-0 px-3 py-2 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? 'bg-yellow-600/20 border-yellow-500'
+                          : 'bg-gray-800/60 border-f1light hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
+                        <CountryFlag cc={home?.cc} size={16} alt={home?.name} />
+                        <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
+                        <span className="text-gray-600 mx-0.5">vs</span>
+                        <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
+                        <CountryFlag cc={away?.cc} size={16} alt={away?.name} />
                       </div>
-                      <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
-                        {player.displayName}
-                        {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
-                      </span>
-                      {hasPick ? (
-                        <div className={`flex items-center gap-1 flex-shrink-0 font-black text-lg tabular-nums ${pickColor}`}>
-                          <span>{pick.homeScore}</span>
-                          <span className="text-gray-500 font-bold text-sm">–</span>
-                          <span>{pick.awayScore}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-600 italic flex-shrink-0">No pick</span>
-                      )}
-                    </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {done
+                          ? <span className="text-[9px] text-green-400 font-bold">✓ Final</span>
+                          : <span className="text-[9px] text-gray-500">{fmtDate(match.date)}</span>
+                        }
+                      </div>
+                    </button>
                   )
                 })}
               </div>
+
+              {/* Selected match — member picks */}
+              {selectedMatch && (
+                <div className="rounded-xl overflow-hidden border border-f1light">
+                  <div className="px-3 py-2 bg-gray-900/70 flex items-center justify-between border-b border-f1light">
+                    <div className="flex items-center gap-2">
+                      <CountryFlag cc={WC_TEAMS[selectedMatch.homeTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.homeTeam]?.name} />
+                      <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.homeTeam]?.shortName}</span>
+                      <span className="text-xs text-gray-500">vs</span>
+                      <span className="text-sm font-bold text-white">{WC_TEAMS[selectedMatch.awayTeam]?.shortName}</span>
+                      <CountryFlag cc={WC_TEAMS[selectedMatch.awayTeam]?.cc} size={20} alt={WC_TEAMS[selectedMatch.awayTeam]?.name} />
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-2">
+                      {result?.status === 'final' ? (
+                        <span className="text-xs text-green-400 font-bold">
+                          Final: {result.homeScore}–{result.awayScore}
+                        </span>
+                      ) : (
+                        <>
+                          <p className="text-[10px] text-gray-400">{fmtDate(selectedMatch.date)}</p>
+                          {selectedMatch.time && <p className="text-[10px] text-gray-500">{selectedMatch.time}</p>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="divide-y divide-f1light/60">
+                    {memberPlayers.map((player) => {
+                      const pick = picksByUser[player.userId]
+                      const hasPick = pick?.homeScore != null && pick?.awayScore != null
+                      const isMe = player.userId === currentUserId
+                      const pickColor = hasPick ? getPickColor(pick, result) : ''
+                      return (
+                        <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
+                          <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
+                            {player.displayName?.[0]?.toUpperCase()}
+                          </div>
+                          <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                            {player.displayName}
+                            {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
+                          </span>
+                          {hasPick ? (
+                            <div className={`flex items-center gap-1 flex-shrink-0 font-black text-lg tabular-nums ${pickColor}`}>
+                              <span>{pick.homeScore}</span>
+                              <span className="text-gray-500 font-bold text-sm">–</span>
+                              <span>{pick.awayScore}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-600 italic flex-shrink-0">No pick</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
+          {/* ── Bracket tab ───────────────────────────────────────────────── */}
+          {explorerTab === 'bracket' && (
+            <div className="space-y-3 p-3">
+              {/* Round selector */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {Object.entries(roundMeta).map(([key, { label, pts }]) => (
+                  <button
+                    key={key}
+                    onClick={() => setBracketRound(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
+                      bracketRound === key
+                        ? 'bg-yellow-600 text-white shadow-lg'
+                        : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    {label}
+                    <span className="ml-1 text-[9px] opacity-70">+{pts}pts</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Round status badge */}
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  currentRound.decided
+                    ? 'bg-green-900/40 text-green-400 border border-green-700'
+                    : 'bg-gray-800 text-gray-500 border border-f1light'
+                }`}>
+                  {currentRound.decided ? '✓ Results in' : '⏳ Pending'}
+                </span>
+                <span className="text-[10px] text-gray-600">{currentRound.label} · +{currentRound.pts} pts per correct pick</span>
+              </div>
+
+              {/* Per-member bracket picks */}
+              <div className="rounded-xl overflow-hidden border border-f1light">
+                <div className="divide-y divide-f1light/60">
+                  {memberPlayers.map((player) => {
+                    const isMe     = player.userId === currentUserId
+                    const teamIds  = playoffPicksByUser[player.userId]?.[bracketRound] || []
+                    const correct  = teamIds.filter((id) => currentRound.actualSet.has(id)).length
+                    const hasPicks = teamIds.length > 0
+                    return (
+                      <div key={player.userId} className={`px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="w-5 h-5 rounded-full bg-yellow-700/60 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                            {player.displayName?.[0]?.toUpperCase()}
+                          </div>
+                          <span className={`text-xs flex-1 font-semibold ${isMe ? 'text-white' : 'text-gray-300'}`}>
+                            {player.displayName}
+                            {isMe && <span className="text-yellow-400 ml-1">(You)</span>}
+                          </span>
+                          {hasPicks && currentRound.decided && (
+                            <span className={`text-[10px] font-bold ${correct > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                              {correct}/{teamIds.length} ✓
+                            </span>
+                          )}
+                          {hasPicks && !currentRound.decided && (
+                            <span className="text-[10px] text-gray-600">{teamIds.length} picked</span>
+                          )}
+                        </div>
+                        {hasPicks ? (
+                          <div className="flex flex-wrap gap-1">
+                            {teamIds.map((teamId) => {
+                              const team = WC_TEAMS[teamId]
+                              const isCorrect = currentRound.actualSet.has(teamId)
+                              const chipCls = currentRound.decided
+                                ? isCorrect
+                                  ? 'bg-green-900/40 border-green-600 text-green-300'
+                                  : 'bg-gray-800 border-gray-700 text-gray-500 line-through decoration-red-500'
+                                : 'bg-gray-800/60 border-gray-700 text-gray-300'
+                              return (
+                                <span key={teamId} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[10px] font-semibold ${chipCls}`}>
+                                  <CountryFlag cc={team?.cc} size={10} alt={team?.name} />
+                                  {team?.shortName || teamId}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-600 italic">No bracket picks</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
     </div>

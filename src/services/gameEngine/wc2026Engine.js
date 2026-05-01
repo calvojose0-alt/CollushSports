@@ -32,8 +32,8 @@ export function scoreGroupPick(pick, result) {
   const isCorrectOutcome = getOutcome(pick.homeScore, pick.awayScore) === getOutcome(result.homeScore, result.awayScore)
 
   let points = 0
-  if (isExact) points = SCORING.GROUP_EXACT_SCORE          // 5 pts
-  else if (isCorrectOutcome) points = SCORING.GROUP_CORRECT_OUTCOME // 3 pts
+  if (isExact) points = SCORING.GROUP_EXACT_SCORE          // 4 pts
+  else if (isCorrectOutcome) points = SCORING.GROUP_CORRECT_OUTCOME // 2 pts
 
   return { points, isExact, isCorrectOutcome }
 }
@@ -173,8 +173,37 @@ export async function recalculateAllPlayerTotals() {
     if (pick.isCorrectOutcome && !pick.isExact) playerMap[pick.userId].outcomeHits++
   })
 
-  // Compute group qualification bonus points
-  const qualPtsByUser = computeQualificationPoints(allPicks, actualResultsById)
+  // ── Group qualification bonus ─────────────────────────────────────────────
+  // 1st/2nd place: awarded as soon as a group's 6 matches are all entered.
+  // 3rd-place best-team: can only be determined once ALL 12 groups are complete
+  //   (we rank all 12 third-place teams and pick the top 8). We compute r32Teams
+  //   here from actual standings so the bonus is never wiped by a later
+  //   "Recalculate" call on the group-stage admin tab.
+  const allGroupsDone = Object.keys(WC_GROUPS).every((group) => {
+    const gm = GROUP_MATCHES.filter((m) => m.group === group)
+    return gm.every((m) => {
+      const r = actualResultsById[m.id]
+      return r?.homeScore != null && r?.awayScore != null
+    })
+  })
+
+  let r32Teams = null
+  if (allGroupsDone) {
+    const allThirdPlace = []
+    Object.keys(WC_GROUPS).forEach((group) => {
+      const gm = GROUP_MATCHES.filter((m) => m.group === group)
+      const picks = gm.map((m) => {
+        const r = actualResultsById[m.id]
+        return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null }
+      })
+      const standings = computeGroupStandings(group, picks)
+      if (standings[2]) allThirdPlace.push({ group, ...standings[2] })
+    })
+    allThirdPlace.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+    r32Teams = new Set(allThirdPlace.slice(0, 8).map((t) => t.teamId))
+  }
+
+  const qualPtsByUser = computeQualificationPoints(allPicks, actualResultsById, r32Teams)
   Object.entries(qualPtsByUser).forEach(([userId, pts]) => {
     if (!playerMap[userId]) {
       playerMap[userId] = { totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0, qualificationPoints: 0 }

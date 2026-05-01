@@ -165,8 +165,8 @@ function GroupStandingsTable({ standings }) {
           <tr className="border-b border-f1light bg-f1dark/60">
             <th className="px-2 py-1.5 text-left text-gray-500 font-semibold">Team</th>
             <th className="px-1 py-1.5 text-center text-gray-500 font-semibold w-7">W</th>
+            <th className="px-1 py-1.5 text-center text-gray-500 font-semibold w-7">D</th>
             <th className="px-1 py-1.5 text-center text-gray-500 font-semibold w-7">L</th>
-            <th className="px-1 py-1.5 text-center text-gray-500 font-semibold w-7">T</th>
             <th className="px-1 py-1.5 text-center text-gray-500 font-semibold w-8">GD</th>
             <th className="px-1 py-1.5 text-center text-yellow-500 font-bold w-8">Pts</th>
           </tr>
@@ -188,8 +188,8 @@ function GroupStandingsTable({ standings }) {
                   </div>
                 </td>
                 <td className="px-1 py-1.5 text-center text-gray-300">{row.wins}</td>
-                <td className="px-1 py-1.5 text-center text-gray-300">{row.losses}</td>
                 <td className="px-1 py-1.5 text-center text-gray-300">{row.draws}</td>
+                <td className="px-1 py-1.5 text-center text-gray-300">{row.losses}</td>
                 <td className={`px-1 py-1.5 text-center font-semibold ${row.gd > 0 ? 'text-green-400' : row.gd < 0 ? 'text-red-400' : 'text-gray-400'}`}>
                   {row.gd > 0 ? `+${row.gd}` : row.gd}
                 </td>
@@ -199,6 +199,59 @@ function GroupStandingsTable({ standings }) {
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── All-groups overview strip ─────────────────────────────────────────────────
+function GroupsOverview({ myPicksByMatchId, resultsByMatchId, savedCountByGroup, onSelectGroup, activeGroup }) {
+  const getSquareColor = (matchId) => {
+    const pick   = myPicksByMatchId[matchId]
+    const result = resultsByMatchId[matchId]
+    if (!pick || pick.homeScore == null || pick.awayScore == null) {
+      return 'bg-gray-800 border border-gray-700'   // no pick
+    }
+    if (result?.status === 'final') {
+      if (pick.pointsEarned !== null && pick.pointsEarned !== undefined) {
+        if (pick.isExact)                return 'bg-green-500 border border-green-400'
+        if (pick.isCorrectOutcome)       return 'bg-blue-500 border border-blue-400'
+        return 'bg-red-700 border border-red-600'   // wrong
+      }
+      return 'bg-yellow-700/60 border border-yellow-700'  // result in, scoring pending
+    }
+    return 'bg-yellow-600 border border-yellow-500'       // pick saved, match pending
+  }
+
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <div className="flex gap-2 min-w-max pb-1">
+        {GROUP_LETTERS.map((g) => {
+          const matches  = getGroupMatches(g)
+          const saved    = savedCountByGroup[g] || 0
+          const total    = matches.length
+          const isActive = g === activeGroup
+          return (
+            <button
+              key={g}
+              onClick={() => onSelectGroup(g)}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border transition-all ${
+                isActive
+                  ? 'bg-yellow-600/20 border-yellow-500'
+                  : 'bg-gray-900/60 border-f1light hover:border-gray-500'
+              }`}
+            >
+              <span className={`text-xs font-bold ${isActive ? 'text-yellow-400' : 'text-gray-400'}`}>{g}</span>
+              {/* 2×3 grid of match squares */}
+              <div className="grid grid-cols-3 gap-0.5">
+                {matches.map((m) => (
+                  <div key={m.id} className={`w-3 h-3 rounded-sm ${getSquareColor(m.id)}`} />
+                ))}
+              </div>
+              <span className="text-[9px] text-gray-600">{saved}/{total}</span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -213,6 +266,7 @@ export default function MyPicksPage() {
 
   const locked = isPicksLocked()
   const [activeGroup, setActiveGroup] = useState('A')
+  const [showOverview, setShowOverview] = useState(true)
   const [localScores, setLocalScores] = useState({}) // { matchId: { home, away } }
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState(null)
@@ -381,6 +435,39 @@ export default function MyPicksPage() {
         <span><span className="text-green-400 font-bold">+{SCORING.GROUP_EXACT_SCORE} pts</span> Exact score</span>
         <span><span className="text-blue-400 font-bold">+{SCORING.GROUP_CORRECT_OUTCOME} pts</span> Correct outcome (W/D/L)</span>
         <span className="text-gray-600">Knockout advancement points awarded separately (Bracket tab)</span>
+      </div>
+
+      {/* All-groups overview strip */}
+      <div className="card p-3 space-y-2">
+        <button
+          onClick={() => setShowOverview((v) => !v)}
+          className="w-full flex items-center justify-between"
+        >
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">All Groups Overview</span>
+          {showOverview
+            ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" />
+            : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+          }
+        </button>
+        {showOverview && (
+          <>
+            <GroupsOverview
+              myPicksByMatchId={myPicksByMatchId}
+              resultsByMatchId={resultsByMatchId}
+              savedCountByGroup={savedCountByGroup}
+              onSelectGroup={(g) => { setActiveGroup(g); setSaveMsg(null) }}
+              activeGroup={activeGroup}
+            />
+            <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-f1light">
+              <span className="text-[10px] text-gray-600 font-semibold uppercase tracking-wider">Legend</span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" /> Exact</span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" /> Outcome ✓</span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-3 h-3 rounded-sm bg-red-700 inline-block" /> Wrong</span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-3 h-3 rounded-sm bg-yellow-600 inline-block" /> Pending</span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-3 h-3 rounded-sm bg-gray-800 border border-gray-700 inline-block" /> No pick</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Group tabs */}

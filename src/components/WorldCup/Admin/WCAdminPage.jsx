@@ -1060,7 +1060,7 @@ function DevToolsAdmin({ onRefresh, resultsByMatchId }) {
       <RandomFillAdmin onRefresh={onRefresh} resultsByMatchId={resultsByMatchId} />
 
       <div className="border-t border-f1light pt-4 space-y-4">
-        <div className="card bg-purple-900/20 border-purple-700/40 text-xs text-black">
+        <div className="card bg-purple-900/20 border-purple-700/40 text-xs text-purple-200">
           <strong>Dev only.</strong> Inserts 3 simulated players with full picks. Safe to run multiple times (upserts). Remove cleans up all test data.
         </div>
 

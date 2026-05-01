@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { Trophy, ChevronDown, ChevronUp, Target, Users, Zap, Globe } from 'lucide-react'
 import { GROUP_LETTERS, WC_TEAMS, SCORING } from '@/data/wc2026Teams'
-import { getGroupMatches, getMatch } from '@/data/wc2026Schedule'
+import { getGroupMatches, getMatch, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 function RankBadge({ rank }) {
@@ -92,12 +92,13 @@ function PlayerRow({ player, rank, isMe, expanded, onToggle, myPicksByMatchId, r
 }
 
 function PickHistory({ player }) {
-  const { allPicks, resultsByMatchId } = useWCGame()
+  const { allPicks, resultsByMatchId, allPlayoffPicks } = useWCGame()
+  const [tab, setTab] = useState('group') // 'group' | 'bracket'
 
+  // ── Group picks tab ────────────────────────────────────────────────────────
   const scoredPicks = allPicks
     .filter((p) => p.userId === player.userId && p.pointsEarned !== null)
     .sort((a, b) => {
-      // Sort by when the result was scored (most recent first), fall back to matchId
       const tA = resultsByMatchId[a.matchId]?.scoredAt?.seconds ?? 0
       const tB = resultsByMatchId[b.matchId]?.scoredAt?.seconds ?? 0
       return tB - tA || b.matchId.localeCompare(a.matchId)
@@ -106,53 +107,155 @@ function PickHistory({ player }) {
 
   const totalScored = allPicks.filter((p) => p.userId === player.userId && p.pointsEarned !== null).length
 
-  if (!scoredPicks.length) {
-    return <p className="text-xs text-gray-500 px-4 py-3">No scored picks yet.</p>
-  }
+  // ── Bracket picks tab ─────────────────────────────────────────────────────
+  // Actual winners per round — admin stores winner as homeTeam in result
+  const r32Matches  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32'),  [])
+  const r16Matches  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r16'),  [])
+  const qfMatches   = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'qf'),   [])
+  const finalMatch  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'final'), [])
+
+  const actualR16     = useMemo(() => new Set(r32Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r32Matches, resultsByMatchId])
+  const actualQF      = useMemo(() => new Set(r16Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r16Matches, resultsByMatchId])
+  const actualSF      = useMemo(() => new Set(qfMatches.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [qfMatches,  resultsByMatchId])
+  const actualWinner  = useMemo(() => new Set(finalMatch.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [finalMatch,  resultsByMatchId])
+
+  const r16Decided    = r32Matches.every((m) => resultsByMatchId[m.id]?.homeTeam)
+  const qfDecided     = r16Matches.every((m) => resultsByMatchId[m.id]?.homeTeam)
+  const sfDecided     = qfMatches.every((m)  => resultsByMatchId[m.id]?.homeTeam)
+  const winnerDecided = finalMatch.every((m)  => resultsByMatchId[m.id]?.homeTeam)
+
+  const ppByRound = useMemo(() => {
+    const map = {}
+    allPlayoffPicks.filter((p) => p.userId === player.userId).forEach((p) => { map[p.round] = p })
+    return map
+  }, [allPlayoffPicks, player.userId])
+
+  const bracketRounds = [
+    { key: 'r16',    label: 'Round of 16',  pts: SCORING.PLAYOFF_R16,    actualSet: actualR16,   decided: r16Decided,    total: 16 },
+    { key: 'qf',     label: 'Quarterfinals', pts: SCORING.PLAYOFF_QF,    actualSet: actualQF,    decided: qfDecided,     total: 8  },
+    { key: 'sf',     label: 'Semifinals',    pts: SCORING.PLAYOFF_SF,    actualSet: actualSF,    decided: sfDecided,     total: 4  },
+    { key: 'winner', label: 'Champion',      pts: SCORING.PLAYOFF_WINNER, actualSet: actualWinner, decided: winnerDecided, total: 1 },
+  ]
 
   return (
     <>
-      <div className="divide-y divide-f1light">
-        {scoredPicks.map((pick) => {
-          const result = resultsByMatchId[pick.matchId]
-          const matchData = getMatch(pick.matchId)
-          const homeTeam = matchData ? WC_TEAMS[matchData.homeTeam] : null
-          const awayTeam = matchData ? WC_TEAMS[matchData.awayTeam] : null
-          return (
-            <div key={pick.matchId} className="flex items-center gap-3 px-4 py-2">
-              <span className="text-xs text-gray-500 flex-shrink-0 flex items-center gap-1">
-                {homeTeam && awayTeam ? (
-                  <>
-                    <CountryFlag cc={homeTeam.cc} size={14} alt={homeTeam.name} />
-                    {homeTeam.shortName}
-                    <span className="text-gray-600">vs</span>
-                    {awayTeam.shortName}
-                    <CountryFlag cc={awayTeam.cc} size={14} alt={awayTeam.name} />
-                  </>
-                ) : pick.matchId}
-              </span>
-              <span className="text-xs text-gray-400 flex-shrink-0">
-                Picked: <strong className="text-white">{pick.homeScore}–{pick.awayScore}</strong>
-              </span>
-              {result && (
-                <span className="text-xs text-gray-500 flex-shrink-0">
-                  Result: <strong className="text-gray-300">{result.homeScore}–{result.awayScore}</strong>
-                </span>
-              )}
-              <span className={`ml-auto text-xs font-bold flex-shrink-0 ${
-                pick.isExact ? 'text-green-400' :
-                pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-600'
-              }`}>
-                {pick.isExact ? `⭐ Exact +${SCORING.GROUP_EXACT_SCORE}` :
-                 pick.isCorrectOutcome ? `✓ Outcome +${SCORING.GROUP_CORRECT_OUTCOME}` : '✗ 0 pts'}
-              </span>
-            </div>
-          )
-        })}
+      {/* Tab strip */}
+      <div className="flex border-b border-f1light">
+        {[['group', 'Group Picks'], ['bracket', 'Bracket Picks']].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-xs font-semibold transition-colors ${
+              tab === key
+                ? 'text-yellow-400 border-b-2 border-yellow-500 -mb-px'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
-      {totalScored > 5 && (
-        <div className="px-4 py-2 border-t border-f1light">
-          <span className="text-xs text-gray-600">Showing 5 most recent · {totalScored} total scored</span>
+
+      {/* ── Group picks ──────────────────────────────────────────────────── */}
+      {tab === 'group' && (
+        scoredPicks.length === 0 ? (
+          <p className="text-xs text-gray-500 px-4 py-3">No scored picks yet.</p>
+        ) : (
+          <>
+            <div className="divide-y divide-f1light">
+              {scoredPicks.map((pick) => {
+                const result    = resultsByMatchId[pick.matchId]
+                const matchData = getMatch(pick.matchId)
+                const homeTeam  = matchData ? WC_TEAMS[matchData.homeTeam] : null
+                const awayTeam  = matchData ? WC_TEAMS[matchData.awayTeam] : null
+                return (
+                  <div key={pick.matchId} className="flex items-center gap-3 px-4 py-2">
+                    <span className="text-xs text-gray-500 flex-shrink-0 flex items-center gap-1">
+                      {homeTeam && awayTeam ? (
+                        <>
+                          <CountryFlag cc={homeTeam.cc} size={14} alt={homeTeam.name} />
+                          {homeTeam.shortName}
+                          <span className="text-gray-600">vs</span>
+                          {awayTeam.shortName}
+                          <CountryFlag cc={awayTeam.cc} size={14} alt={awayTeam.name} />
+                        </>
+                      ) : pick.matchId}
+                    </span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      Picked: <strong className="text-white">{pick.homeScore}–{pick.awayScore}</strong>
+                    </span>
+                    {result && (
+                      <span className="text-xs text-gray-500 flex-shrink-0">
+                        Result: <strong className="text-gray-300">{result.homeScore}–{result.awayScore}</strong>
+                      </span>
+                    )}
+                    <span className={`ml-auto text-xs font-bold flex-shrink-0 ${
+                      pick.isExact ? 'text-green-400' :
+                      pick.isCorrectOutcome ? 'text-blue-400' : 'text-gray-600'
+                    }`}>
+                      {pick.isExact ? `⭐ Exact +${SCORING.GROUP_EXACT_SCORE}` :
+                       pick.isCorrectOutcome ? `✓ Outcome +${SCORING.GROUP_CORRECT_OUTCOME}` : '✗ 0 pts'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {totalScored > 5 && (
+              <div className="px-4 py-2 border-t border-f1light">
+                <span className="text-xs text-gray-600">Showing 5 most recent · {totalScored} total scored</span>
+              </div>
+            )}
+          </>
+        )
+      )}
+
+      {/* ── Bracket picks ────────────────────────────────────────────────── */}
+      {tab === 'bracket' && (
+        <div className="divide-y divide-f1light">
+          {bracketRounds.map(({ key, label, pts, actualSet, decided, total }) => {
+            const teamIds  = ppByRound[key]?.teamIds || []
+            const correct  = teamIds.filter((id) => actualSet.has(id)).length
+            const hasPicks = teamIds.length > 0
+            return (
+              <div key={key} className="px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-300">{label}</span>
+                    <span className="text-xs text-gray-600">+{pts} pts ea.</span>
+                  </div>
+                  {hasPicks && decided && (
+                    <span className={`text-xs font-bold ${correct > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                      {correct}/{teamIds.length} ✓
+                    </span>
+                  )}
+                  {hasPicks && !decided && (
+                    <span className="text-xs text-gray-600">{teamIds.length}/{total} picked</span>
+                  )}
+                </div>
+                {hasPicks ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {teamIds.map((teamId) => {
+                      const team = WC_TEAMS[teamId]
+                      const isCorrect = actualSet.has(teamId)
+                      const chipCls = decided
+                        ? isCorrect
+                          ? 'bg-green-900/40 border-green-600 text-green-300'
+                          : 'bg-gray-800 border-gray-700 text-gray-500 line-through decoration-red-500'
+                        : 'bg-gray-800/60 border-gray-700 text-gray-300'
+                      return (
+                        <span key={teamId} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold ${chipCls}`}>
+                          <CountryFlag cc={team?.cc} size={12} alt={team?.name} />
+                          {team?.shortName || teamId}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-600 italic">No picks saved</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </>
@@ -298,7 +401,7 @@ export default function WCLeaderboardPage() {
           <>
             {/* Tiebreaker legend */}
             <div className="px-4 py-2 border-b border-f1light bg-f1dark/60 text-xs text-gray-500 flex gap-4 flex-wrap">
-              <span>Tiebreakers: <strong className="text-gray-400">1)</strong> Total pts · <strong className="text-gray-400">2)</strong> Exact scores · <strong className="text-gray-400">3)</strong> Total goals guess</span>
+              <span>Ranked by total pts · Tiebreakers: <strong className="text-gray-400">1)</strong> Exact scores · <strong className="text-gray-400">2)</strong> Closest goals guess</span>
               {tournamentMeta?.actualTotalGoals !== null && tournamentMeta?.actualTotalGoals !== undefined && (
                 <span className="text-yellow-400">Actual total goals: <strong>{tournamentMeta.actualTotalGoals}</strong></span>
               )}
