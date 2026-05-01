@@ -263,7 +263,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
             <CountryFlag cc={team.cc} size={14} alt={team.name} />
             <span className={`text-[13px] font-semibold truncate${
               showEntryDot && entryStatus === 'eliminated'
-                ? ' line-through decoration-red-500 decoration-2'
+                ? ' line-through decoration-red-500 decoration-[3px]'
                 : ''
             }`}>
               {team.shortName}
