@@ -76,78 +76,77 @@ function cascadeClear(matchId, removedTeam, picks) {
   }
 }
 
-// ── Pre-result team entry status ──────────────────────────────────────────────
-// Answers: "Is this team even alive in the real tournament at this round?"
-// BEFORE the match in this bracket slot has a result entered.
+// ── Per-team overall tournament status ────────────────────────────────────────
+// Computes a single persistent status for a team that propagates through all
+// bracket rounds. The status is determined once at group stage and then updated
+// as knockout results come in:
 //
-// entryStatus: 'alive-correct' | 'alive-different' | 'eliminated' | 'unknown'
+//   alive-correct  — team qualified in the exact slot the user predicted
+//                    AND has not yet lost a knockout match
+//   alive-different — team qualified but at a different group/slot than predicted
+//                    AND has not yet lost a knockout match
+//   eliminated     — team didn't qualify from groups OR has lost a knockout match
+//   unknown        — insufficient admin results to determine (group not done yet)
 //
-// For R32  — team enters via group stage qualification.
-//            Needs actual group results to compare against user's group picks.
-// For R16+ — team enters by winning a knockout feeding match.
-//            Needs the specific feeding match's result.
-function getEntryStatus(teamId, slotLabel, stage, {
-  actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, actualStageWinnersMap, resultsByMatchId,
+// This allows the dot to show the team's current real-world status no matter
+// which bracket column they appear in — so users can instantly see which of
+// their picks are still alive across the full bracket.
+function computeTeamOverallStatus(teamId, {
+  actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, resultsByMatchId, slotMap,
 }) {
-  if (!teamId || !slotLabel) return 'unknown'
+  const team = WC_TEAMS[teamId]
+  if (!team) return 'unknown'
 
-  if (stage === 'r32') {
-    // 3rd-place slots need all 12 groups complete (best-8 ranking)
-    const isThirdSlot = /^3[A-L]{2,}/.test(slotLabel)
-    if (isThirdSlot) {
-      if (!allGroupsComplete) return 'unknown'
-    } else {
-      // '1A', '2B' — only need this specific group's results
-      const grp = slotLabel.slice(-1)
-      if (!groupsWithAllResults.has(grp)) return 'unknown'
-    }
-    // Find which actual slot this team occupies (if any)
-    const actualEntry = Object.entries(actualGroupSlotMap).find(([, v]) => v === teamId)
-    if (!actualEntry) return 'eliminated'
-    return actualEntry[0] === slotLabel ? 'alive-correct' : 'alive-different'
-  }
+  // ── Group qualification ────────────────────────────────────────────────────
+  const teamGroup = team.group
+  if (!groupsWithAllResults.has(teamGroup)) return 'unknown'
 
-  // R16 / QF / SF / Final — slot label is 'W_r32_1', 'W_r16_2', etc.
-  if (!slotLabel.startsWith('W_')) return 'unknown'
+  // Only qualifying slots count: '1X'/'2X' (direct) or '3XXXX' (confirmed best-3rd).
+  // actualGroupSlotMap also contains positional '3X'/'4X' keys from the standings
+  // loop — these are not qualifying slots and must be excluded.
+  const actualEntry = Object.entries(actualGroupSlotMap).find(([key, v]) => {
+    if (v !== teamId) return false
+    return /^[12][A-L]$/.test(key) || /^3[A-L]{2,}$/.test(key)
+  })
 
-  // Determine which feeding stage produced teams for this slot
-  const feedingStage =
-    slotLabel.startsWith('W_r32') ? 'r32' :
-    slotLabel.startsWith('W_r16') ? 'r16' :
-    slotLabel.startsWith('W_qf')  ? 'qf'  :
-    slotLabel.startsWith('W_sf')  ? 'sf'  : null
-  if (!feedingStage) return 'unknown'
-
-  const stageWinners = actualStageWinnersMap?.[feedingStage]
-  if (!stageWinners || stageWinners.size === 0) return 'unknown'
-
-  // Check whether this specific slot's feeding match was won by this team
-  const feedingMatchId = 'ko_' + slotLabel.slice(2)   // 'W_r32_1' → 'ko_r32_1'
-  const feedingResult  = resultsByMatchId?.[feedingMatchId]
-  if (!feedingResult || feedingResult.status !== 'final' || !feedingResult.homeTeam) return 'unknown'
-
-  if (feedingResult.homeTeam === teamId) return 'alive-correct'
-
-  // Team didn't win their predicted feeding match.
-  // alive-different (amber) is only valid when we can CONFIRM via group-stage results
-  // that the team actually qualified and advanced via a different real bracket path.
-  // Without this guard, simulation data that puts arbitrary teams in R32 results
-  // creates false positives (e.g. BIH showing amber even though group results
-  // aren't entered and they may not have qualified at all).
-  const teamGroup = WC_TEAMS[teamId]?.group
-  if (teamGroup && groupsWithAllResults.has(teamGroup)) {
-    // Group data available for this team's group → authoritative source
-    const qualifiedFromGroups = Object.values(actualGroupSlotMap).includes(teamId)
-    if (!qualifiedFromGroups) return 'eliminated'
-    // Confirmed qualified from groups — did they win a different match in this feeding stage?
-    if (stageWinners.has(teamId)) return 'alive-different'
+  if (!actualEntry) {
+    // Not in a qualifying slot. If team finished 3rd in their group but not all
+    // groups are done yet, we can't confirm whether they're a best-3rd qualifier.
+    const finishedThird = Object.entries(actualGroupSlotMap)
+      .some(([key, v]) => v === teamId && /^3[A-L]$/.test(key))
+    if (finishedThird && !allGroupsComplete) return 'unknown'
     return 'eliminated'
   }
 
-  // No group data for this team's group yet.
-  // Conservative: the team lost their predicted slot → show eliminated.
-  // (amber would require group-result confirmation we don't have)
-  return 'eliminated'
+  const actualSlot = actualEntry[0]
+
+  // Determine path correctness by comparing actual group slot vs user's predicted slot
+  const userSlot = Object.entries(slotMap).find(([, v]) => v === teamId)?.[0]
+  const baseStatus = (userSlot && userSlot === actualSlot) ? 'alive-correct' : 'alive-different'
+
+  // ── Trace actual knockout results ─────────────────────────────────────────
+  // Walk the team's real tournament path. At each stage, find their actual match
+  // (based on which slot they occupy) and check if they won it.
+  // If they lost at any stage → eliminated.
+  // If the stage hasn't been played yet → return current baseStatus (stop here).
+  let currentSlot = actualSlot
+  for (const stage of ['r32', 'r16', 'qf', 'sf', 'final']) {
+    const match = KNOCKOUT_MATCHES.find(m =>
+      m.stage === stage && (m.homeSlot === currentSlot || m.awaySlot === currentSlot)
+    )
+    if (!match) return baseStatus  // data gap — stop
+
+    const result = resultsByMatchId?.[match.id]
+    if (!result || result.status !== 'final' || !result.homeTeam) return baseStatus  // not played yet
+
+    if (result.homeTeam !== teamId) return 'eliminated'  // team lost this match
+
+    // Team won — advance slot to the next stage
+    const matchNum = match.id.match(/_(\d+)$/)?.[1]
+    currentSlot = `W_${stage}_${matchNum}`   // e.g. 'W_r32_5', 'W_r16_3', …
+  }
+
+  return baseStatus  // survived all rounds (champion!)
 }
 
 // ── SVG connectors between two adjacent bracket columns ───────────────────────
