@@ -127,8 +127,26 @@ function getEntryStatus(teamId, slotLabel, stage, {
   if (!feedingResult || feedingResult.status !== 'final' || !feedingResult.homeTeam) return 'unknown'
 
   if (feedingResult.homeTeam === teamId) return 'alive-correct'
-  // Team didn't win that specific match — but did they win a DIFFERENT match in same stage?
-  if (stageWinners.has(teamId)) return 'alive-different'
+
+  // Team didn't win their predicted feeding match.
+  // alive-different (amber) is only valid when we can CONFIRM via group-stage results
+  // that the team actually qualified and advanced via a different real bracket path.
+  // Without this guard, simulation data that puts arbitrary teams in R32 results
+  // creates false positives (e.g. BIH showing amber even though group results
+  // aren't entered and they may not have qualified at all).
+  const teamGroup = WC_TEAMS[teamId]?.group
+  if (teamGroup && groupsWithAllResults.has(teamGroup)) {
+    // Group data available for this team's group → authoritative source
+    const qualifiedFromGroups = Object.values(actualGroupSlotMap).includes(teamId)
+    if (!qualifiedFromGroups) return 'eliminated'
+    // Confirmed qualified from groups — did they win a different match in this feeding stage?
+    if (stageWinners.has(teamId)) return 'alive-different'
+    return 'eliminated'
+  }
+
+  // No group data for this team's group yet.
+  // Conservative: the team lost their predicted slot → show eliminated.
+  // (amber would require group-result confirmation we don't have)
   return 'eliminated'
 }
 
