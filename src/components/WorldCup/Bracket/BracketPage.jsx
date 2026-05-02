@@ -207,7 +207,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   } else if (resultStatus === 'actual-winner') {
     colorClass = 'bg-green-500/10 text-green-300'
   } else if (resultStatus === 'eliminated') {
-    colorClass = 'text-gray-600 opacity-50'
+    colorClass = 'text-white'   // post-result loser — white text, red strikethrough on name
   } else if (preResultEliminated) {
     colorClass = 'text-white'   // eliminated pre-result — white text, red strikethrough on name
   } else {
@@ -262,7 +262,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
             {showEntryDot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${entryDotClass}`} />}
             <CountryFlag cc={team.cc} size={14} alt={team.name} />
             <span className={`text-[13px] font-semibold truncate${
-              showEntryDot && entryStatus === 'eliminated'
+              (showEntryDot && entryStatus === 'eliminated') || resultStatus === 'eliminated'
                 ? ' line-through decoration-red-500 decoration-[3px]'
                 : ''
             }`}>
