@@ -1095,6 +1095,9 @@ function DevToolsAdmin({ onRefresh, resultsByMatchId }) {
     setRunning(true)
     try {
       await seedTestUsers(log)
+      log('Refreshing leaderboard…')
+      await onRefresh()
+      log('✓ Done!')
     } catch (err) {
       log(`❌ Error: ${err.message}`)
     } finally {
@@ -1107,6 +1110,9 @@ function DevToolsAdmin({ onRefresh, resultsByMatchId }) {
     setRunning(true)
     try {
       await removeTestUsers(log)
+      log('Refreshing leaderboard…')
+      await onRefresh()
+      log('✓ Done!')
     } catch (err) {
       log(`❌ Error: ${err.message}`)
     } finally {
