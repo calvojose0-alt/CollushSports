@@ -197,19 +197,19 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   // Dim non-selected teams that are eliminated before this match
   const preResultEliminated = showEntryDot && entryStatus === 'eliminated' && !selected
 
-  // Background / text color based on result state
+  // Text-only color — no background fills on any slot (Option C)
   let colorClass
   if (selected) {
-    colorClass = resultStatus === 'correct'          ? 'bg-green-500/30 text-white'
-               : resultStatus === 'wrong'            ? 'text-white'
-               : resultStatus === 'alive-wrong-path' ? 'bg-amber-500/20 text-white'
-               : 'text-white'   // pending pick — no shading, arrow indicator only
+    colorClass = resultStatus === 'correct'          ? 'text-green-400'
+               : resultStatus === 'wrong'            ? 'text-red-400'
+               : resultStatus === 'alive-wrong-path' ? 'text-amber-400'
+               : 'text-white'   // pending pick
   } else if (resultStatus === 'actual-winner') {
-    colorClass = 'bg-green-500/10 text-green-300'
+    colorClass = 'text-green-400'
   } else if (resultStatus === 'eliminated') {
-    colorClass = 'bg-gray-900 text-white'   // post-result loser — dark bg overrides card tint, red strikethrough on name
+    colorClass = 'text-gray-500'  // post-result loser — dimmed, no bg
   } else if (preResultEliminated) {
-    colorClass = 'text-white'   // eliminated pre-result — white text, red strikethrough on name
+    colorClass = 'text-white'   // pre-result eliminated — dot handles the signal
   } else {
     colorClass = team && clickable ? 'hover:bg-white/5 text-white' : 'text-gray-500'
   }
@@ -240,13 +240,13 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
     >
       {team ? (
         showWrongWithWinner ? (
-          // Eliminated: ~~MEX~~ → 🇿🇦 RSA ✗
+          // Wrong pick: FRA (red) → GER (green) ✗  — no strikethrough, color tells the story
           <>
-            <CountryFlag cc={team.cc} size={14} alt={team.name} className="opacity-40" />
-            <span className="text-[12px] font-semibold line-through text-gray-600 flex-shrink-0">{team.shortName}</span>
-            <span className="text-[10px] text-gray-400 flex-shrink-0">→</span>
+            <CountryFlag cc={team.cc} size={14} alt={team.name} />
+            <span className="text-[12px] font-semibold text-red-400 flex-shrink-0">{team.shortName}</span>
+            <span className="text-[10px] text-gray-500 flex-shrink-0">→</span>
             <CountryFlag cc={actualWinner.cc} size={14} alt={actualWinner.name} />
-            <span className="text-[12px] font-bold text-white truncate">{actualWinner.shortName}</span>
+            <span className="text-[12px] font-bold text-green-400 truncate">{actualWinner.shortName}</span>
             <span className="ml-auto text-red-400 text-[11px] font-bold flex-shrink-0">✗</span>
           </>
         ) : showAliveDifferentSlot ? (
@@ -257,15 +257,11 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
             <span className="ml-auto text-amber-400 text-[11px] font-bold flex-shrink-0">↺</span>
           </>
         ) : (
-          // Normal render — with optional pre-result entry status dot
+          // Normal render — pre-result dot + pick arrow; post-result text color only
           <>
             {showEntryDot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${entryDotClass}`} />}
             <CountryFlag cc={team.cc} size={14} alt={team.name} />
-            <span className={`text-[13px] font-semibold truncate${
-              (showEntryDot && entryStatus === 'eliminated') || resultStatus === 'eliminated'
-                ? ' line-through decoration-red-500 decoration-[3px]'
-                : ''
-            }`}>
+            <span className="text-[13px] font-semibold truncate">
               {team.shortName}
             </span>
             {indicator}
@@ -325,12 +321,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
     :                      '#4B5563'
     : isR32 ? '#374151'
     : picked ? '#CA8A04' : '#4B5563'
-  const cardBg = resultKnown
-    ? pickCorrect        ? 'rgba(20,83,45,0.22)'
-    : pickAliveWrongPath ? 'rgba(120,77,0,0.20)'
-    :                      '#1F2937'
-    : isR32 ? 'rgba(17,24,39,0.85)'
-    : '#1F2937'
+  const cardBg = isR32 ? 'rgba(17,24,39,0.85)' : '#1F2937'  // always dark — text color carries all result info
 
   return (
     <div className="relative">
