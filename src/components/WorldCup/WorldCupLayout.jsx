@@ -14,7 +14,7 @@ const ALL_NAV = [
   { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', mobileLabel: 'Bracket',   icon: Globe              },
   { to: '/world-cup/groups',     label: 'My Groups',              mobileLabel: 'My Groups', icon: Users              },
   { to: '/world-cup/leaderboard',label: 'Leaderboard',            mobileLabel: 'Standings', icon: Trophy             },
-  { to: '/world-cup/scoring',    label: 'Scoring',                mobileLabel: 'Scoring',   icon: Star               },
+  { to: '/world-cup/scoring',    label: 'Scoring Rules',          mobileLabel: 'Rules',     icon: Star               },
   { to: '/world-cup/admin',      label: 'Admin',                  mobileLabel: 'Admin',     icon: Settings, adminOnly: true },
 ]
 
