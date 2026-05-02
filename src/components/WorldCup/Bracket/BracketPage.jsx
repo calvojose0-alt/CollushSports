@@ -207,7 +207,7 @@ function TeamSlot({ teamId, slotLabel, selected, clickable, onClick, resultStatu
   } else if (resultStatus === 'actual-winner') {
     colorClass = 'bg-green-500/10 text-green-300'
   } else if (resultStatus === 'eliminated') {
-    colorClass = 'text-white'   // post-result loser — white text, red strikethrough on name
+    colorClass = 'bg-gray-900 text-white'   // post-result loser — dark bg overrides card tint, red strikethrough on name
   } else if (preResultEliminated) {
     colorClass = 'text-white'   // eliminated pre-result — white text, red strikethrough on name
   } else {
