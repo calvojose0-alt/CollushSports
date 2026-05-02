@@ -212,7 +212,7 @@ export default function WCScoringPage() {
         icon={Circle}
         iconColor="text-gray-400"
         title="Bracket Visual Guide — Before Results"
-        subtitle="While a knockout match is still pending (no result entered yet), two indicators show you the state of each pick."
+        subtitle="While a knockout match is still pending (no result entered yet), two indicators show the state of each team."
       >
         {/* Pick arrow */}
         <div>
@@ -222,7 +222,7 @@ export default function WCScoringPage() {
             <div>
               <p className="text-xs font-bold text-yellow-400">Yellow arrow — your pick</p>
               <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                Appears to the right of whichever team you've selected to win this match and advance to the next round. No background shading — just the arrow.
+                Appears to the right of whichever team you've selected to win this match and advance. No background shading — just the arrow.
               </p>
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function WCScoringPage() {
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Live Team Status Dot</p>
           <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-            A small dot appears beside each team name reflecting their current real-world tournament status. Updates automatically as the admin enters results — so a green dot can turn red mid-tournament if a team gets knocked out.
+            A small colored dot appears beside each team name showing their current real-world tournament status. Updates automatically as results are entered — a green dot can turn red mid-tournament if a team gets knocked out.
           </p>
           <div className="space-y-2.5">
             {[
@@ -240,19 +240,19 @@ export default function WCScoringPage() {
                 dot:        'bg-green-400',
                 label:      '● Green — Alive, exact path',
                 labelColor: 'text-green-400',
-                desc:       'Team qualified from groups in the exact position you predicted and hasn\'t been eliminated in the knockout stage yet.',
+                desc:       "Team qualified from groups exactly as you predicted and hasn't been eliminated yet.",
               },
               {
                 dot:        'bg-amber-400',
                 label:      '● Amber — Alive, different path',
                 labelColor: 'text-amber-400',
-                desc:       'Team is still in the tournament but qualified through a different group position than you predicted (e.g. you picked them 1st but they finished 2nd, or advanced as best 3rd-place).',
+                desc:       'Team is still in the tournament but came through a different group position than you predicted (e.g. you picked them 1st but they finished 2nd, or advanced as best 3rd-place).',
               },
               {
                 dot:        'bg-red-500',
-                label:      '● Red + strikethrough name — Eliminated',
+                label:      '● Red — Eliminated',
                 labelColor: 'text-red-400',
-                desc:       "Team is out — either they didn't qualify from the group stage or they've already lost a knockout match. Their name shows a red strikethrough in every later round you predicted them to reach.",
+                desc:       "Team is out — they didn't qualify from the group stage or have already lost a knockout match. The red dot appears in every later round where you still have them picked.",
               },
             ].map(({ dot, label, labelColor, desc }) => (
               <div key={label} className="flex items-start gap-3">
@@ -276,49 +276,49 @@ export default function WCScoringPage() {
         icon={LayoutGrid}
         iconColor="text-blue-400"
         title="Bracket Visual Guide — After Results"
-        subtitle="Once the admin enters a knockout result, the match card border and background update to show how your pick compares to the actual outcome."
+        subtitle="Once the admin enters a knockout result, the team name color and card border update to show how your pick compares to the actual outcome. Cards always have a dark background — color is communicated through text only."
       >
         <div className="space-y-2.5">
           {[
             {
               border:     '#22C55E',
-              bg:         'rgba(20,83,45,0.22)',
-              dot:        'bg-green-500',
               label:      '✓ Correct',
               labelColor: 'text-green-400',
-              desc:       'Your pick won this match and advanced to the next round. Green border and background tint on the card.',
+              nameColor:  'text-green-400',
+              nameLabel:  'GER',
+              desc:       'Your pick won. Team name appears in green with a ✓ icon. Card gets a green border.',
             },
             {
               border:     '#f59e0b',
-              bg:         'rgba(120,77,0,0.20)',
-              dot:        'bg-amber-500',
               label:      '↺ Different slot',
               labelColor: 'text-amber-400',
-              desc:       'Your pick advanced in the real tournament — but through a different bracket position than you predicted. You still earn points for the team. Amber border and background tint.',
+              nameColor:  'text-amber-400',
+              nameLabel:  'FRA',
+              desc:       'Your pick advanced — but through a different bracket slot than predicted. You still earn points. Team name in amber with a ↺ icon. Card gets an amber border.',
             },
             {
               border:     '#4B5563',
-              bg:         '#1F2937',
-              dot:        'bg-gray-500',
               label:      '✗ Wrong',
               labelColor: 'text-red-400',
-              desc:       'Your pick was eliminated at this round. The card stays neutral (no red tint) — your picked team shows with a ✗ icon and a struck-through name. The actual winner is shown beside it.',
+              nameColor:  'text-red-400',
+              nameLabel:  'RSA → GER',
+              desc:       'Your pick was eliminated. Team name in red with a ✗ icon. The actual winner is shown in green beside it. Card border stays neutral.',
             },
             {
               border:     '#4B5563',
-              bg:         '#1F2937',
-              dot:        'bg-gray-600',
               label:      '● Pending',
               labelColor: 'text-gray-400',
-              desc:       'Result not yet entered by the admin. Status dots and your pick arrow are shown instead.',
+              nameColor:  'text-gray-500',
+              nameLabel:  'TUN',
+              desc:       'Match not yet decided. The losing/non-picked team shows in gray-500. Status dots and pick arrow are used instead.',
             },
-          ].map(({ border, bg, dot, label, labelColor, desc }) => (
+          ].map(({ border, label, labelColor, nameColor, nameLabel, desc }) => (
             <div
               key={label}
-              className="flex items-start gap-3 rounded-lg border px-3 py-2.5"
-              style={{ borderColor: border, background: bg }}
+              className="flex items-start gap-3 rounded-lg border px-3 py-2.5 bg-gray-900"
+              style={{ borderColor: border }}
             >
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${dot}`} />
+              <span className={`text-xs font-bold flex-shrink-0 mt-0.5 ${nameColor}`}>{nameLabel}</span>
               <div>
                 <span className={`text-xs font-bold ${labelColor}`}>{label}</span>
                 <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
