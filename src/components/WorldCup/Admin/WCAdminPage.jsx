@@ -172,7 +172,7 @@ function AdminTeamSlot({ teamId, slotLabel, selected, onClick }) {
   )
 }
 
-function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, onSave, saving }) {
+function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, onSave, onDelete, saving }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const isDirty = picked && picked !== saved
@@ -193,7 +193,17 @@ function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, 
           </button>
         )}
         {saved && !isDirty && (
-          <span className="text-[8px] text-green-500 font-bold flex-shrink-0">✓</span>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <span className="text-[8px] text-green-500 font-bold">✓</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              disabled={saving}
+              title="Reset this result"
+              className="bg-red-800 hover:bg-red-700 text-white rounded px-1 py-px text-[8px] font-bold leading-none transition-colors disabled:opacity-50"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
       <AdminTeamSlot
@@ -216,7 +226,7 @@ function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, 
   )
 }
 
-function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, savingMatch, onPick, onSave }) {
+function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, savingMatch, onPick, onSave, onDelete }) {
   const roundIdx = B_STAGE_IDX[stage]
   return (
     <div style={{ width: B_COL_W, flexShrink: 0 }}>
@@ -240,6 +250,7 @@ function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, s
                 saving={savingMatch === match.id}
                 onPick={(teamId) => onPick(match.id, teamId)}
                 onSave={() => onSave(match.id)}
+                onDelete={() => onDelete(match.id)}
               />
             </div>
           )
@@ -532,6 +543,53 @@ function PlayoffAdmin({ onRefresh }) {
     })
   }, [])
 
+  // Reset / delete a single match result (cascades downstream)
+  const handleDeleteMatch = useCallback(async (matchId) => {
+    if (!window.confirm('Reset this result? Any downstream bracket results that depend on this team will also be cleared.')) return
+    setSavingMatch(matchId)
+    setMsg(null)
+    try {
+      const winner = savedPicks[matchId]
+
+      // Simulate cascade on a copy of savedPicks to find every affected match ID
+      const cascaded = { ...savedPicks }
+      cascaded[matchId] = null
+      if (winner) bCascadeClear(matchId, winner, cascaded)
+
+      // Collect IDs that were nulled by the cascade (excluding the primary match itself)
+      const downstream = Object.keys(savedPicks).filter(
+        (id) => id !== matchId && savedPicks[id] && cascaded[id] === null
+      )
+      const toDelete = [matchId, ...downstream]
+
+      // Delete all affected results from DB
+      await Promise.all(toDelete.map((id) => deleteMatchResult(id)))
+
+      // Sync UI state
+      const newAdmin = { ...adminPicks }
+      const newSaved = { ...savedPicks }
+      toDelete.forEach((id) => { newAdmin[id] = null; delete newSaved[id] })
+      setAdminPicks(newAdmin)
+      setSavedPicks(newSaved)
+
+      // Recalculate playoff points with remaining saved picks
+      await recalculatePlayoffPoints(buildRounds(newSaved))
+      await onRefresh()
+
+      setMsg({
+        type: 'success',
+        text: downstream.length > 0
+          ? `Result reset (+ ${downstream.length} downstream match${downstream.length > 1 ? 'es' : ''} cleared).`
+          : 'Result reset.',
+      })
+      setTimeout(() => setMsg(null), 4000)
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    } finally {
+      setSavingMatch(null)
+    }
+  }, [adminPicks, savedPicks, buildRounds, onRefresh])
+
   // Save & score a single match result
   const handleSaveMatch = useCallback(async (matchId) => {
     const winner = adminPicks[matchId]
@@ -645,6 +703,7 @@ function PlayoffAdmin({ onRefresh }) {
                 savingMatch={savingMatch}
                 onPick={handlePick}
                 onSave={handleSaveMatch}
+                onDelete={handleDeleteMatch}
               />
               {colIdx < columns.length - 1 && (
                 <AdminConnector
