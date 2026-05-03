@@ -53,7 +53,7 @@ export const RACES_2026 = [
     country: 'USA',
     flag: '🇺🇸',
     raceDate: '2026-05-03T20:00:00Z',
-    lockTime: '2026-05-03T19:55:00Z',
+    lockTime: '2026-05-03T19:00:00Z',
     trackImage: null,
   },
   {
