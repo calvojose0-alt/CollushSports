@@ -315,10 +315,10 @@ export default function PickSubmissionPage() {
 
           {locked && prevPickForRace && (
             <div className="card bg-f1dark/50">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Your Pick (Locked)</p>
+              <p className="text-xs text-white font-semibold uppercase tracking-wider mb-2">Your Pick (Locked)</p>
               <div className="flex gap-4">
                 <div>
-                  <p className="text-xs text-gray-400">Podium Pick</p>
+                  <p className="text-xs text-gray-300">Podium Pick</p>
                   <p className="font-bold text-f1gold">{prevPickForRace.columnA?.driverName || '—'}</p>
                   {prevPickForRace.resultA && (
                     <span className={`text-xs ${prevPickForRace.resultA === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -327,7 +327,7 @@ export default function PickSubmissionPage() {
                   )}
                 </div>
                 <div className="border-l border-f1light pl-4">
-                  <p className="text-xs text-gray-400">Top 10 Pick</p>
+                  <p className="text-xs text-gray-300">Top 10 Pick</p>
                   <p className="font-bold text-green-400">{prevPickForRace.columnB?.driverName || '—'}</p>
                   {prevPickForRace.resultB && (
                     <span className={`text-xs ${prevPickForRace.resultB === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -349,8 +349,11 @@ export default function PickSubmissionPage() {
             {TRACK_HISTORY[selectedRace.id] ? (
               /* Completed race: result spans left 2 columns */
               <RaceFinishingOrder raceId={selectedRace.id} />
+            ) : locked ? (
+              /* Locked race: hide pick columns, nothing to show here */
+              null
             ) : (
-              /* Upcoming race: Podium Pick + Top 10 Pick */
+              /* Upcoming unlocked race: Podium Pick + Top 10 Pick */
               <>
                 <ColumnPick
                   column="A"
