@@ -28,7 +28,13 @@ function MyGroupsSummary({ groups, currentUserId, players }) {
         <div className="divide-y divide-f1light">
           {groups.map((group) => {
             const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
-            const sorted = [...memberPlayers].sort((a, b) => (b.points || 0) - (a.points || 0))
+            const statusOrd = { winner: 0, alive: 1, eliminated: 2 }
+            const sorted = [...memberPlayers].sort((a, b) => {
+              const oa = statusOrd[a.status] ?? 3
+              const ob = statusOrd[b.status] ?? 3
+              if (oa !== ob) return oa - ob
+              return (b.points || 0) - (a.points || 0)
+            })
             const myRank = sorted.findIndex((p) => p.userId === currentUserId) + 1
             const me = sorted.find((p) => p.userId === currentUserId)
             return (
@@ -80,7 +86,13 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
 
   const isCreator = group.createdBy === currentUserId
   const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
-  const sortedMembers = [...memberPlayers].sort((a, b) => (b.points || 0) - (a.points || 0))
+  const statusOrder = { winner: 0, alive: 1, eliminated: 2 }
+  const sortedMembers = [...memberPlayers].sort((a, b) => {
+    const oa = statusOrder[a.status] ?? 3
+    const ob = statusOrder[b.status] ?? 3
+    if (oa !== ob) return oa - ob
+    return (b.points || 0) - (a.points || 0)
+  })
 
   // Also show members that haven't played yet (no player record)
   const memberIdsWithoutPlayer = (group.members || []).filter(

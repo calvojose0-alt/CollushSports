@@ -40,6 +40,9 @@ export async function processRaceResults(gameId, raceId, raceResults) {
   const playerMap = Object.fromEntries(players.map((p) => [p.userId, p]))
   const updates = [] // { pick, playerUpdate }
 
+  // Track which alive players submitted a pick for this race
+  const pickedUserIds = new Set(picks.map((p) => p.userId))
+
   for (const pick of picks) {
     const player = playerMap[pick.userId]
     if (!player || player.status === 'eliminated') continue
@@ -73,12 +76,29 @@ export async function processRaceResults(gameId, raceId, raceResults) {
     updates.push({ pick, pickUpdate, playerUpdate, player })
   }
 
-  // Apply updates
+  // Eliminate alive players who didn't submit a pick for this race
+  // (no-pick = automatic elimination)
+  const noPickEliminations = []
+  for (const player of players) {
+    if (player.status === 'eliminated') continue
+    if (pickedUserIds.has(player.userId)) continue
+    noPickEliminations.push(
+      updatePlayerStatus(player.id, {
+        status: 'eliminated',
+        eliminatedAt: raceId,
+        lastRaceId: raceId,
+        [`raceResult_${raceId}`]: 'no_pick',
+      })
+    )
+  }
+
+  // Apply all updates
   await Promise.all([
     ...updates.map(({ pick, pickUpdate }) => updatePick(pick.id, pickUpdate)),
     ...updates.map(({ player, playerUpdate }) =>
       updatePlayerStatus(player.id, playerUpdate)
     ),
+    ...noPickEliminations,
   ])
 
   // Check for end-game conditions
