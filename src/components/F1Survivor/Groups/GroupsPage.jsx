@@ -5,6 +5,8 @@ import {
   createGroup, joinGroupByCode, getGroupsForUser, removeGroupMember,
   renameGroup, deleteGroup,
 } from '@/services/firebase/firestore'
+import { RACES_2026, isRaceLocked } from '@/data/calendar2026'
+import { DRIVER_MAP } from '@/data/drivers2026'
 import {
   Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
   Link2, Trash2, Settings, Pencil,
@@ -62,7 +64,7 @@ function MyGroupsSummary({ groups, currentUserId, players }) {
 }
 
 // ── Group viewer (detail + management) ───────────────────────────────────────
-function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
+function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied]       = useState(null) // 'code' | 'link' | null
   const [managing, setManaging]   = useState(false)
@@ -84,6 +86,10 @@ function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
   const memberIdsWithoutPlayer = (group.members || []).filter(
     (uid) => !memberPlayers.find((p) => p.userId === uid)
   )
+
+  // Latest locked race (for showing picks in standings)
+  const lockedRaces = RACES_2026.filter((r) => isRaceLocked(r.id))
+  const latestLockedRace = lockedRaces[lockedRaces.length - 1] || null
 
   const inviteLink = `${window.location.origin}/join/${group.inviteCode}`
 
@@ -303,37 +309,73 @@ function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
       {/* Standings */}
       {sortedMembers.length > 0 && (
         <div className="bg-f1dark rounded-xl overflow-hidden">
-          <div className="px-3 py-2 border-b border-f1light">
+          <div className="px-3 py-2 border-b border-f1light flex items-center justify-between">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Group Standings</p>
+            {latestLockedRace && (
+              <span className="text-xs text-gray-500 font-mono">
+                {latestLockedRace.flag} {latestLockedRace.shortName} picks
+              </span>
+            )}
           </div>
           <div className="divide-y divide-f1light">
-            {sortedMembers.map((player, idx) => (
-              <div key={player.id} className={`flex items-center gap-3 px-3 py-2 ${player.userId === currentUserId ? 'bg-f1red/10' : ''}`}>
-                <span className="text-xs text-gray-500 w-5">{idx + 1}</span>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
-                  player.status === 'alive' ? 'bg-f1red' : player.status === 'winner' ? 'bg-f1gold' : 'bg-f1light'
-                }`}>
-                  {player.displayName?.[0]?.toUpperCase()}
-                </div>
-                <span className={`text-sm flex-1 ${player.userId === currentUserId ? 'text-white font-semibold' : 'text-gray-300'}`}>
-                  {player.displayName}
-                  {player.userId === currentUserId && <span className="text-xs text-f1red ml-1">(You)</span>}
-                </span>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-f1gold">{player.points || 0}</span>
-                  <span className="text-xs text-gray-500 ml-1">pts</span>
-                </div>
-                <div className="w-12 text-right">
-                  {player.status === 'alive' ? (
-                    <span className="text-xs text-green-400">● Alive</span>
-                  ) : player.status === 'winner' ? (
-                    <span className="text-xs text-f1gold">🏆</span>
-                  ) : (
-                    <span className="text-xs text-red-400">Out</span>
+            {sortedMembers.map((player, idx) => {
+              const pick = latestLockedRace
+                ? allPicks.find((p) => p.userId === player.userId && p.raceId === latestLockedRace.id)
+                : null
+              const driverA = pick?.columnA?.driverId ? DRIVER_MAP[pick.columnA.driverId] : null
+              const driverB = pick?.columnB?.driverId ? DRIVER_MAP[pick.columnB.driverId] : null
+
+              return (
+                <div key={player.id} className={`px-3 py-2.5 ${player.userId === currentUserId ? 'bg-f1red/10' : ''}`}>
+                  {/* Top row: rank, avatar, name, points, status */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 w-5">{idx + 1}</span>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
+                      player.status === 'alive' ? 'bg-f1red' : player.status === 'winner' ? 'bg-f1gold' : 'bg-f1light'
+                    }`}>
+                      {player.displayName?.[0]?.toUpperCase()}
+                    </div>
+                    <span className={`text-sm flex-1 ${player.userId === currentUserId ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                      {player.displayName}
+                      {player.userId === currentUserId && <span className="text-xs text-f1red ml-1">(You)</span>}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-f1gold">{player.points || 0}</span>
+                      <span className="text-xs text-gray-500 ml-1">pts</span>
+                    </div>
+                    <div className="w-12 text-right">
+                      {player.status === 'alive' ? (
+                        <span className="text-xs text-green-400">● Alive</span>
+                      ) : player.status === 'winner' ? (
+                        <span className="text-xs text-f1gold">🏆</span>
+                      ) : (
+                        <span className="text-xs text-red-400">Out</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Bottom row: latest race picks */}
+                  {latestLockedRace && (
+                    <div className="flex items-center gap-3 mt-1.5 pl-11">
+                      {driverA ? (
+                        <span className="text-xs font-semibold" style={{ color: driverA.teamColor }}>
+                          🏅 {driverA.name.split(' ').pop()}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-600">🏅 —</span>
+                      )}
+                      <span className="text-gray-700 text-xs">·</span>
+                      {driverB ? (
+                        <span className="text-xs font-semibold text-green-400">
+                          Top10 {driverB.name.split(' ').pop()}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-600">Top10 —</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -347,7 +389,7 @@ function GroupViewer({ groups, currentUserId, players, onGroupsChanged }) {
 
 export default function GroupsPage() {
   const { user } = useAuth()
-  const { players, gameId } = useF1Game()
+  const { players, gameId, allPicks } = useF1Game()
 
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -494,6 +536,7 @@ export default function GroupsPage() {
             groups={groups}
             currentUserId={user.uid}
             players={players}
+            allPicks={allPicks}
             onGroupsChanged={loadGroups}
           />
         </>
