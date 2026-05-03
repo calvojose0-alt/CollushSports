@@ -35,7 +35,7 @@ function DriverOption({ driver, disabled, selected, onSelect }) {
   )
 }
 
-export default function ColumnPick({ column, label, description, selectedDriver, usedDriverIds, onSelect, onInspect, saved }) {
+export default function ColumnPick({ column, label, description, selectedDriver, usedDriverIds, onSelect, onInspect, saved, disabled }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -80,8 +80,8 @@ export default function ColumnPick({ column, label, description, selectedDriver,
       {/* Selected driver display */}
       {selectedDriver ? (
         <div
-          className={`flex items-center gap-3 p-3 rounded-xl mb-3 cursor-pointer hover:opacity-90 transition ${bgSelected} border ${borderColor}`}
-          onClick={() => { setOpen((v) => !v); onInspect && onInspect(selectedDriver.id) }}
+          className={`flex items-center gap-3 p-3 rounded-xl mb-3 border ${borderColor} ${disabled ? 'cursor-default opacity-70' : `cursor-pointer hover:opacity-90 ${bgSelected}`} transition`}
+          onClick={() => { if (!disabled) { setOpen((v) => !v); onInspect && onInspect(selectedDriver.id) } }}
         >
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0"
@@ -97,16 +97,17 @@ export default function ColumnPick({ column, label, description, selectedDriver,
         </div>
       ) : (
         <button
-          onClick={() => setOpen((v) => !v)}
-          className={`w-full flex items-center justify-between p-3 rounded-xl mb-3 border ${borderColor} border-dashed text-gray-400 hover:text-white hover:border-solid transition`}
+          onClick={() => !disabled && setOpen((v) => !v)}
+          disabled={disabled}
+          className={`w-full flex items-center justify-between p-3 rounded-xl mb-3 border ${borderColor} border-dashed transition ${disabled ? 'text-gray-600 cursor-not-allowed opacity-50' : 'text-gray-400 hover:text-white hover:border-solid'}`}
         >
-          <span className="text-sm">Select a driver…</span>
-          <ChevronDown className="w-4 h-4" />
+          <span className="text-sm">{disabled ? 'No pick submitted' : 'Select a driver…'}</span>
+          {!disabled && <ChevronDown className="w-4 h-4" />}
         </button>
       )}
 
       {/* Dropdown */}
-      {open && (
+      {open && !disabled && (
         <div className="bg-f1dark border border-f1light rounded-xl overflow-hidden">
           {/* Search */}
           <div className="p-2 border-b border-f1light flex items-center gap-2">

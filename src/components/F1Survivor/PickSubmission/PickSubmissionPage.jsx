@@ -360,6 +360,7 @@ export default function PickSubmissionPage() {
                   usedDriverIds={effectiveUsedA}
                   onSelect={(d) => setPickedA(d)}
                   saved={!!prevPickForRace?.columnA?.driverId}
+                  disabled={locked}
                 />
                 <ColumnPick
                   column="B"
@@ -369,6 +370,7 @@ export default function PickSubmissionPage() {
                   usedDriverIds={effectiveUsedB}
                   onSelect={(d) => setPickedB(d)}
                   saved={!!prevPickForRace?.columnB?.driverId}
+                  disabled={locked}
                 />
               </>
             )}
