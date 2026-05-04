@@ -39,11 +39,24 @@ function MyGroupsSummary({ groups, currentUserId, players, allPicks }) {
             })
             const myRank = sorted.findIndex((p) => p.userId === currentUserId) + 1
             const me = sorted.find((p) => p.userId === currentUserId)
+            // Which entries of mine are in this group?
+            const myMemberships = (group.members || []).filter(m => m.userId === currentUserId)
+            const myEntryLabels = myMemberships.map(m => {
+              const p = players.find(pl => pl.userId === m.userId && (pl.entryNumber ?? 1) === (m.entryNumber ?? 1))
+              return p?.entryName ?? `Entry ${m.entryNumber ?? 1}`
+            })
             return (
               <div key={group.id} className="flex items-center gap-3 px-3 py-2.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{group.name}</p>
-                  <p className="text-xs text-gray-500">{group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <p className="text-xs text-gray-500">{group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}</p>
+                    {myEntryLabels.map(label => (
+                      <span key={label} className="text-xs bg-f1red/20 text-f1red border border-f1red/30 px-1.5 py-0.5 rounded-full font-medium">
+                        🎯 {label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {myRank > 0 && (
@@ -209,10 +222,21 @@ function GroupViewer({ groups, currentUserId, players, allPicks, myEntries, acti
         <p className="text-xs text-green-400 -mt-2">✓ Invite link copied! Share it with friends.</p>
       )}
 
-      <p className="text-xs text-gray-400 -mt-2">
-        {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
-        {isCreator && <span className="text-gray-600 ml-1">(you created this group)</span>}
-      </p>
+      <div className="flex items-center gap-2 flex-wrap -mt-2">
+        <p className="text-xs text-gray-400">
+          {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
+          {isCreator && <span className="text-gray-600 ml-1">(you created this group)</span>}
+        </p>
+        {(group.members || []).filter(m => m.userId === currentUserId).map(m => {
+          const p = players.find(pl => pl.userId === m.userId && (pl.entryNumber ?? 1) === (m.entryNumber ?? 1))
+          const label = p?.entryName ?? `Entry ${m.entryNumber ?? 1}`
+          return (
+            <span key={label} className="text-xs bg-f1red/20 text-f1red border border-f1red/30 px-1.5 py-0.5 rounded-full font-medium">
+              🎯 {label}
+            </span>
+          )
+        })}
+      </div>
 
       {/* Manage panel — creator only */}
       {isCreator && managing && (
@@ -343,9 +367,12 @@ function GroupViewer({ groups, currentUserId, players, allPicks, myEntries, acti
                 : null
               const driverA = pick?.columnA?.driverId ? DRIVER_MAP[pick.columnA.driverId] : null
               const driverB = pick?.columnB?.driverId ? DRIVER_MAP[pick.columnB.driverId] : null
+              const isMe = player.userId === currentUserId
+              const userCount = sortedMembers.filter(p => p.userId === player.userId).length
+              const showEntry = userCount > 1 && player.entryName
 
               return (
-                <div key={player.id} className={`px-3 py-2.5 ${player.userId === currentUserId ? 'bg-f1red/10' : ''}`}>
+                <div key={`${player.userId}_${player.entryNumber ?? 1}`} className={`px-3 py-2.5 ${isMe ? 'bg-f1red/10' : ''}`}>
                   {/* Top row: rank, avatar, name, points, status */}
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500 w-5">{idx + 1}</span>
@@ -354,9 +381,10 @@ function GroupViewer({ groups, currentUserId, players, allPicks, myEntries, acti
                     }`}>
                       {player.displayName?.[0]?.toUpperCase()}
                     </div>
-                    <span className={`text-sm flex-1 ${player.userId === currentUserId ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                    <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
                       {player.displayName}
-                      {player.userId === currentUserId && <span className="text-xs text-f1red ml-1">(You)</span>}
+                      {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
+                      {isMe && <span className="text-xs text-f1red ml-1">(You)</span>}
                     </span>
                     <div className="text-right">
                       <span className="text-sm font-bold text-f1gold">{player.points || 0}</span>

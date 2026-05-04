@@ -211,13 +211,16 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                       const hasPick = pick?.homeScore != null && pick?.awayScore != null
                       const isMe = player.userId === currentUserId
                       const pickColor = hasPick ? getPickColor(pick, result) : ''
+                      const userCount = memberPlayers.filter(p => p.userId === player.userId).length
+                      const showEntry = userCount > 1 && player.entryName
                       return (
-                        <div key={player.userId} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
+                        <div key={`${player.userId}_${player.entryNumber ?? 1}`} className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
                           <div className="w-6 h-6 rounded-full bg-yellow-700/60 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
                             {player.displayName?.[0]?.toUpperCase()}
                           </div>
                           <span className={`text-sm flex-1 min-w-0 truncate ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
                             {player.displayName}
+                            {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
                             {isMe && <span className="text-xs text-yellow-400 ml-1">(You)</span>}
                           </span>
                           {hasPick ? (
@@ -279,14 +282,17 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                     const teamIds  = playoffPicksByUser[player.userId]?.[bracketRound] || []
                     const correct  = teamIds.filter((id) => currentRound.actualSet.has(id)).length
                     const hasPicks = teamIds.length > 0
+                    const userCount = memberPlayers.filter(p => p.userId === player.userId).length
+                    const showEntry = userCount > 1 && player.entryName
                     return (
-                      <div key={player.userId} className={`px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
+                      <div key={`${player.userId}_${player.entryNumber ?? 1}`} className={`px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}>
                         <div className="flex items-center gap-2 mb-1.5">
                           <div className="w-5 h-5 rounded-full bg-yellow-700/60 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
                             {player.displayName?.[0]?.toUpperCase()}
                           </div>
                           <span className={`text-xs flex-1 font-semibold ${isMe ? 'text-white' : 'text-gray-300'}`}>
                             {player.displayName}
+                            {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
                             {isMe && <span className="text-yellow-400 ml-1">(You)</span>}
                           </span>
                           {hasPicks && currentRound.decided && (
@@ -454,10 +460,21 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
         <p className="text-xs text-green-400 -mt-2">✓ Invite link copied! Share it with friends.</p>
       )}
 
-      <p className="text-xs text-gray-400 -mt-2">
-        {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
-        {isCreator && <span className="text-gray-600 ml-1">(you created this group)</span>}
-      </p>
+      <div className="flex items-center gap-2 flex-wrap -mt-2">
+        <p className="text-xs text-gray-400">
+          {group.members?.length || 1} member{(group.members?.length || 1) !== 1 ? 's' : ''}
+          {isCreator && <span className="text-gray-600 ml-1">(you created this group)</span>}
+        </p>
+        {(group.members || []).filter(m => m.userId === currentUserId).map(m => {
+          const p = players.find(pl => pl.userId === m.userId && (pl.entryNumber ?? 1) === (m.entryNumber ?? 1))
+          const label = p?.entryName ?? `Entry ${m.entryNumber ?? 1}`
+          return (
+            <span key={`${m.userId}_${m.entryNumber ?? 1}`} className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded-full font-medium">
+              🎯 {label}
+            </span>
+          )
+        })}
+      </div>
 
       {/* Manage panel — creator only */}
       {isCreator && managing && (
@@ -582,9 +599,12 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
           <div className="divide-y divide-f1light">
             {sorted.map((player, idx) => {
               const isMe = player.userId === currentUserId
+              // Show entry name when the same user appears more than once (multi-entry)
+              const userCount = sorted.filter(p => p.userId === player.userId).length
+              const showEntry = userCount > 1 && player.entryName
               return (
                 <div
-                  key={player.id || player.userId}
+                  key={`${player.userId}_${player.entryNumber ?? 1}`}
                   className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
                 >
                   <span className="text-xs text-gray-500 w-5 text-center font-semibold flex-shrink-0">{idx + 1}</span>
@@ -595,6 +615,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`text-sm ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
                         {player.displayName}
+                        {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
                       </span>
                       {isMe && <span className="text-xs text-yellow-400">(You)</span>}
                     </div>
@@ -669,6 +690,24 @@ function MySummary({ groups, currentUserId, players }) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white truncate">{group.name}</p>
                 <p className="text-xs text-gray-500">{group.members?.length || 1} members</p>
+                {/* Entry chips — show which entry the current user has in this group */}
+                {(() => {
+                  const myMemberships = (group.members || []).filter(m => m.userId === currentUserId)
+                  if (myMemberships.length === 0) return null
+                  return (
+                    <div className="flex gap-1 flex-wrap mt-1">
+                      {myMemberships.map(m => {
+                        const p = players.find(pl => pl.userId === m.userId && (pl.entryNumber ?? 1) === (m.entryNumber ?? 1))
+                        const label = p?.entryName ?? `Entry ${m.entryNumber ?? 1}`
+                        return (
+                          <span key={`${m.userId}_${m.entryNumber ?? 1}`} className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded-full font-medium">
+                            🎯 {label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
                 {myRank > 0 && (

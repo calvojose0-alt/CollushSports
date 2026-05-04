@@ -396,7 +396,7 @@ export default function WCLeaderboardPage() {
         <div className="px-4 py-3 border-b border-f1light flex items-center gap-2">
           <Trophy className="w-4 h-4 text-yellow-400" />
           <h3 className="font-bold text-white">
-            {viewMode === 'overall' ? 'Overall Standings' : `Group ${selectedGroup} Standings`}
+            {viewMode === 'overall' ? 'Overall Community Standings' : `Group ${selectedGroup} Standings`}
           </h3>
         </div>
 
@@ -420,7 +420,7 @@ export default function WCLeaderboardPage() {
                     player={player}
                     rank={idx + 1}
                     isMe={player.userId === user?.uid}
-                    expanded={expandedPlayer === player.id || player.userId}
+                    expanded={expandedPlayer === (player.id || player.userId)}
                     onToggle={() => setExpandedPlayer((p) => p === (player.id || player.userId) ? null : (player.id || player.userId))}
                     resultsByMatchId={resultsByMatchId}
                     players={players}
