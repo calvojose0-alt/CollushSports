@@ -628,7 +628,7 @@ export default function BracketPage() {
   const {
     myPicks, myPicksByMatchId, myPlayoffPicksByRound,
     refreshPicks, allPlayoffPicks, resultsByMatchId,
-    myPlayer, reload, activeEntryNum,
+    myPlayer, reload, activeEntryNum, myEntries, switchEntry,
   } = useWCGame()
 
   const locked = isPicksLocked()
@@ -959,6 +959,26 @@ export default function BracketPage() {
           )}
         </div>
       </div>
+
+      {/* Entry switcher — only shown when user has 2 entries */}
+      {myEntries.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {myEntries.map((entry) => (
+            <button
+              key={entry.entryNumber}
+              onClick={() => switchEntry(entry.entryNumber ?? 1)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-semibold transition-all ${
+                activeEntryNum === (entry.entryNumber ?? 1)
+                  ? 'bg-yellow-600 border-yellow-600 text-white'
+                  : 'bg-f1dark border-f1light text-gray-400 hover:border-gray-500 hover:text-white'
+              }`}
+            >
+              <span className="text-base leading-none">🎯</span>
+              {entry.entryName ?? `Entry ${entry.entryNumber ?? 1}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Champion banner */}
       {champion && (
