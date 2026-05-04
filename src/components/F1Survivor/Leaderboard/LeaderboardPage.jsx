@@ -172,6 +172,9 @@ export default function LeaderboardPage() {
                           )}
                           {player.tiebreaker && <Medal className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />}
                         </div>
+                        {players.filter(p => p.userId === player.userId).length > 1 && (
+                          <p className="text-xs" style={{ color: '#6b7280' }}>{player.entryName ?? 'Entry 1'}</p>
+                        )}
                         <StatusChip status={player.status} />
                       </div>
 

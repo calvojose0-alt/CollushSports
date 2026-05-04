@@ -628,7 +628,7 @@ export default function BracketPage() {
   const {
     myPicks, myPicksByMatchId, myPlayoffPicksByRound,
     refreshPicks, allPlayoffPicks, resultsByMatchId,
-    myPlayer, reload,
+    myPlayer, reload, activeEntryNum,
   } = useWCGame()
 
   const locked = isPicksLocked()
@@ -893,12 +893,12 @@ export default function BracketPage() {
       const winner        = finalM && bracketPicks[finalM.id] ? [bracketPicks[finalM.id]] : []
 
       const saves = [
-        savePlayoffPick({ userId: user.uid, round: 'r32',      teamIds: r32Teams      }),
-        savePlayoffPick({ userId: user.uid, round: 'r16',      teamIds: r16Teams      }),
-        savePlayoffPick({ userId: user.uid, round: 'qf',       teamIds: qfTeams       }),
-        savePlayoffPick({ userId: user.uid, round: 'sf',       teamIds: sfTeams       }),
-        savePlayoffPick({ userId: user.uid, round: 'finalist', teamIds: finalistTeams }),
-        savePlayoffPick({ userId: user.uid, round: 'winner',   teamIds: winner        }),
+        savePlayoffPick({ userId: user.uid, round: 'r32',      teamIds: r32Teams,      entryNumber: activeEntryNum }),
+        savePlayoffPick({ userId: user.uid, round: 'r16',      teamIds: r16Teams,      entryNumber: activeEntryNum }),
+        savePlayoffPick({ userId: user.uid, round: 'qf',       teamIds: qfTeams,       entryNumber: activeEntryNum }),
+        savePlayoffPick({ userId: user.uid, round: 'sf',       teamIds: sfTeams,       entryNumber: activeEntryNum }),
+        savePlayoffPick({ userId: user.uid, round: 'finalist', teamIds: finalistTeams, entryNumber: activeEntryNum }),
+        savePlayoffPick({ userId: user.uid, round: 'winner',   teamIds: winner,        entryNumber: activeEntryNum }),
       ]
       const goalsVal = parseInt(totalGoalsGuess, 10)
       if (!isNaN(goalsVal) && goalsVal >= 0) {

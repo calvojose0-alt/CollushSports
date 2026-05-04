@@ -349,7 +349,9 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
   if (!group) return null
 
   const isCreator = group.createdBy === currentUserId
-  const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+  const memberPlayers = players.filter((p) =>
+    group.members?.some(m => m.userId === p.userId && (m.entryNumber ?? 1) === (p.entryNumber ?? 1))
+  )
   const sorted = [...memberPlayers].sort(
     (a, b) => (b.totalPoints || 0) - (a.totalPoints || 0) || (b.exactHits || 0) - (a.exactHits || 0)
   )
@@ -518,17 +520,22 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
               <Users className="w-3 h-3 text-gray-400" /> Members
             </p>
             <div className="divide-y divide-f1light">
-              {(group.members || []).map((uid) => {
-                const player = players.find((p) => p.userId === uid)
+              {(group.members || []).map((member) => {
+                const uid = typeof member === 'string' ? member : member.userId
+                const entryNum = typeof member === 'string' ? 1 : (member.entryNumber ?? 1)
+                const player = players.find((p) => p.userId === uid && (p.entryNumber ?? 1) === entryNum)
                 const displayName = player?.displayName || uid.slice(0, 8) + '…'
+                const entryLabel = player?.entryName ?? (entryNum > 1 ? ` (Entry ${entryNum})` : '')
                 const isMe = uid === currentUserId
+                const memberKey = `${uid}_${entryNum}`
                 return (
-                  <div key={uid} className="flex items-center gap-3 px-3 py-2.5">
+                  <div key={memberKey} className="flex items-center gap-3 px-3 py-2.5">
                     <div className="w-7 h-7 rounded-full bg-yellow-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                       {displayName[0]?.toUpperCase()}
                     </div>
                     <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
                       {displayName}
+                      {entryNum > 1 && <span className="text-xs text-gray-500 ml-1">{entryLabel}</span>}
                       {isMe && <span className="text-xs text-yellow-400 ml-1">(You · Creator)</span>}
                     </span>
                     {!isMe && (
@@ -651,7 +658,9 @@ function MySummary({ groups, currentUserId, players }) {
       </div>
       <div className="divide-y divide-f1light">
         {groups.map((group) => {
-          const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+          const memberPlayers = players.filter((p) =>
+            group.members?.some(m => m.userId === p.userId && (m.entryNumber ?? 1) === (p.entryNumber ?? 1))
+          )
           const sorted = [...memberPlayers].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
           const myRank = sorted.findIndex((p) => p.userId === currentUserId) + 1
           const me = sorted.find((p) => p.userId === currentUserId)
@@ -688,7 +697,7 @@ function MySummary({ groups, currentUserId, players }) {
 
 export default function WCGroupsPage() {
   const { user } = useAuth()
-  const { players, allPicks, resultsByMatchId } = useWCGame()
+  const { players, allPicks, resultsByMatchId, myEntries, activeEntryNum } = useWCGame()
 
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -697,6 +706,7 @@ export default function WCGroupsPage() {
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState(null)
   const [working, setWorking] = useState(false)
+  const [joinEntryNum, setJoinEntryNum] = useState(1)
 
   const loadGroups = async () => {
     if (!user) return
@@ -713,7 +723,7 @@ export default function WCGroupsPage() {
     setWorking(true)
     setError(null)
     try {
-      await createGroup({ name: groupName.trim(), createdBy: user.uid, gameId: WC_GAME_ID, inviteCode: generateCode() })
+      await createGroup({ name: groupName.trim(), createdBy: user.uid, gameId: WC_GAME_ID, inviteCode: generateCode(), entryNumber: joinEntryNum })
       setGroupName('')
       setMode(null)
       await loadGroups()
@@ -730,7 +740,7 @@ export default function WCGroupsPage() {
     setWorking(true)
     setError(null)
     try {
-      await joinGroupByCode(inviteCode.trim().toUpperCase(), user.uid)
+      await joinGroupByCode(inviteCode.trim().toUpperCase(), user.uid, joinEntryNum)
       setInviteCode('')
       setMode(null)
       await loadGroups()
@@ -775,6 +785,23 @@ export default function WCGroupsPage() {
               value={groupName} onChange={(e) => setGroupName(e.target.value)}
               maxLength={40} required autoFocus
             />
+            {myEntries.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5">Join with which entry?</p>
+                <div className="flex gap-2">
+                  {myEntries.map(e => (
+                    <button key={e.entryNumber} type="button"
+                      onClick={() => setJoinEntryNum(e.entryNumber ?? 1)}
+                      className={`flex-1 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
+                        joinEntryNum === (e.entryNumber ?? 1)
+                          ? 'bg-yellow-600 border-yellow-600 text-white'
+                          : 'bg-f1dark border-f1light text-gray-400'
+                      }`}
+                    >{e.entryName ?? `Entry ${e.entryNumber ?? 1}`}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-300 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
@@ -801,6 +828,23 @@ export default function WCGroupsPage() {
               value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               maxLength={6} required autoFocus
             />
+            {myEntries.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5">Join with which entry?</p>
+                <div className="flex gap-2">
+                  {myEntries.map(e => (
+                    <button key={e.entryNumber} type="button"
+                      onClick={() => setJoinEntryNum(e.entryNumber ?? 1)}
+                      className={`flex-1 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
+                        joinEntryNum === (e.entryNumber ?? 1)
+                          ? 'bg-yellow-600 border-yellow-600 text-white'
+                          : 'bg-f1dark border-f1light text-gray-400'
+                      }`}
+                    >{e.entryName ?? `Entry ${e.entryNumber ?? 1}`}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-300 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}

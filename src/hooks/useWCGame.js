@@ -1,5 +1,5 @@
-// useWCGame — central hook for World Cup 2026 Quiniela state
-import { useState, useEffect, useCallback } from 'react'
+// useWCGame — central hook for World Cup 2026 Quiniela state (supports 2 entries per user)
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   joinWCGame,
   getWCPlayer,
@@ -11,6 +11,7 @@ import {
   getPlayoffPicksForUser,
   getAllMatchResults,
   getTournamentMeta,
+  getWCEntriesForUser,
 } from '@/services/firebase/wc2026Service'
 import { sortLeaderboard } from '@/services/gameEngine/wc2026Engine'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
@@ -19,16 +20,21 @@ import { useAuth } from '@/hooks/useAuth'
 export function useWCGame() {
   const { user } = useAuth()
 
-  const [players, setPlayers]             = useState([])
-  const [myPlayer, setMyPlayer]           = useState(null)
-  const [myPicks, setMyPicks]             = useState([])          // group stage picks for current user
-  const [myPlayoffPicks, setMyPlayoffPicks] = useState([])        // playoff picks for current user
-  const [allPicks, setAllPicks]           = useState([])          // all users' group stage picks
+  const [players, setPlayers]               = useState([])
+  const [myPlayer, setMyPlayer]             = useState(null)
+  const [myEntries, setMyEntries]           = useState([])
+  const [activeEntryNum, setActiveEntryNum] = useState(1)
+  const [myPicks, setMyPicks]               = useState([])
+  const [myPlayoffPicks, setMyPlayoffPicks] = useState([])
+  const [allPicks, setAllPicks]             = useState([])
   const [allPlayoffPicks, setAllPlayoffPicks] = useState([])
-  const [matchResults, setMatchResults]   = useState([])          // admin-entered results
+  const [matchResults, setMatchResults]     = useState([])
   const [tournamentMeta, setTournamentMeta] = useState(null)
-  const [loading, setLoading]             = useState(true)
-  const [error, setError]                 = useState(null)
+  const [loading, setLoading]               = useState(true)
+  const [error, setError]                   = useState(null)
+
+  const activeEntryNumRef = useRef(activeEntryNum)
+  useEffect(() => { activeEntryNumRef.current = activeEntryNum }, [activeEntryNum])
 
   const loadData = useCallback(async () => {
     if (!user) return
@@ -36,19 +42,32 @@ export function useWCGame() {
       setLoading(true)
       setError(null)
 
-      await joinWCGame({ userId: user.uid, displayName: user.displayName || user.email })
+      // Load existing entries for this user
+      let entries = await getWCEntriesForUser(user.uid)
 
-      const [myP, picks, playoffPicks, allP, allPO, results, meta] = await Promise.all([
-        getWCPlayer(user.uid),
-        getPicksForUser(user.uid),
-        getPlayoffPicksForUser(user.uid),
+      // Auto-create entry 1 on first ever load
+      if (entries.length === 0) {
+        await joinWCGame({
+          userId: user.uid,
+          displayName: user.displayName || user.email,
+          entryNumber: 1,
+          entryName: 'Entry 1',
+        })
+        entries = await getWCEntriesForUser(user.uid)
+      }
+
+      setMyEntries(entries)
+
+      const activeNum = activeEntryNumRef.current
+      const [picks, playoffPicks, allP, allPO, results, meta] = await Promise.all([
+        getPicksForUser(user.uid, activeNum),
+        getPlayoffPicksForUser(user.uid, activeNum),
         getAllWCPicks(),
         getAllPlayoffPicks(),
         getAllMatchResults(),
         getTournamentMeta(),
       ])
 
-      setMyPlayer(myP)
       setMyPicks(picks)
       setMyPlayoffPicks(playoffPicks)
       setAllPicks(allP)
@@ -63,28 +82,64 @@ export function useWCGame() {
     }
   }, [user])
 
+  const loadEntryData = useCallback(async (entryNum) => {
+    if (!user) return
+    const [picks, playoffPicks] = await Promise.all([
+      getPicksForUser(user.uid, entryNum),
+      getPlayoffPicksForUser(user.uid, entryNum),
+    ])
+    setMyPicks(picks)
+    setMyPlayoffPicks(playoffPicks)
+  }, [user])
+
   // Subscribe to live player updates
   useEffect(() => {
     if (!user) return
     const unsub = subscribeToWCPlayers((playerList) => {
       setPlayers(playerList)
-      const me = playerList.find((p) => p.userId === user.uid)
+      const activeNum = activeEntryNumRef.current
+      const me = playerList.find(
+        (p) => p.userId === user.uid && (p.entryNumber ?? 1) === activeNum
+      )
       setMyPlayer(me || null)
+      const myPlayerEntries = playerList
+        .filter((p) => p.userId === user.uid)
+        .sort((a, b) => (a.entryNumber ?? 1) - (b.entryNumber ?? 1))
+      if (myPlayerEntries.length > 0) setMyEntries(myPlayerEntries)
     })
     return unsub
   }, [user])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
-  // ── Refresh helpers ────────────────────────────────────────────────────────
+  // Create a second entry (max 2 total)
+  const createEntry = async (entryName) => {
+    if (myEntries.length >= 2) throw new Error('Maximum 2 entries per game')
+    const trimmed = entryName.trim() || 'Entry 2'
+    await joinWCGame({
+      userId: user.uid,
+      displayName: user.displayName || user.email,
+      entryNumber: 2,
+      entryName: trimmed,
+    })
+    await loadData()
+  }
+
+  // Switch active entry
+  const switchEntry = async (entryNum) => {
+    setActiveEntryNum(entryNum)
+    await loadEntryData(entryNum)
+    setMyPlayer(players.find(
+      (p) => p.userId === user?.uid && (p.entryNumber ?? 1) === entryNum
+    ) || null)
+  }
 
   const refreshPicks = async () => {
     if (!user) return
+    const activeNum = activeEntryNumRef.current
     const [picks, playoffPicks, allP, allPO] = await Promise.all([
-      getPicksForUser(user.uid),
-      getPlayoffPicksForUser(user.uid),
+      getPicksForUser(user.uid, activeNum),
+      getPlayoffPicksForUser(user.uid, activeNum),
       getAllWCPicks(),
       getAllPlayoffPicks(),
     ])
@@ -100,34 +155,28 @@ export function useWCGame() {
     setTournamentMeta(meta)
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-
   // Map picks by matchId for O(1) lookup
   const myPicksByMatchId = {}
   myPicks.forEach((p) => { myPicksByMatchId[p.matchId] = p })
 
-  // Map playoff picks by round
   const myPlayoffPicksByRound = {}
   myPlayoffPicks.forEach((p) => { myPlayoffPicksByRound[p.round] = p })
 
-  // Map results by matchId
   const resultsByMatchId = {}
   matchResults.forEach((r) => { resultsByMatchId[r.matchId] = r })
 
-  // Leaderboard sorted by points → exact hits → goals tiebreaker
   const leaderboard = sortLeaderboard(players, tournamentMeta?.actualTotalGoals ?? null)
 
-  // Count how many group matches have been scored
   const scoredMatchIds = new Set(matchResults.filter((r) => r.status === 'final').map((r) => r.matchId))
   const completedGroupMatches = GROUP_MATCHES.filter((m) => scoredMatchIds.has(m.id)).length
-  const totalGroupMatches     = GROUP_MATCHES.length // 72
-
-  // Progress
+  const totalGroupMatches = GROUP_MATCHES.length
   const groupStageComplete = completedGroupMatches === totalGroupMatches
 
   return {
     players,
     myPlayer,
+    myEntries,
+    activeEntryNum,
     myPicks,
     myPlayoffPicks,
     allPicks,
@@ -136,7 +185,6 @@ export function useWCGame() {
     tournamentMeta,
     loading,
     error,
-    // Derived
     myPicksByMatchId,
     myPlayoffPicksByRound,
     resultsByMatchId,
@@ -145,12 +193,12 @@ export function useWCGame() {
     totalGroupMatches,
     groupStageComplete,
     scoredMatchIds,
-    // Schedule
     groupMatches:    GROUP_MATCHES,
     knockoutMatches: KNOCKOUT_MATCHES,
-    // Helpers
     refreshPicks,
     refreshResults,
+    createEntry,
+    switchEntry,
     reload: loadData,
   }
 }

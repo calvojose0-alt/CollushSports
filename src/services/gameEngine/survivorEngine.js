@@ -37,14 +37,17 @@ export async function processRaceResults(gameId, raceId, raceResults) {
     positionMap[r.driverId] = r.position
   }
 
-  const playerMap = Object.fromEntries(players.map((p) => [p.userId, p]))
-  const updates = [] // { pick, playerUpdate }
+  // Key by (userId_entryNumber) since same user can have 2 entries
+  const playerMap = {}
+  players.forEach((p) => { playerMap[`${p.userId}_${p.entryNumber ?? 1}`] = p })
+  const updates = []
 
-  // Track which alive players submitted a pick for this race
-  const pickedUserIds = new Set(picks.map((p) => p.userId))
+  // Track which alive entries submitted a pick for this race
+  const pickedEntryKeys = new Set(picks.map((p) => `${p.userId}_${p.entryNumber ?? 1}`))
 
   for (const pick of picks) {
-    const player = playerMap[pick.userId]
+    const entryKey = `${pick.userId}_${pick.entryNumber ?? 1}`
+    const player = playerMap[entryKey]
     if (!player || player.status === 'eliminated') continue
 
     const posA = positionMap[pick.columnA?.driverId]
@@ -76,12 +79,10 @@ export async function processRaceResults(gameId, raceId, raceResults) {
     updates.push({ pick, pickUpdate, playerUpdate, player })
   }
 
-  // Eliminate alive players who didn't submit a pick for this race
-  // (no-pick = automatic elimination)
   const noPickEliminations = []
   for (const player of players) {
     if (player.status === 'eliminated') continue
-    if (pickedUserIds.has(player.userId)) continue
+    if (pickedEntryKeys.has(`${player.userId}_${player.entryNumber ?? 1}`)) continue
     noPickEliminations.push(
       updatePlayerStatus(player.id, {
         status: 'eliminated',
@@ -156,7 +157,7 @@ async function checkEndConditions(gameId, raceId, players) {
  * Check whether a player can submit a pick for a given race.
  * Returns { valid: bool, reason: string }
  */
-export async function validatePick({ gameId, userId, raceId, columnA, columnB }) {
+export async function validatePick({ gameId, userId, raceId, columnA, columnB, entryNumber = 1 }) {
   // 1. Race lock check
   if (isRaceLocked(raceId)) {
     return { valid: false, reason: 'Race has been locked. Picks are no longer accepted.' }
@@ -164,14 +165,14 @@ export async function validatePick({ gameId, userId, raceId, columnA, columnB })
 
   // 2. Player must be alive
   const players = await getPlayers(gameId)
-  const player = players.find((p) => p.userId === userId)
+  const player = players.find((p) => p.userId === userId && (p.entryNumber ?? 1) === entryNumber)
   if (!player) return { valid: false, reason: 'You are not enrolled in this game.' }
   if (player.status === 'eliminated') {
     return { valid: false, reason: 'You have been eliminated from this competition.' }
   }
 
   // 3. Driver reuse constraint
-  const allPicks = await getPicksForPlayer(gameId, userId)
+  const allPicks = await getPicksForPlayer(gameId, userId, entryNumber)
   const usedInA = new Set(allPicks.map((p) => p.columnA?.driverId).filter(Boolean))
   const usedInB = new Set(allPicks.map((p) => p.columnB?.driverId).filter(Boolean))
 
@@ -201,8 +202,8 @@ export async function validatePick({ gameId, userId, raceId, columnA, columnB })
 /**
  * Get the set of drivers a player has already used in each column.
  */
-export async function getUsedDrivers(gameId, userId) {
-  const picks = await getPicksForPlayer(gameId, userId)
+export async function getUsedDrivers(gameId, userId, entryNumber = 1) {
+  const picks = await getPicksForPlayer(gameId, userId, entryNumber)
   const usedA = new Set(picks.map((p) => p.columnA?.driverId).filter(Boolean))
   const usedB = new Set(picks.map((p) => p.columnB?.driverId).filter(Boolean))
   return { usedA, usedB }

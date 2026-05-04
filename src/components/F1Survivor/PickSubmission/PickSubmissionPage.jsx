@@ -146,7 +146,10 @@ function RaceFinishingOrder({ raceId }) {
 
 export default function PickSubmissionPage() {
   const { user } = useAuth()
-  const { currentRace, usedDrivers, myPicks, myPlayer, gameId, refreshPicks, raceResults } = useF1Game()
+  const {
+    currentRace, usedDrivers, myPicks, myPlayer, gameId, refreshPicks, raceResults,
+    myEntries, activeEntryNum, switchEntry, createEntry,
+  } = useF1Game()
 
   const [selectedRace, setSelectedRace] = useState(null)
   const [pickedA, setPickedA] = useState(null)
@@ -154,6 +157,10 @@ export default function PickSubmissionPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [showCreateEntry, setShowCreateEntry] = useState(false)
+  const [newEntryName, setNewEntryName] = useState('')
+  const [creatingEntry, setCreatingEntry] = useState(false)
+  const [entryError, setEntryError] = useState(null)
 
   // Default to current race
   useEffect(() => {
@@ -196,6 +203,7 @@ export default function PickSubmissionPage() {
       raceId: selectedRace.id,
       columnA: { driverId: pickedA.id, driverName: pickedA.name },
       columnB: { driverId: pickedB.id, driverName: pickedB.name },
+      entryNumber: activeEntryNum,
     })
 
     if (!validation.valid) {
@@ -211,6 +219,7 @@ export default function PickSubmissionPage() {
         raceId: selectedRace.id,
         columnA: { driverId: pickedA.id, driverName: pickedA.name },
         columnB: { driverId: pickedB.id, driverName: pickedB.name },
+        entryNumber: activeEntryNum,
       })
       await refreshPicks()
       setSubmitSuccess(true)
@@ -240,6 +249,82 @@ export default function PickSubmissionPage() {
         <Flag className="w-5 h-5 text-gray-400" />
         <h2 className="font-bold text-blue-800">My Picks</h2>
       </div>
+
+      {/* Entry Switcher */}
+      {(myEntries.length > 1 || myEntries.length === 1) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {myEntries.map((entry) => (
+            <button
+              key={entry.entryNumber}
+              onClick={() => switchEntry(entry.entryNumber ?? 1)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-semibold transition-all ${
+                activeEntryNum === (entry.entryNumber ?? 1)
+                  ? 'bg-f1red border-f1red text-white'
+                  : 'bg-f1dark border-f1light text-gray-400 hover:border-gray-500 hover:text-white'
+              }`}
+            >
+              <span className="text-base leading-none">🎯</span>
+              {entry.entryName ?? `Entry ${entry.entryNumber ?? 1}`}
+            </button>
+          ))}
+          {myEntries.length < 2 && !showCreateEntry && (
+            <button
+              onClick={() => { setShowCreateEntry(true); setEntryError(null) }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-f1light text-gray-400 hover:border-gray-500 hover:text-white text-sm transition-all"
+            >
+              <span>+</span> Add 2nd Entry
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Create 2nd entry inline form */}
+      {showCreateEntry && (
+        <div className="card border-blue-700/40 space-y-3">
+          <p className="text-sm font-semibold text-white">Name your 2nd entry</p>
+          <input
+            type="text"
+            className="input-field"
+            placeholder="e.g. Bold Picks, Dark Horse…"
+            value={newEntryName}
+            onChange={(e) => setNewEntryName(e.target.value)}
+            maxLength={24}
+            autoFocus
+          />
+          {entryError && (
+            <p className="text-xs text-red-400">{entryError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                if (!newEntryName.trim()) { setEntryError('Please enter a name.'); return }
+                setCreatingEntry(true)
+                setEntryError(null)
+                try {
+                  await createEntry(newEntryName.trim())
+                  await switchEntry(2)
+                  setShowCreateEntry(false)
+                  setNewEntryName('')
+                } catch (err) {
+                  setEntryError(err.message)
+                } finally {
+                  setCreatingEntry(false)
+                }
+              }}
+              disabled={creatingEntry || !newEntryName.trim()}
+              className="btn-primary flex-1 disabled:opacity-50"
+            >
+              {creatingEntry ? 'Creating…' : 'Create Entry'}
+            </button>
+            <button
+              onClick={() => { setShowCreateEntry(false); setNewEntryName(''); setEntryError(null) }}
+              className="btn-secondary px-4"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Race selector */}
       <div className="card">

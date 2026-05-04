@@ -99,9 +99,9 @@ const LS = {
 function mapPlayer(row) {
   if (!row) return null
   return {
-    id:                row.id,
-    userId:            row.user_id,
-    displayName:       row.display_name,
+    id:                   row.id,
+    userId:               row.user_id,
+    displayName:          row.display_name,
     totalPoints:          row.total_points          ?? 0,
     exactHits:            row.exact_hits            ?? 0,
     outcomeHits:          row.outcome_hits          ?? 0,
@@ -110,6 +110,8 @@ function mapPlayer(row) {
     totalGoalsGuess:      row.total_goals_guess     ?? null,
     groupStageLeader:     row.group_stage_leader    ?? false,
     joinedAt:             row.joined_at,
+    entryNumber:          row.entry_number          ?? 1,
+    entryName:            row.entry_name            ?? 'Entry 1',
   }
 }
 
@@ -125,6 +127,7 @@ function mapPick(row) {
     isExact:           row.is_exact           ?? null,
     isCorrectOutcome:  row.is_correct_outcome ?? null,
     submittedAt:       row.submitted_at,
+    entryNumber:       row.entry_number       ?? 1,
   }
 }
 
@@ -136,6 +139,7 @@ function mapPlayoffPick(row) {
     round:       row.round,
     teamIds:     row.team_ids ?? [],
     submittedAt: row.submitted_at,
+    entryNumber: row.entry_number ?? 1,
   }
 }
 
@@ -154,17 +158,20 @@ function mapResult(row) {
 
 // ── PLAYERS ───────────────────────────────────────────────────────────────────
 
-export async function joinWCGame({ userId, displayName }) {
-  const playerId = `${WC_GAME_ID}_${userId}`
+export async function joinWCGame({ userId, displayName, entryNumber = 1, entryName = 'Entry 1' }) {
+  const playerId = entryNumber === 1
+    ? `${WC_GAME_ID}_${userId}`
+    : `${WC_GAME_ID}_${userId}_${entryNumber}`
   const data = {
-    id: playerId, userId, displayName,
+    id: playerId, userId, displayName, entryNumber, entryName,
     totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0,
     totalGoalsGuess: null, groupStageLeader: false,
     joinedAt: new Date().toISOString(),
   }
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('wc_players').upsert(
-      { id: playerId, user_id: userId, display_name: displayName },
+      { id: playerId, user_id: userId, display_name: displayName,
+        entry_number: entryNumber, entry_name: entryName },
       { onConflict: 'id', ignoreDuplicates: true }
     )
     if (error) throw new Error(error.message)
@@ -175,8 +182,24 @@ export async function joinWCGame({ userId, displayName }) {
   return existing || data
 }
 
-export async function getWCPlayer(userId) {
-  const playerId = `${WC_GAME_ID}_${userId}`
+export async function getWCEntriesForUser(userId) {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('wc_players').select('*')
+      .eq('user_id', userId)
+      .order('entry_number', { ascending: true })
+    if (error) throw new Error(error.message)
+    return (data || []).map(mapPlayer)
+  }
+  return LS.getAll('players')
+    .filter((p) => p.userId === userId && p.id?.startsWith(WC_GAME_ID))
+    .sort((a, b) => (a.entryNumber ?? 1) - (b.entryNumber ?? 1))
+}
+
+export async function getWCPlayer(userId, entryNumber = 1) {
+  const playerId = entryNumber === 1
+    ? `${WC_GAME_ID}_${userId}`
+    : `${WC_GAME_ID}_${userId}_${entryNumber}`
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('wc_players').select('*').eq('id', playerId).maybeSingle()
     if (error) return null
@@ -215,8 +238,10 @@ export async function updateWCPlayerDisplayName(userId, newDisplayName) {
   LS.update('players', playerId, { displayName: newDisplayName })
 }
 
-export async function updateWCPlayer(userId, updates) {
-  const playerId = `${WC_GAME_ID}_${userId}`
+export async function updateWCPlayer(userId, updates, entryNumber = 1) {
+  const playerId = entryNumber === 1
+    ? `${WC_GAME_ID}_${userId}`
+    : `${WC_GAME_ID}_${userId}_${entryNumber}`
   if (isSupabaseConfigured && supabase) {
     const dbUpdates = {}
     if (updates.totalPoints          !== undefined) dbUpdates.total_points          = updates.totalPoints
@@ -231,6 +256,16 @@ export async function updateWCPlayer(userId, updates) {
     return
   }
   LS.update('players', playerId, updates)
+}
+
+export async function updateWCEntryName(playerId, entryName) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('wc_players').update({ entry_name: entryName }).eq('id', playerId)
+    if (error) throw new Error(error.message)
+    return
+  }
+  LS.update('players', playerId, { entryName })
 }
 
 export function subscribeToWCPlayers(callback) {
@@ -250,13 +285,16 @@ export function subscribeToWCPlayers(callback) {
 
 // ── GROUP STAGE PICKS ─────────────────────────────────────────────────────────
 
-export async function saveGroupPick({ userId, matchId, homeScore, awayScore }) {
-  const pickId = `${WC_GAME_ID}_${userId}_${matchId}`
+export async function saveGroupPick({ userId, matchId, homeScore, awayScore, entryNumber = 1 }) {
+  const pickId = entryNumber === 1
+    ? `${WC_GAME_ID}_${userId}_${matchId}`
+    : `${WC_GAME_ID}_${userId}_${entryNumber}_${matchId}`
   const data = {
     id: pickId, userId, matchId,
     homeScore, awayScore,
     pointsEarned: null, isExact: null, isCorrectOutcome: null,
     submittedAt: new Date().toISOString(),
+    entryNumber,
   }
 
   if (isSupabaseConfigured && supabase) {
@@ -265,7 +303,7 @@ export async function saveGroupPick({ userId, matchId, homeScore, awayScore }) {
     // re-saves a pick after the admin has already scored the match.
     const { error } = await supabase.from('wc_picks').upsert({
       id: pickId, user_id: userId, match_id: matchId,
-      home_score: homeScore, away_score: awayScore,
+      home_score: homeScore, away_score: awayScore, entry_number: entryNumber,
     })
     if (error) throw new Error(error.message)
 
@@ -311,14 +349,18 @@ export async function saveGroupPick({ userId, matchId, homeScore, awayScore }) {
   return data
 }
 
-export async function getPicksForUser(userId) {
+export async function getPicksForUser(userId, entryNumber) {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('wc_picks').select('*').eq('user_id', userId)
+    let query = supabase.from('wc_picks').select('*').eq('user_id', userId)
+    if (entryNumber !== undefined) query = query.eq('entry_number', entryNumber)
+    const { data, error } = await query
     if (error) throw new Error(error.message)
     return (data || []).map(mapPick)
   }
-  return LS.getAll('picks').filter((p) => p.userId === userId && p.id?.startsWith(WC_GAME_ID))
+  return LS.getAll('picks').filter((p) =>
+    p.userId === userId && p.id?.startsWith(WC_GAME_ID) &&
+    (entryNumber === undefined || (p.entryNumber ?? 1) === entryNumber)
+  )
 }
 
 export async function getPicksForMatch(matchId) {
@@ -355,12 +397,14 @@ export async function updatePickScoring(pickId, { pointsEarned, isExact, isCorre
 
 // ── PLAYOFF PICKS ─────────────────────────────────────────────────────────────
 
-export async function savePlayoffPick({ userId, round, teamIds }) {
-  const pickId = `${WC_GAME_ID}_${userId}_${round}`
-  const data = { id: pickId, userId, round, teamIds, submittedAt: new Date().toISOString() }
+export async function savePlayoffPick({ userId, round, teamIds, entryNumber = 1 }) {
+  const pickId = entryNumber === 1
+    ? `${WC_GAME_ID}_${userId}_${round}`
+    : `${WC_GAME_ID}_${userId}_${entryNumber}_${round}`
+  const data = { id: pickId, userId, round, teamIds, entryNumber, submittedAt: new Date().toISOString() }
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('wc_playoff_picks').upsert({
-      id: pickId, user_id: userId, round, team_ids: teamIds,
+      id: pickId, user_id: userId, round, team_ids: teamIds, entry_number: entryNumber,
     })
     if (error) throw new Error(error.message)
     return data
@@ -369,14 +413,18 @@ export async function savePlayoffPick({ userId, round, teamIds }) {
   return data
 }
 
-export async function getPlayoffPicksForUser(userId) {
+export async function getPlayoffPicksForUser(userId, entryNumber) {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('wc_playoff_picks').select('*').eq('user_id', userId)
+    let query = supabase.from('wc_playoff_picks').select('*').eq('user_id', userId)
+    if (entryNumber !== undefined) query = query.eq('entry_number', entryNumber)
+    const { data, error } = await query
     if (error) throw new Error(error.message)
     return (data || []).map(mapPlayoffPick)
   }
-  return LS.getAll('playoff_picks').filter((p) => p.userId === userId)
+  return LS.getAll('playoff_picks').filter((p) =>
+    p.userId === userId &&
+    (entryNumber === undefined || (p.entryNumber ?? 1) === entryNumber)
+  )
 }
 
 export async function getAllPlayoffPicks() {
@@ -528,7 +576,7 @@ export async function getWCGroupsForUser(userId) {
     const groupIds = memberships.map((m) => m.group_id)
     const { data: groups, error: grpErr } = await supabase
       .from('groups')
-      .select('*, group_members(user_id)')
+      .select('*, group_members(user_id, entry_number)')
       .in('id', groupIds)
       .eq('game_id', WC_GAME_ID)
     if (grpErr) throw new Error(grpErr.message)
@@ -539,10 +587,18 @@ export async function getWCGroupsForUser(userId) {
       gameId:     g.game_id,
       inviteCode: g.invite_code,
       createdAt:  g.created_at,
-      members:    (g.group_members || []).map((m) => m.user_id),
+      members:    (g.group_members || []).map((m) => ({ userId: m.user_id, entryNumber: m.entry_number ?? 1 })),
     }))
   }
   // Demo mode
   const allGroups = JSON.parse(localStorage.getItem('collush_groups') || '[]')
-  return allGroups.filter((g) => g.gameId === WC_GAME_ID && g.members?.includes(userId))
+  return allGroups.filter((g) => g.gameId === WC_GAME_ID &&
+    (g.members || []).some(m => {
+      const uid = typeof m === 'string' ? m : m.userId
+      return uid === userId
+    })
+  ).map(g => ({
+    ...g,
+    members: (g.members || []).map(m => typeof m === 'string' ? { userId: m, entryNumber: 1 } : m)
+  }))
 }

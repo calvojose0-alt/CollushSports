@@ -13,7 +13,7 @@ function RankBadge({ rank }) {
   return <span className="text-gray-500 font-semibold text-sm w-6 text-center">{rank}</span>
 }
 
-function PlayerRow({ player, rank, isMe, expanded, onToggle, myPicksByMatchId, resultsByMatchId }) {
+function PlayerRow({ player, rank, isMe, expanded, onToggle, myPicksByMatchId, resultsByMatchId, players }) {
   const gs = player.groupStageLeader
   const totalPts = (player.totalPoints || 0)
   const groupPts = totalPts - (player.playoffPoints || 0)
@@ -49,6 +49,9 @@ function PlayerRow({ player, rank, isMe, expanded, onToggle, myPicksByMatchId, r
               </span>
             )}
           </div>
+          {players.filter(p => p.userId === player.userId).length > 1 && (
+            <p className="text-xs text-gray-500">{player.entryName ?? 'Entry 1'}</p>
+          )}
           <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 flex-wrap">
             <span>Exact: <strong className="text-green-400">{player.exactHits || 0}</strong></span>
             <span>Outcome: <strong className="text-blue-400">{player.outcomeHits || 0}</strong></span>
@@ -417,9 +420,10 @@ export default function WCLeaderboardPage() {
                     player={player}
                     rank={idx + 1}
                     isMe={player.userId === user?.uid}
-                    expanded={expandedPlayer === player.userId}
-                    onToggle={() => setExpandedPlayer((p) => p === player.userId ? null : player.userId)}
+                    expanded={expandedPlayer === player.id || player.userId}
+                    onToggle={() => setExpandedPlayer((p) => p === (player.id || player.userId) ? null : (player.id || player.userId))}
                     resultsByMatchId={resultsByMatchId}
+                    players={players}
                   />
                 ))}
               </div>

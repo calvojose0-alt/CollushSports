@@ -37,7 +37,7 @@ function mapGame(row) {
 function mapPlayer(row) {
   if (!row) return null
   const { game_id, user_id, display_name, joined_at, last_race_id,
-          eliminated_at, win_reason, race_outcomes, ...rest } = row
+          eliminated_at, win_reason, race_outcomes, entry_number, entry_name, ...rest } = row
   return {
     ...rest,
     gameId:      game_id,
@@ -47,7 +47,8 @@ function mapPlayer(row) {
     lastRaceId:  last_race_id,
     eliminatedAt: eliminated_at,
     winReason:   win_reason,
-    // Expand race_outcomes JSONB → raceResult_<raceId> fields (mirrors Firestore dynamic keys)
+    entryNumber: entry_number ?? 1,
+    entryName:   entry_name ?? 'Entry 1',
     ...(race_outcomes
       ? Object.fromEntries(Object.entries(race_outcomes).map(([k, v]) => [`raceResult_${k}`, v]))
       : {}),
@@ -57,7 +58,7 @@ function mapPlayer(row) {
 function mapPick(row) {
   if (!row) return null
   const { game_id, user_id, race_id, column_a, column_b,
-          result_a, result_b, point_earned, submitted_at, ...rest } = row
+          result_a, result_b, point_earned, submitted_at, entry_number, ...rest } = row
   return {
     ...rest,
     gameId:      game_id,
@@ -69,6 +70,7 @@ function mapPick(row) {
     resultB:     result_b,
     pointEarned: point_earned,
     submittedAt: submitted_at,
+    entryNumber: entry_number ?? 1,
   }
 }
 
@@ -87,7 +89,10 @@ function mapGroup(row) {
     createdBy:  created_by,
     inviteCode: invite_code,
     createdAt:  created_at,
-    members:    (group_members || []).map((m) => m.user_id),
+    members: (group_members || []).map((m) => ({
+      userId:      m.user_id,
+      entryNumber: m.entry_number ?? 1,
+    })),
   }
 }
 
@@ -122,16 +127,19 @@ export async function getGame(gameId) {
 
 // ─── PLAYERS ─────────────────────────────────────────────────────────────────
 
-export async function joinGame({ gameId, userId, displayName }) {
-  const playerId = `${gameId}_${userId}`
+export async function joinGame({ gameId, userId, displayName, entryNumber = 1, entryName = 'Entry 1' }) {
+  const playerId = entryNumber === 1
+    ? `${gameId}_${userId}`
+    : `${gameId}_${userId}_${entryNumber}`
   const data = {
-    id: playerId, gameId, userId, displayName,
+    id: playerId, gameId, userId, displayName, entryNumber, entryName,
     status: 'alive', points: 0,
     joinedAt: new Date().toISOString(),
   }
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('players').upsert(
-      { id: playerId, game_id: gameId, user_id: userId, display_name: displayName },
+      { id: playerId, game_id: gameId, user_id: userId, display_name: displayName,
+        entry_number: entryNumber, entry_name: entryName },
       { onConflict: 'id', ignoreDuplicates: true }
     )
     if (error) throw new Error(error.message)
@@ -140,6 +148,30 @@ export async function joinGame({ gameId, userId, displayName }) {
   const existing = LS.getAll('players').find((p) => p.id === playerId)
   if (!existing) LS.push('players', data)
   return existing || data
+}
+
+export async function getEntriesForUser(gameId, userId) {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('players').select('*')
+      .eq('game_id', gameId).eq('user_id', userId)
+      .order('entry_number', { ascending: true })
+    if (error) throw new Error(error.message)
+    return (data || []).map(mapPlayer)
+  }
+  return LS.getAll('players')
+    .filter((p) => p.gameId === gameId && p.userId === userId)
+    .sort((a, b) => (a.entryNumber ?? 1) - (b.entryNumber ?? 1))
+}
+
+export async function updateEntryName(playerId, entryName) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('players').update({ entry_name: entryName }).eq('id', playerId)
+    if (error) throw new Error(error.message)
+    return
+  }
+  LS.update('players', playerId, { entryName })
 }
 
 export async function getPlayers(gameId) {
@@ -208,16 +240,19 @@ export function subscribeToPlayers(gameId, callback) {
 
 // ─── PICKS ───────────────────────────────────────────────────────────────────
 
-export async function submitPick({ gameId, userId, raceId, columnA, columnB }) {
-  const pickId = `${gameId}_${userId}_${raceId}`
+export async function submitPick({ gameId, userId, raceId, columnA, columnB, entryNumber = 1 }) {
+  const pickId = entryNumber === 1
+    ? `${gameId}_${userId}_${raceId}`
+    : `${gameId}_${userId}_${entryNumber}_${raceId}`
   const data = {
-    id: pickId, gameId, userId, raceId, columnA, columnB,
+    id: pickId, gameId, userId, raceId, columnA, columnB, entryNumber,
     resultA: null, resultB: null, survived: null,
     pointEarned: false, submittedAt: new Date().toISOString(),
   }
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('picks').upsert({
       id: pickId, game_id: gameId, user_id: userId, race_id: raceId,
+      entry_number: entryNumber,
       column_a: columnA, column_b: columnB,
       result_a: null, result_b: null, survived: null, point_earned: false,
     })
@@ -233,8 +268,10 @@ export async function submitPick({ gameId, userId, raceId, columnA, columnB }) {
   return data
 }
 
-export async function getPick(gameId, userId, raceId) {
-  const pickId = `${gameId}_${userId}_${raceId}`
+export async function getPick(gameId, userId, raceId, entryNumber = 1) {
+  const pickId = entryNumber === 1
+    ? `${gameId}_${userId}_${raceId}`
+    : `${gameId}_${userId}_${entryNumber}_${raceId}`
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('picks').select('*').eq('id', pickId).single()
     if (error) return null
@@ -254,17 +291,18 @@ export async function getPicksForRace(gameId, raceId) {
   return LS.getAll('picks').filter((p) => p.gameId === gameId && p.raceId === raceId)
 }
 
-export async function getPicksForPlayer(gameId, userId) {
+export async function getPicksForPlayer(gameId, userId, entryNumber) {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('picks').select('*')
+    let query = supabase.from('picks').select('*')
       .eq('game_id', gameId).eq('user_id', userId)
-      .order('submitted_at', { ascending: true })
+    if (entryNumber !== undefined) query = query.eq('entry_number', entryNumber)
+    const { data, error } = await query.order('submitted_at', { ascending: true })
     if (error) throw new Error(error.message)
     return (data || []).map(mapPick)
   }
   return LS.getAll('picks')
-    .filter((p) => p.gameId === gameId && p.userId === userId)
+    .filter((p) => p.gameId === gameId && p.userId === userId &&
+      (entryNumber === undefined || (p.entryNumber ?? 1) === entryNumber))
     .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))
 }
 
@@ -335,7 +373,7 @@ export async function resetRaceProcessing(gameId, raceId) {
   // 1. Fetch picks that were actually evaluated (result_a is not null)
   const { data: rawPicks } = await supabase
     .from('picks')
-    .select('id, user_id, point_earned, result_a')
+    .select('id, user_id, entry_number, point_earned, result_a')
     .eq('game_id', gameId)
     .eq('race_id', raceId)
 
@@ -344,7 +382,10 @@ export async function resetRaceProcessing(gameId, raceId) {
   // 2. For each processed pick, undo the player-level changes
   await Promise.all(
     processedPicks.map(async (pick) => {
-      const playerId = `${gameId}_${pick.user_id}`
+      const entryNum = pick.entry_number ?? 1
+      const playerId = entryNum === 1
+        ? `${gameId}_${pick.user_id}`
+        : `${gameId}_${pick.user_id}_${entryNum}`
       const { data: row } = await supabase
         .from('players').select('*').eq('id', playerId).single()
       if (!row) return
@@ -407,19 +448,18 @@ export async function getAllRaceResults(gameId) {
 
 // ─── GROUPS ──────────────────────────────────────────────────────────────────
 
-export async function createGroup({ name, createdBy, gameId, inviteCode }) {
+export async function createGroup({ name, createdBy, gameId, inviteCode, entryNumber = 1 }) {
   const groupId = `group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const data = {
     id: groupId, name, createdBy, gameId, inviteCode,
-    members: [createdBy], createdAt: new Date().toISOString(),
+    members: [{ userId: createdBy, entryNumber }],
+    createdAt: new Date().toISOString(),
   }
   if (isSupabaseConfigured && supabase) {
-    // Ensure the game record exists so the FK constraint is satisfied
     await supabase.from('games').upsert(
       { id: gameId, season: '2026', name: gameId, status: 'active', current_race_index: 0 },
       { onConflict: 'id', ignoreDuplicates: true }
     )
-
     const { error: groupError } = await supabase.from('groups').insert({
       id: groupId, name,
       created_by: createdBy,
@@ -427,46 +467,51 @@ export async function createGroup({ name, createdBy, gameId, inviteCode }) {
       invite_code: inviteCode,
     })
     if (groupError) throw new Error(groupError.message)
-
     const { error: memberError } = await supabase
-      .from('group_members').insert({ group_id: groupId, user_id: createdBy })
+      .from('group_members').insert({ group_id: groupId, user_id: createdBy, entry_number: entryNumber })
     if (memberError) throw new Error(memberError.message)
-
     return data
   }
   LS.push('groups', data)
   return data
 }
 
-export async function joinGroupByCode(inviteCode, userId) {
+export async function joinGroupByCode(inviteCode, userId, entryNumber = 1) {
   if (isSupabaseConfigured && supabase) {
     const { data: groups, error } = await supabase
       .from('groups')
-      .select('*, group_members(user_id)')
+      .select('*, group_members(user_id, entry_number)')
       .eq('invite_code', inviteCode)
     if (error) throw new Error(error.message)
     if (!groups || groups.length === 0) throw new Error('Invalid invite code')
-
     const group = groups[0]
-    const members = (group.group_members || []).map((m) => m.user_id)
-
-    if (!members.includes(userId)) {
+    const members = group.group_members || []
+    const alreadyMember = members.some(
+      (m) => m.user_id === userId && (m.entry_number ?? 1) === entryNumber
+    )
+    if (!alreadyMember) {
       const { error: memberError } = await supabase
-        .from('group_members').insert({ group_id: group.id, user_id: userId })
+        .from('group_members').insert({ group_id: group.id, user_id: userId, entry_number: entryNumber })
       if (memberError) throw new Error(memberError.message)
-      members.push(userId)
+      members.push({ user_id: userId, entry_number: entryNumber })
     }
-
-    return mapGroup({ ...group, group_members: members.map((uid) => ({ user_id: uid })) })
+    return mapGroup({ ...group, group_members: members })
   }
   const groups = LS.getAll('groups')
   const group = groups.find((g) => g.inviteCode === inviteCode)
   if (!group) throw new Error('Invalid invite code')
-  if (!group.members.includes(userId)) {
-    group.members.push(userId)
-    LS.update('groups', group.id, { members: group.members })
+  const normalizedMembers = (group.members || []).map((m) =>
+    typeof m === 'string' ? { userId: m, entryNumber: 1 } : m
+  )
+  const alreadyMember = normalizedMembers.some(
+    (m) => m.userId === userId && (m.entryNumber ?? 1) === entryNumber
+  )
+  if (!alreadyMember) {
+    LS.update('groups', group.id, {
+      members: [...normalizedMembers, { userId, entryNumber }]
+    })
   }
-  return group
+  return { ...group, members: alreadyMember ? normalizedMembers : [...normalizedMembers, { userId, entryNumber }] }
 }
 
 /**
@@ -491,23 +536,28 @@ export async function updatePlayerDisplayName(userId, newDisplayName) {
   localStorage.setItem('collush_players', JSON.stringify(players))
 }
 
-export async function getGroupsForUser(userId) {
+export async function getGroupsForUser(userId, gameId) {
   if (isSupabaseConfigured && supabase) {
     const { data: memberships, error: memError } = await supabase
-      .from('group_members').select('group_id').eq('user_id', userId)
+      .from('group_members').select('group_id, entry_number').eq('user_id', userId)
     if (memError) throw new Error(memError.message)
     if (!memberships || memberships.length === 0) return []
 
     const groupIds = memberships.map((m) => m.group_id)
-    const { data: groups, error: groupError } = await supabase
+    let query = supabase
       .from('groups')
-      .select('*, group_members(user_id)')
+      .select('*, group_members(user_id, entry_number)')
       .in('id', groupIds)
+    if (gameId) query = query.eq('game_id', gameId)
+    const { data: groups, error: groupError } = await query
     if (groupError) throw new Error(groupError.message)
 
     return (groups || []).map(mapGroup)
   }
-  return LS.getAll('groups').filter((g) => g.members?.includes(userId))
+  return LS.getAll('groups').filter(
+    (g) => g.members?.some((m) => (typeof m === 'string' ? m : m.userId) === userId) &&
+      (!gameId || g.gameId === gameId)
+  )
 }
 
 // Fetch a single group by invite code + creator display name (used by join link page)
@@ -515,7 +565,7 @@ export async function getGroupByCode(inviteCode) {
   if (isSupabaseConfigured && supabase) {
     const { data: groups, error } = await supabase
       .from('groups')
-      .select('*, group_members(user_id)')
+      .select('*, group_members(user_id, entry_number)')
       .eq('invite_code', inviteCode)
     if (error) throw new Error(error.message)
     if (!groups || groups.length === 0) throw new Error('Invalid invite code')
@@ -535,20 +585,26 @@ export async function getGroupByCode(inviteCode) {
 }
 
 // Remove a member from a group (creator-only action)
-export async function removeGroupMember(groupId, userId) {
+export async function removeGroupMember(groupId, userId, entryNumber = null) {
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase
-      .from('group_members')
+    let query = supabase.from('group_members')
       .delete()
       .eq('group_id', groupId)
       .eq('user_id', userId)
+    if (entryNumber !== null) query = query.eq('entry_number', entryNumber)
+    const { error } = await query
     if (error) throw new Error(error.message)
     return true
   }
   const all = LS.getAll('groups')
   const group = all.find((g) => g.id === groupId)
   if (group) {
-    LS.update('groups', groupId, { members: group.members.filter((id) => id !== userId) })
+    const newMembers = (group.members || []).filter((m) => {
+      const mUserId = typeof m === 'string' ? m : m.userId
+      const mEntry = typeof m === 'string' ? 1 : (m.entryNumber ?? 1)
+      return !(mUserId === userId && (entryNumber === null || mEntry === entryNumber))
+    })
+    LS.update('groups', groupId, { members: newMembers })
   }
   return true
 }

@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useF1Game, DEFAULT_GAME_ID } from '@/hooks/useF1Game'
 import {
   createGroup, joinGroupByCode, getGroupsForUser, removeGroupMember,
-  renameGroup, deleteGroup,
+  renameGroup, deleteGroup, getEntriesForUser,
 } from '@/services/firebase/firestore'
 import { RACES_2026, isRaceLocked } from '@/data/calendar2026'
 import { DRIVER_MAP } from '@/data/drivers2026'
@@ -17,7 +17,7 @@ function generateCode() {
 }
 
 // ── Groups summary (top card) ─────────────────────────────────────────────────
-function MyGroupsSummary({ groups, currentUserId, players }) {
+function MyGroupsSummary({ groups, currentUserId, players, allPicks }) {
   return (
     <div className="card space-y-3">
       <div className="flex items-center gap-2">
@@ -27,7 +27,9 @@ function MyGroupsSummary({ groups, currentUserId, players }) {
       <div className="bg-f1dark rounded-xl overflow-hidden">
         <div className="divide-y divide-f1light">
           {groups.map((group) => {
-            const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+            const memberPlayers = players.filter((p) =>
+              group.members?.some(m => m.userId === p.userId && (m.entryNumber ?? 1) === (p.entryNumber ?? 1))
+            )
             const statusOrd = { winner: 0, alive: 1, eliminated: 2 }
             const sorted = [...memberPlayers].sort((a, b) => {
               const oa = statusOrd[a.status] ?? 3
@@ -70,7 +72,7 @@ function MyGroupsSummary({ groups, currentUserId, players }) {
 }
 
 // ── Group viewer (detail + management) ───────────────────────────────────────
-function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged }) {
+function GroupViewer({ groups, currentUserId, players, allPicks, myEntries, activeEntryNum, onGroupsChanged }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied]       = useState(null) // 'code' | 'link' | null
   const [managing, setManaging]   = useState(false)
@@ -85,7 +87,9 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
   if (!group) return null
 
   const isCreator = group.createdBy === currentUserId
-  const memberPlayers = players.filter((p) => group.members?.includes(p.userId))
+  const memberPlayers = players.filter((p) =>
+    group.members?.some(m => m.userId === p.userId && (m.entryNumber ?? 1) === (p.entryNumber ?? 1))
+  )
   const statusOrder = { winner: 0, alive: 1, eliminated: 2 }
   const sortedMembers = [...memberPlayers].sort((a, b) => {
     const oa = statusOrder[a.status] ?? 3
@@ -96,7 +100,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
 
   // Also show members that haven't played yet (no player record)
   const memberIdsWithoutPlayer = (group.members || []).filter(
-    (uid) => !memberPlayers.find((p) => p.userId === uid)
+    (m) => !memberPlayers.find((p) => p.userId === m.userId && (p.entryNumber ?? 1) === (m.entryNumber ?? 1))
   )
 
   // Latest locked race (for showing picks in standings)
@@ -117,11 +121,11 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const handleRemove = async (userId) => {
-    if (!window.confirm('Remove this member from the group?')) return
-    setRemoving(userId)
+  const handleRemove = async (userId, entryNumber = 1) => {
+    if (!window.confirm('Remove this entry from the group?')) return
+    setRemoving(`${userId}_${entryNumber}`)
     try {
-      await removeGroupMember(group.id, userId)
+      await removeGroupMember(group.id, userId, entryNumber)
       await onGroupsChanged()
     } finally {
       setRemoving(null)
@@ -271,27 +275,30 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
               <Users className="w-3 h-3 text-gray-400" /> Members
             </p>
             <div className="divide-y divide-f1light">
-              {(group.members || []).map((uid) => {
-                const player = players.find((p) => p.userId === uid)
-                const displayName = player?.displayName || uid.slice(0, 8) + '…'
-                const isMe = uid === currentUserId
+              {(group.members || []).map((m) => {
+                const player = players.find((p) => p.userId === m.userId && (p.entryNumber ?? 1) === (m.entryNumber ?? 1))
+                const displayName = player
+                  ? `${player.displayName}${player.entryName && player.entryName !== 'Entry 1' ? ` (${player.entryName})` : ''}`
+                  : `${m.userId.slice(0, 8)}…`
+                const isMe = m.userId === currentUserId && (m.entryNumber ?? 1) === activeEntryNum
+                const removeKey = `${m.userId}_${m.entryNumber ?? 1}`
                 return (
-                  <div key={uid} className="flex items-center gap-3 px-3 py-2.5">
+                  <div key={removeKey} className="flex items-center gap-3 px-3 py-2.5">
                     <div className="w-7 h-7 rounded-full bg-f1red flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                       {displayName[0]?.toUpperCase()}
                     </div>
                     <span className={`text-sm flex-1 ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
                       {displayName}
-                      {isMe && <span className="text-xs text-f1red ml-1">(You · Creator)</span>}
+                      {m.userId === currentUserId && <span className="text-xs text-f1red ml-1">(You{isMe && group.createdBy === currentUserId ? ' · Creator' : ''})</span>}
                     </span>
                     {!isMe && (
                       <button
-                        onClick={() => handleRemove(uid)}
-                        disabled={removing === uid}
+                        onClick={() => handleRemove(m.userId, m.entryNumber ?? 1)}
+                        disabled={removing === removeKey}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-900/30 text-xs transition-colors disabled:opacity-50"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        {removing === uid ? 'Removing…' : 'Remove'}
+                        {removing === removeKey ? 'Removing…' : 'Remove'}
                       </button>
                     )}
                   </div>
@@ -377,11 +384,12 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
                       )}
                       <span className="text-gray-700 text-xs">·</span>
                       {driverB ? (
-                        <span className="text-xs font-semibold text-green-400">
-                          Top10 {driverB.name.split(' ').pop()}
+                        <span className="text-xs font-semibold">
+                          <span className="text-white">Top10 </span>
+                          <span className="text-green-400">{driverB.name.split(' ').pop()}</span>
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-600">Top10 —</span>
+                        <span className="text-xs text-gray-600"><span className="text-white">Top10</span> —</span>
                       )}
                     </div>
                   )}
@@ -401,7 +409,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, onGroupsChanged
 
 export default function GroupsPage() {
   const { user } = useAuth()
-  const { players, gameId, allPicks } = useF1Game()
+  const { players, gameId, allPicks, myEntries, activeEntryNum } = useF1Game()
 
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -410,10 +418,11 @@ export default function GroupsPage() {
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState(null)
   const [working, setWorking] = useState(false)
+  const [joinEntryNum, setJoinEntryNum] = useState(1)
 
   const loadGroups = async () => {
     if (!user) return
-    const g = await getGroupsForUser(user.uid)
+    const g = await getGroupsForUser(user.uid, gameId)
     setGroups(g)
     setLoading(false)
   }
@@ -426,7 +435,7 @@ export default function GroupsPage() {
     setWorking(true)
     setError(null)
     try {
-      await createGroup({ name: groupName.trim(), createdBy: user.uid, gameId, inviteCode: generateCode() })
+      await createGroup({ name: groupName.trim(), createdBy: user.uid, gameId, inviteCode: generateCode(), entryNumber: joinEntryNum })
       setGroupName('')
       setMode(null)
       await loadGroups()
@@ -443,7 +452,7 @@ export default function GroupsPage() {
     setWorking(true)
     setError(null)
     try {
-      await joinGroupByCode(inviteCode.trim().toUpperCase(), user.uid)
+      await joinGroupByCode(inviteCode.trim().toUpperCase(), user.uid, joinEntryNum)
       setInviteCode('')
       setMode(null)
       await loadGroups()
@@ -488,6 +497,23 @@ export default function GroupsPage() {
               value={groupName} onChange={(e) => setGroupName(e.target.value)}
               maxLength={40} required autoFocus
             />
+            {myEntries.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5">Join with which entry?</p>
+                <div className="flex gap-2">
+                  {myEntries.map(e => (
+                    <button key={e.entryNumber} type="button"
+                      onClick={() => setJoinEntryNum(e.entryNumber ?? 1)}
+                      className={`flex-1 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
+                        joinEntryNum === (e.entryNumber ?? 1)
+                          ? 'bg-f1red border-f1red text-white'
+                          : 'bg-f1dark border-f1light text-gray-400'
+                      }`}
+                    >{e.entryName ?? `Entry ${e.entryNumber ?? 1}`}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-300 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
@@ -514,6 +540,23 @@ export default function GroupsPage() {
               value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               maxLength={6} required autoFocus
             />
+            {myEntries.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5">Join with which entry?</p>
+                <div className="flex gap-2">
+                  {myEntries.map(e => (
+                    <button key={e.entryNumber} type="button"
+                      onClick={() => setJoinEntryNum(e.entryNumber ?? 1)}
+                      className={`flex-1 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
+                        joinEntryNum === (e.entryNumber ?? 1)
+                          ? 'bg-f1red border-f1red text-white'
+                          : 'bg-f1dark border-f1light text-gray-400'
+                      }`}
+                    >{e.entryName ?? `Entry ${e.entryNumber ?? 1}`}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-300 bg-red-900/30 border border-red-700 rounded-lg px-3 py-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
@@ -543,12 +586,14 @@ export default function GroupsPage() {
         </div>
       ) : (
         <>
-          <MyGroupsSummary groups={groups} currentUserId={user.uid} players={players} />
+          <MyGroupsSummary groups={groups} currentUserId={user.uid} players={players} allPicks={allPicks} />
           <GroupViewer
             groups={groups}
             currentUserId={user.uid}
             players={players}
             allPicks={allPicks}
+            myEntries={myEntries}
+            activeEntryNum={activeEntryNum}
             onGroupsChanged={loadGroups}
           />
         </>
