@@ -66,9 +66,9 @@ export async function processMatchResult(matchId, result) {
 //   Without r32Teams, only 1st/2nd-place qualification is scored (group stage
 //   is still in progress; best-3rd slots aren't yet determined).
 //
-// Returns { [userId]: qualificationPoints }
+// Returns { ["userId_entryNum"]: qualificationPoints }
 export function computeQualificationPoints(allPicks, actualResultsById, r32Teams = null) {
-  const qualPtsByUser = {}
+  const qualPtsByEntry = {}
 
   Object.keys(WC_GROUPS).forEach((group) => {
     const groupMatchList = GROUP_MATCHES.filter((m) => m.group === group)
@@ -95,52 +95,53 @@ export function computeQualificationPoints(allPicks, actualResultsById, r32Teams
     // Is the group's 3rd-place finisher one of the best-3rd qualifiers?
     const actual3rdQualified = r32Teams != null && actual3rd ? r32Teams.has(actual3rd) : false
 
-    // Group all picks for this group's matches by user
-    const picksByUser = {}
+    // Group all picks for this group's matches by (userId, entryNumber)
+    const picksByEntry = {}
     allPicks.forEach((p) => {
       const match = groupMatchList.find((m) => m.id === p.matchId)
       if (!match) return
-      if (!picksByUser[p.userId]) picksByUser[p.userId] = []
-      picksByUser[p.userId].push({ homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore: p.homeScore, awayScore: p.awayScore })
+      const key = `${p.userId}_${p.entryNumber ?? 1}`
+      if (!picksByEntry[key]) picksByEntry[key] = []
+      picksByEntry[key].push({ homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore: p.homeScore, awayScore: p.awayScore })
     })
 
-    // For each user who has picks in this group, compute their predicted standings
-    Object.entries(picksByUser).forEach(([userId, userPicks]) => {
+    // For each entry that has picks in this group, compute their predicted standings
+    Object.entries(picksByEntry).forEach(([entryKey, entryPicks]) => {
       // Need all 6 matches picked to determine predicted qualification
-      if (userPicks.length < groupMatchList.length) return
-      const predictedStandings = computeGroupStandings(group, userPicks)
+      if (entryPicks.length < groupMatchList.length) return
+      const predictedStandings = computeGroupStandings(group, entryPicks)
       const pred1st = predictedStandings[0]?.teamId
       const pred2nd = predictedStandings[1]?.teamId
       const pred3rd = predictedStandings[2]?.teamId
 
-      if (!qualPtsByUser[userId]) qualPtsByUser[userId] = 0
+      if (!qualPtsByEntry[entryKey]) qualPtsByEntry[entryKey] = 0
 
       // ── Actual 1st-place team ─────────────────────────────────────────────
       if (pred1st === actual1st) {
-        qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_EXACT      // predicted 1st → qualified 1st
+        qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_EXACT
       } else if (pred2nd === actual1st || pred3rd === actual1st) {
-        qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_POSITION   // team qualified but predicted wrong position
+        qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_POSITION
       }
 
       // ── Actual 2nd-place team ─────────────────────────────────────────────
       if (pred2nd === actual2nd) {
-        qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_EXACT      // predicted 2nd → qualified 2nd
+        qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_EXACT
       } else if (pred1st === actual2nd || pred3rd === actual2nd) {
-        qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_POSITION   // team qualified but predicted wrong position
+        qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_POSITION
       }
 
       // ── Actual 3rd-place team (only when best-3rd qualification is known) ─
       if (actual3rdQualified && actual3rd) {
         if (pred3rd === actual3rd) {
-          qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_EXACT    // predicted 3rd → qualified as best-3rd
+          qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_EXACT
         } else if (pred1st === actual3rd || pred2nd === actual3rd) {
-          qualPtsByUser[userId] += SCORING.GROUP_QUALIFY_POSITION // predicted 1st/2nd but qualified as best-3rd
+          qualPtsByEntry[entryKey] += SCORING.GROUP_QUALIFY_POSITION
         }
       }
     })
   })
 
-  return qualPtsByUser
+  return qualPtsByEntry
 }
 
 // ── Recalculate all player totals from all pick records ───────────────────────
@@ -153,32 +154,28 @@ export async function recalculateAllPlayerTotals() {
     getAllMatchResults(),
   ])
 
-  // Build results-by-match-id map for qualification scoring
   const actualResultsById = {}
   allResults.forEach((r) => { actualResultsById[r.matchId] = r })
 
+  // Key by "userId_entryNumber" so each entry is counted independently
   const playerMap = {}
   allPlayers.forEach((p) => {
-    playerMap[p.userId] = { totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0, qualificationPoints: 0 }
+    const key = `${p.userId}_${p.entryNumber ?? 1}`
+    playerMap[key] = { userId: p.userId, entryNumber: p.entryNumber ?? 1, totalPoints: 0, exactHits: 0, outcomeHits: 0, qualificationPoints: 0 }
   })
 
-  // Aggregate group stage match points (exact score / correct outcome)
   allPicks.forEach((pick) => {
     if (pick.pointsEarned === null) return
-    if (!playerMap[pick.userId]) {
-      playerMap[pick.userId] = { totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0, qualificationPoints: 0 }
+    const key = `${pick.userId}_${pick.entryNumber ?? 1}`
+    if (!playerMap[key]) {
+      playerMap[key] = { userId: pick.userId, entryNumber: pick.entryNumber ?? 1, totalPoints: 0, exactHits: 0, outcomeHits: 0, qualificationPoints: 0 }
     }
-    playerMap[pick.userId].totalPoints += pick.pointsEarned
-    if (pick.isExact)                         playerMap[pick.userId].exactHits++
-    if (pick.isCorrectOutcome && !pick.isExact) playerMap[pick.userId].outcomeHits++
+    playerMap[key].totalPoints += pick.pointsEarned
+    if (pick.isExact)                           playerMap[key].exactHits++
+    if (pick.isCorrectOutcome && !pick.isExact) playerMap[key].outcomeHits++
   })
 
   // ── Group qualification bonus ─────────────────────────────────────────────
-  // 1st/2nd place: awarded as soon as a group's 6 matches are all entered.
-  // 3rd-place best-team: can only be determined once ALL 12 groups are complete
-  //   (we rank all 12 third-place teams and pick the top 8). We compute r32Teams
-  //   here from actual standings so the bonus is never wiped by a later
-  //   "Recalculate" call on the group-stage admin tab.
   const allGroupsDone = Object.keys(WC_GROUPS).every((group) => {
     const gm = GROUP_MATCHES.filter((m) => m.group === group)
     return gm.every((m) => {
@@ -203,25 +200,25 @@ export async function recalculateAllPlayerTotals() {
     r32Teams = new Set(allThirdPlace.slice(0, 8).map((t) => t.teamId))
   }
 
-  const qualPtsByUser = computeQualificationPoints(allPicks, actualResultsById, r32Teams)
-  Object.entries(qualPtsByUser).forEach(([userId, pts]) => {
-    if (!playerMap[userId]) {
-      playerMap[userId] = { totalPoints: 0, exactHits: 0, outcomeHits: 0, playoffPoints: 0, qualificationPoints: 0 }
-    }
-    playerMap[userId].qualificationPoints = pts
-    playerMap[userId].totalPoints += pts
+  // qualPtsByEntry keyed by "userId_entryNumber"
+  const qualPtsByEntry = computeQualificationPoints(allPicks, actualResultsById, r32Teams)
+  Object.entries(qualPtsByEntry).forEach(([key, pts]) => {
+    if (!playerMap[key]) return
+    playerMap[key].qualificationPoints = pts
+    playerMap[key].totalPoints += pts
   })
 
-  // Persist updated totals (playoff points kept from existing stored value)
+  // Persist — keep existing playoff points per entry, update the rest
   await Promise.all(
-    Object.entries(playerMap).map(([userId, totals]) => {
-      const existingPlayoff = allPlayers.find((p) => p.userId === userId)?.playoffPoints || 0
-      return updateWCPlayer(userId, {
+    Object.entries(playerMap).map(([key, totals]) => {
+      const existing = allPlayers.find((p) => `${p.userId}_${p.entryNumber ?? 1}` === key)
+      const existingPlayoff = existing?.playoffPoints || 0
+      return updateWCPlayer(totals.userId, {
         totalPoints:         totals.totalPoints + existingPlayoff,
         exactHits:           totals.exactHits,
         outcomeHits:         totals.outcomeHits,
         qualificationPoints: totals.qualificationPoints,
-      })
+      }, totals.entryNumber)
     })
   )
 
@@ -250,48 +247,53 @@ export async function recalculatePlayoffPoints(actualRounds) {
     winner: SCORING.PLAYOFF_WINNER,
   }
 
-  const playerPlayoffPts = {}
-  allPlayers.forEach((p) => { playerPlayoffPts[p.userId] = 0 })
+  // Key by "userId_entryNumber"
+  const playoffPtsByEntry = {}
+  allPlayers.forEach((p) => { playoffPtsByEntry[`${p.userId}_${p.entryNumber ?? 1}`] = 0 })
 
   allPlayoffPicks.forEach((pick) => {
     const actualSet = actualRounds[pick.round]
     if (!actualSet) return
     const pts = roundPointMap[pick.round] || 0
     const correctCount = (pick.teamIds || []).filter((t) => actualSet.has(t)).length
-    if (!playerPlayoffPts[pick.userId]) playerPlayoffPts[pick.userId] = 0
-    playerPlayoffPts[pick.userId] += correctCount * pts
+    const key = `${pick.userId}_${pick.entryNumber ?? 1}`
+    if (!playoffPtsByEntry[key]) playoffPtsByEntry[key] = 0
+    playoffPtsByEntry[key] += correctCount * pts
   })
 
+  // Write playoff points per entry
   await Promise.all(
-    Object.entries(playerPlayoffPts).map(([userId, pts]) =>
-      updateWCPlayer(userId, { playoffPoints: pts })
-    )
+    allPlayers.map((p) => {
+      const key = `${p.userId}_${p.entryNumber ?? 1}`
+      return updateWCPlayer(p.userId, { playoffPoints: playoffPtsByEntry[key] ?? 0 }, p.entryNumber ?? 1)
+    })
   )
 
-  // Combine group + qualification + playoff points
+  // Combine group + qualification + playoff into totalPoints per entry
   const [allPicks, allResults] = await Promise.all([getAllWCPicks(), getAllMatchResults()])
   const actualResultsById = {}
   allResults.forEach((r) => { actualResultsById[r.matchId] = r })
 
-  const groupPtsByUser = {}
+  const groupPtsByEntry = {}
   allPicks.forEach((pick) => {
     if (pick.pointsEarned === null) return
-    if (!groupPtsByUser[pick.userId]) groupPtsByUser[pick.userId] = 0
-    groupPtsByUser[pick.userId] += pick.pointsEarned
+    const key = `${pick.userId}_${pick.entryNumber ?? 1}`
+    if (!groupPtsByEntry[key]) groupPtsByEntry[key] = 0
+    groupPtsByEntry[key] += pick.pointsEarned
   })
 
-  // Pass r32Teams so best-3rd qualifiers are included in qualification scoring
-  const qualPtsByUser = computeQualificationPoints(allPicks, actualResultsById, actualRounds.r32 || null)
+  const qualPtsByEntry = computeQualificationPoints(allPicks, actualResultsById, actualRounds.r32 || null)
 
   await Promise.all(
     allPlayers.map((p) => {
-      const groupPts  = groupPtsByUser[p.userId]  || 0
-      const qualPts   = qualPtsByUser[p.userId]   || 0
-      const playoffPts = playerPlayoffPts[p.userId] || 0
+      const key = `${p.userId}_${p.entryNumber ?? 1}`
+      const groupPts   = groupPtsByEntry[key]   || 0
+      const qualPts    = qualPtsByEntry[key]    || 0
+      const playoffPts = playoffPtsByEntry[key] || 0
       return updateWCPlayer(p.userId, {
         totalPoints:         groupPts + qualPts + playoffPts,
         qualificationPoints: qualPts,
-      })
+      }, p.entryNumber ?? 1)
     })
   )
 }
@@ -309,9 +311,12 @@ export async function markGroupStageLeader() {
   })
 
   const leaderId = sorted[0]?.userId
+  const leaderEntry = sorted[0]?.entryNumber ?? 1
   await Promise.all(
     players.map((p) =>
-      updateWCPlayer(p.userId, { groupStageLeader: p.userId === leaderId })
+      updateWCPlayer(p.userId, {
+        groupStageLeader: p.userId === leaderId && (p.entryNumber ?? 1) === leaderEntry,
+      }, p.entryNumber ?? 1)
     )
   )
   await updateTournamentMeta({ groupStageFinalized: true })

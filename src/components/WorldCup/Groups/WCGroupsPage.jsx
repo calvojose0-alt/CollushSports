@@ -41,7 +41,9 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
   const picksByUser = useMemo(() => {
     if (!selectedMatchId) return {}
     const map = {}
-    allPicks.forEach((p) => { if (p.matchId === selectedMatchId) map[p.userId] = p })
+    allPicks.forEach((p) => {
+      if (p.matchId === selectedMatchId) map[`${p.userId}_${p.entryNumber ?? 1}`] = p
+    })
     return map
   }, [selectedMatchId, allPicks])
 
@@ -77,15 +79,16 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
     winner: { label: 'Champion',      actualSet: actualWinner, decided: finalMatch.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_WINNER },
   }
 
-  // Build a per-user map of playoff picks: { userId: { r16: [...], qf: [...], ... } }
+  // Build a per-entry map of playoff picks: { "userId_entryNum": { r16: [...], ... } }
   const playoffPicksByUser = useMemo(() => {
-    const memberIds = new Set(memberPlayers.map((p) => p.userId))
+    const memberKeys = new Set(memberPlayers.map((p) => `${p.userId}_${p.entryNumber ?? 1}`))
     const map = {}
     allPlayoffPicks
-      .filter((p) => memberIds.has(p.userId))
+      .filter((p) => memberKeys.has(`${p.userId}_${p.entryNumber ?? 1}`))
       .forEach((p) => {
-        if (!map[p.userId]) map[p.userId] = {}
-        map[p.userId][p.round] = p.teamIds || []
+        const key = `${p.userId}_${p.entryNumber ?? 1}`
+        if (!map[key]) map[key] = {}
+        map[key][p.round] = p.teamIds || []
       })
     return map
   }, [allPlayoffPicks, memberPlayers])
@@ -207,7 +210,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                   </div>
                   <div className="divide-y divide-f1light/60">
                     {memberPlayers.map((player) => {
-                      const pick = picksByUser[player.userId]
+                      const pick = picksByUser[`${player.userId}_${player.entryNumber ?? 1}`]
                       const hasPick = pick?.homeScore != null && pick?.awayScore != null
                       const isMe = player.userId === currentUserId
                       const pickColor = hasPick ? getPickColor(pick, result) : ''
@@ -279,7 +282,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                 <div className="divide-y divide-f1light/60">
                   {memberPlayers.map((player) => {
                     const isMe     = player.userId === currentUserId
-                    const teamIds  = playoffPicksByUser[player.userId]?.[bracketRound] || []
+                    const teamIds  = playoffPicksByUser[`${player.userId}_${player.entryNumber ?? 1}`]?.[bracketRound] || []
                     const correct  = teamIds.filter((id) => currentRound.actualSet.has(id)).length
                     const hasPicks = teamIds.length > 0
                     const userCount = memberPlayers.filter(p => p.userId === player.userId).length
