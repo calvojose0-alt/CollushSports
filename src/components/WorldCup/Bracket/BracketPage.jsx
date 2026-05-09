@@ -598,10 +598,10 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 function PickProgress({ bracketPicks }) {
   const rounds = [
-    { stage: 'r16',   matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r32'), label: 'R16 picks',  total: 16 },
-    { stage: 'qf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r16'), label: 'QF picks',   total: 8  },
-    { stage: 'sf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'qf'),  label: 'SF picks',   total: 4  },
-    { stage: 'final', matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'sf'),  label: 'Final pick', total: 2  },
+    { stage: 'r16',   matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r32'),    label: 'R16 picks',  total: 16 },
+    { stage: 'qf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'r16'),    label: 'QF picks',   total: 8  },
+    { stage: 'sf',    matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'qf'),     label: 'SF picks',   total: 4  },
+    { stage: 'final', matches: KNOCKOUT_MATCHES.filter(m => m.stage === 'final'),  label: 'Champion',   total: 1  },
   ]
   return (
     <div className="flex gap-3 flex-wrap">
