@@ -628,13 +628,13 @@ export default function BracketPage() {
   const {
     myPicks, myPicksByMatchId, myPlayoffPicksByRound,
     refreshPicks, allPlayoffPicks, resultsByMatchId,
-    myPlayer, reload, activeEntryNum, myEntries, switchEntry,
+    myPlayer, reload, activeEntryNum, myEntries, switchEntry, picksVersion,
   } = useWCGame()
 
   const locked = isPicksLocked()
 
   const [bracketPicks, setBracketPicks]     = useState({})
-  const [initialized, setInitialized]       = useState(false)
+  const lastInitVersionRef                  = useRef(-1)
   const [saving, setSaving]                   = useState(false)
   const [msg, setMsg]                         = useState(null)
   const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
@@ -785,22 +785,20 @@ export default function BracketPage() {
     })
   }, [actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, resultsByMatchId, slotMap])
 
-  // Reset initialized flag whenever the active entry changes so bracketPicks reloads
-  useEffect(() => { setInitialized(false) }, [activeEntryNum])
-
-  // ── Initialize bracket picks from saved playoff data (once per entry) ────────
+  // ── Re-initialize bracket picks whenever a new picks load completes ──────────
+  // picksVersion increments in the hook each time picks are fetched (initial load
+  // or entry switch). Using it as the trigger guarantees we always have the correct
+  // entry's data before rebuilding bracketPicks — no stale-closure race condition.
   useEffect(() => {
-    if (initialized) return
+    if (picksVersion === lastInitVersionRef.current) return
     const r16Set      = new Set(myPlayoffPicksByRound.r16?.teamIds      || [])
     const qfSet       = new Set(myPlayoffPicksByRound.qf?.teamIds       || [])
     const sfSet       = new Set(myPlayoffPicksByRound.sf?.teamIds       || [])
-    // finalistSet = the 2 SF winners who reached the Final (saved separately so
-    // both can be restored — winnerSet only has 1 team and would lose the runner-up).
     const finalistSet = new Set(myPlayoffPicksByRound.finalist?.teamIds || [])
     const winnerSet   = new Set(myPlayoffPicksByRound.winner?.teamIds   || [])
     const hasAny = r16Set.size || qfSet.size || sfSet.size || finalistSet.size || winnerSet.size
 
-    // Only initialize once we have group picks or saved playoff picks
+    // Wait until we have group picks or saved playoff picks to build the bracket
     if (!myPicks.length && !hasAny) return
 
     const newPicks = {}
@@ -845,8 +843,8 @@ export default function BracketPage() {
     }
 
     setBracketPicks(newPicks)
-    setInitialized(true)
-  }, [myPlayoffPicksByRound, slotMap, initialized, myPicks.length])
+    lastInitVersionRef.current = picksVersion
+  }, [picksVersion, myPlayoffPicksByRound, slotMap, myPicks.length])
 
   // ── Pick a winner for a match ─────────────────────────────────────────────
   const handlePick = useCallback((matchId, teamId) => {

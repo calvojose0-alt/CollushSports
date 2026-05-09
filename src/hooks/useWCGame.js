@@ -32,6 +32,7 @@ export function useWCGame() {
   const [tournamentMeta, setTournamentMeta] = useState(null)
   const [loading, setLoading]               = useState(true)
   const [error, setError]                   = useState(null)
+  const [picksVersion, setPicksVersion]     = useState(0)
 
   const activeEntryNumRef = useRef(activeEntryNum)
   useEffect(() => { activeEntryNumRef.current = activeEntryNum }, [activeEntryNum])
@@ -70,6 +71,7 @@ export function useWCGame() {
 
       setMyPicks(picks)
       setMyPlayoffPicks(playoffPicks)
+      setPicksVersion(v => v + 1)
       setAllPicks(allP)
       setAllPlayoffPicks(allPO)
       setMatchResults(results)
@@ -90,6 +92,7 @@ export function useWCGame() {
     ])
     setMyPicks(picks)
     setMyPlayoffPicks(playoffPicks)
+    setPicksVersion(v => v + 1)
   }, [user])
 
   // Subscribe to live player updates
@@ -197,6 +200,7 @@ export function useWCGame() {
     knockoutMatches: KNOCKOUT_MATCHES,
     refreshPicks,
     refreshResults,
+    picksVersion,
     createEntry,
     switchEntry,
     reload: loadData,
