@@ -785,7 +785,10 @@ export default function BracketPage() {
     })
   }, [actualGroupSlotMap, groupsWithAllResults, allGroupsComplete, resultsByMatchId, slotMap])
 
-  // ── Initialize bracket picks from saved playoff data (once) ───────────────
+  // Reset initialized flag whenever the active entry changes so bracketPicks reloads
+  useEffect(() => { setInitialized(false) }, [activeEntryNum])
+
+  // ── Initialize bracket picks from saved playoff data (once per entry) ────────
   useEffect(() => {
     if (initialized) return
     const r16Set      = new Set(myPlayoffPicksByRound.r16?.teamIds      || [])
