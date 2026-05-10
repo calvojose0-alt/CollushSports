@@ -21,7 +21,7 @@ function RankBadge({ rank }) {
 
 export default function LeaderboardPage() {
   const { user } = useAuth()
-  const { leaderboard, loading, currentRace, races, raceResults, allPicks } = useF1Game()
+  const { players, leaderboard, loading, currentRace, races, raceResults, allPicks } = useF1Game()
   const [expandedPlayer, setExpandedPlayer] = useState(null)
 
   const togglePlayer = (playerId) =>
