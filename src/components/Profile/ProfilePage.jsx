@@ -1,19 +1,36 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { User, Pencil, Check, X, ArrowLeft, Trophy, Flag } from 'lucide-react'
+import { User, Pencil, Check, X, ArrowLeft, Trophy, Flag, Trash2, AlertTriangle } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { user, profile, updateProfile } = useAuth()
+  const { user, profile, updateProfile, deleteAccount } = useAuth()
   const navigate = useNavigate()
 
   const currentName = profile?.display_name || user?.displayName || user?.email || ''
 
-  const [editing, setEditing] = useState(false)
-  const [newName, setNewName]   = useState(currentName)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState(null)
-  const [success, setSuccess]   = useState(false)
+  const [editing, setEditing]           = useState(false)
+  const [newName, setNewName]           = useState(currentName)
+  const [saving, setSaving]             = useState(false)
+  const [error, setError]               = useState(null)
+  const [success, setSuccess]           = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirm, setDeleteConfirm]     = useState('')
+  const [deleting, setDeleting]               = useState(false)
+  const [deleteError, setDeleteError]         = useState(null)
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.toLowerCase() !== 'delete') return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteAccount()
+      navigate('/login', { replace: true })
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete account. Please try again.')
+      setDeleting(false)
+    }
+  }
 
   const handleEdit = () => {
     setNewName(currentName)
@@ -196,9 +213,83 @@ export default function ProfilePage() {
               <p className="text-sm text-gray-400 px-1">{user?.email}</p>
             </div>
 
+            {/* Divider */}
+            <hr className="border-f1light" />
+
+            {/* Delete Account */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Danger Zone</p>
+              <button
+                onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError(null) }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-800 bg-red-900/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm font-semibold w-full justify-center"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete My Account
+              </button>
+              <p className="text-xs text-gray-600 text-center mt-2">This permanently deletes your account and all game data.</p>
+            </div>
+
           </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70">
+          <div className="bg-f1gray border border-red-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h2 className="font-black text-white text-lg leading-tight">Delete Account</h2>
+                <p className="text-xs text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-300">
+              All your picks, scores, and game history will be <strong className="text-red-400">permanently deleted</strong>. You will be signed out immediately.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400">Type <span className="font-bold text-white">delete</span> to confirm</label>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="delete"
+                className="w-full bg-f1dark border border-f1light rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-700"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">{deleteError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl border border-f1light text-gray-300 hover:text-white hover:bg-f1light text-sm font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm.toLowerCase() !== 'delete' || deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                {deleting ? 'Deleting…' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

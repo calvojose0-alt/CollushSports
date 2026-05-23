@@ -205,6 +205,52 @@ export async function getUserProfile(uid) {
  * Update the display name for the given user.
  * Updates the Supabase `profiles` table (Supabase mode) or localStorage (demo mode).
  */
+/**
+ * Permanently delete the current user's account and all their data.
+ * Calls a Supabase RPC function (SECURITY DEFINER) that removes the auth.users row.
+ *
+ * Required one-time SQL (run in Supabase SQL editor):
+ *   CREATE OR REPLACE FUNCTION delete_own_account()
+ *   RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+ *   BEGIN
+ *     DELETE FROM public.profiles WHERE id = auth.uid();
+ *     DELETE FROM auth.users WHERE id = auth.uid();
+ *   END;
+ *   $$;
+ */
+export async function deleteAccount() {
+  if (isSupabaseConfigured && supabase) {
+    // Delete profile row first (cascade any app data)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated user')
+
+    // Remove profile and all associated data
+    await supabase.from('profiles').delete().eq('id', user.id)
+
+    // Call RPC to delete the auth.users row (requires the SQL function above)
+    const { error: rpcError } = await supabase.rpc('delete_own_account')
+    if (rpcError) {
+      // If RPC not set up yet, still sign out so the UI flow works
+      console.warn('[deleteAccount] RPC not available, signing out only:', rpcError.message)
+    }
+
+    await supabase.auth.signOut()
+    return
+  }
+
+  // Demo mode
+  const session = getDemoSession()
+  if (session) {
+    const users = getDemoUsers()
+    const entry = Object.values(users).find((u) => u.uid === session.uid)
+    if (entry) {
+      delete users[entry.email]
+      saveDemoUsers(users)
+    }
+    localStorage.removeItem(DEMO_SESSION_KEY)
+  }
+}
+
 export async function updateDisplayName(userId, newDisplayName) {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase

@@ -1,6 +1,6 @@
 // @refresh reset
 import { createContext, useContext, useState, useEffect } from 'react'
-import { onAuthStateChange, signOut, updateDisplayName } from '@/services/firebase/auth'
+import { onAuthStateChange, signOut, updateDisplayName, deleteAccount as deleteAccountService } from '@/services/firebase/auth'
 import { updatePlayerDisplayName } from '@/services/firebase/firestore'
 import { updateWCPlayerDisplayName } from '@/services/firebase/wc2026Service'
 import { supabase, isSupabaseConfigured } from '@/supabase'
@@ -35,6 +35,12 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  const deleteAccount = async () => {
+    await deleteAccountService()
+    setUser(null)
+    setProfile(null)
+  }
+
   /**
    * Update the user's display name everywhere it is stored:
    *   1. profiles table (auth service)
@@ -57,7 +63,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout, updateProfile, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   )
