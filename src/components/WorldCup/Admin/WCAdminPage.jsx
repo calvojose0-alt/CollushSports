@@ -1213,7 +1213,7 @@ export default function WCAdminPage() {
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Settings className="w-5 h-5 text-gray-400" />
-        <h2 className="font-bold text-blue-800">World Cup Admin</h2>
+        <h2 className="font-bold text-blue-800">Soccer Tournament Admin</h2>
       </div>
 
       <div className="card bg-gray-900 border-yellow-700/60 text-xs text-yellow-300">

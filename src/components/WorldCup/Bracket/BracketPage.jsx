@@ -1043,7 +1043,7 @@ export default function BracketPage() {
         </p>
         <p className="text-xs text-gray-400 mb-3">
           Predict the total goals scored across all <span className="text-white font-semibold">104 games</span> of
-          the 2026 World Cup (72 group stage + 32 knockout). Used as the 3rd tiebreaker.
+          the 2026 Soccer Tournament (72 group stage + 32 knockout). Used as the 3rd tiebreaker.
         </p>
         <div className="flex items-center gap-3 flex-wrap">
           <input

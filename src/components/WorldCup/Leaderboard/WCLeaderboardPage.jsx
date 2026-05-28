@@ -351,7 +351,7 @@ export default function WCLeaderboardPage() {
         <div className="bg-gradient-to-r from-yellow-900/60 to-orange-900/40 border border-yellow-700 rounded-2xl px-6 py-5 text-center">
           <div className="text-4xl mb-2">🏆</div>
           <h2 className="text-2xl font-black text-yellow-400">{leaderboard[0].displayName}</h2>
-          <p className="text-yellow-300 font-semibold">2026 World Cup Quiniela Champion</p>
+          <p className="text-yellow-300 font-semibold">2026 Soccer Quiniela Champion</p>
           <p className="text-gray-400 text-sm mt-1">{leaderboard[0].totalPoints} total points</p>
         </div>
       )}

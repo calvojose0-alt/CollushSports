@@ -203,7 +203,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
                   <Flag className="w-3.5 h-3.5 text-green-400" />
                 </div>
-                World Cup 2026 — Standings &amp; Groups
+                Soccer Tournament 2026 — Standings &amp; Groups
               </div>
             </div>
 

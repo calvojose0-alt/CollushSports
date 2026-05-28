@@ -28,10 +28,10 @@ const GAMES = [
   },
   {
     id: 'world-cup-quiniela',
-    title: '2026 World Cup Quiniela',
-    subtitle: 'FIFA World Cup 2026',
+    title: '2026 Soccer Quiniela',
+    subtitle: '2026 International Soccer Tournament',
     description:
-      'Predict group stage and knockout results in the classic Quiniela format for the USA–Canada–Mexico World Cup.',
+      'Predict group stage and knockout results in the classic Quiniela format for the USA–Canada–Mexico 2026 Soccer Tournament.',
     icon: Globe,
     color: 'from-yellow-900/40 to-yellow-800/10',
     borderColor: 'border-yellow-700/30',

@@ -90,7 +90,7 @@ export default function WorldCupLayout() {
           <div className="w-6 h-6 bg-yellow-600 rounded flex items-center justify-center">
             <Globe className="w-3 h-3 text-white" />
           </div>
-          <span className="font-bold text-gray-800 text-sm">2026 World Cup Quiniela</span>
+          <span className="font-bold text-gray-800 text-sm">2026 Soccer Quiniela</span>
         </div>
         {myPlayer?.groupStageLeader && (
           <span className="ml-auto text-xs bg-yellow-900/60 text-yellow-300 border border-yellow-700 px-2 py-0.5 rounded-full font-bold">

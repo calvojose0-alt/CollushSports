@@ -13,7 +13,7 @@ const GAME_META = {
     redirect: '/f1-survivor/groups',
   },
   wc2026: {
-    label: '2026 World Cup Quiniela',
+    label: '2026 Soccer Quiniela',
     icon: <Globe className="w-5 h-5 text-yellow-400" />,
     color: 'text-yellow-400',
     redirect: '/world-cup/groups',
