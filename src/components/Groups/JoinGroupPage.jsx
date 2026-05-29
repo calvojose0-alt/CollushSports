@@ -18,6 +18,12 @@ const GAME_META = {
     color: 'text-yellow-400',
     redirect: '/world-cup/groups',
   },
+  wl2026: {
+    label: '2026 Soccer Win League',
+    icon: <Globe className="w-5 h-5 text-emerald-400" />,
+    color: 'text-emerald-400',
+    redirect: '/win-league',
+  },
 }
 
 export default function JoinGroupPage() {

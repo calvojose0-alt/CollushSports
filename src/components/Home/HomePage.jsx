@@ -42,6 +42,21 @@ const GAMES = [
     features: ['72 Group Matches', 'Knockout Bracket', 'Live Standings', 'Groups'],
   },
   {
+    id: 'soccer-win-league',
+    title: '2026 Soccer Win League',
+    subtitle: '2026 — Draft & Score',
+    description:
+      'Draft 3 national teams before the tournament. Earn points for every win, draw, and round your teams advance through. Most points after the Final wins.',
+    icon: Trophy,
+    color: 'from-emerald-900/50 to-emerald-800/10',
+    borderColor: 'border-emerald-700/40',
+    accentColor: 'text-emerald-400',
+    badgeColor: 'bg-emerald-600',
+    status: 'live',
+    path: '/win-league',
+    features: ['10-Player Draft', '3 Teams Each', 'Live Scoring', 'Advancement Bonus'],
+  },
+  {
     id: 'football-win-league',
     title: 'Pro Football Win-League',
     subtitle: '2025–26 Season',

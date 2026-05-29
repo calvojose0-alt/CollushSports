@@ -40,6 +40,13 @@ import WCGroupsPage from '@/components/WorldCup/Groups/WCGroupsPage'
 import WCAdminPage from '@/components/WorldCup/Admin/WCAdminPage'
 import WCScoringPage from '@/components/WorldCup/Scoring/WCScoringPage'
 
+// Soccer Win League
+import WinLeagueLayout from '@/components/WinLeague/WinLeagueLayout'
+import DraftPage from '@/components/WinLeague/Draft/DraftPage'
+import MyTeamsPage from '@/components/WinLeague/Teams/MyTeamsPage'
+import WLLeaderboardPage from '@/components/WinLeague/Leaderboard/WLLeaderboardPage'
+import WLAdminPage from '@/components/WinLeague/Admin/WLAdminPage'
+
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 function ProtectedRoute({ children }) {
@@ -145,6 +152,23 @@ function AppRoutes() {
           <Route path="groups" element={<WCGroupsPage />} />
           <Route path="scoring" element={<WCScoringPage />} />
           <Route path="admin" element={<AdminRoute fallback="/world-cup"><WCAdminPage /></AdminRoute>} />
+        </Route>
+
+        {/* Soccer Win League nested routes */}
+        <Route
+          path="/win-league"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <WinLeagueLayout />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DraftPage />} />
+          <Route path="my-teams" element={<MyTeamsPage />} />
+          <Route path="leaderboard" element={<WLLeaderboardPage />} />
+          <Route path="admin" element={<AdminRoute fallback="/win-league"><WLAdminPage /></AdminRoute>} />
         </Route>
 
         {/* Site Admin dashboard */}
