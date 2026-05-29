@@ -12,21 +12,6 @@ import {
 
 const GAMES = [
   {
-    id: 'f1-survivor',
-    title: 'Motorsport Survivor Pool',
-    subtitle: '2026 Racing Season',
-    description:
-      'Pick two drivers each race week — one for the Podium, one for Top 10. Stay alive all season to claim the championship.',
-    icon: Flag,
-    color: 'from-red-900/60 to-f1red/20',
-    borderColor: 'border-f1red/50',
-    accentColor: 'text-f1red',
-    badgeColor: 'bg-f1red',
-    status: 'live',
-    path: '/f1-survivor',
-    features: ['Survivor Rules', '22 Races', 'Driver Constraints', 'Leaderboard'],
-  },
-  {
     id: 'world-cup-quiniela',
     title: '2026 Soccer Quiniela',
     subtitle: '2026 International Soccer Tournament',
@@ -55,6 +40,21 @@ const GAMES = [
     status: 'live',
     path: '/win-league',
     features: ['10-Player Draft', '3 Teams Each', 'Live Scoring', 'Advancement Bonus'],
+  },
+  {
+    id: 'f1-survivor',
+    title: 'Motorsport Survivor Pool',
+    subtitle: '2026 Racing Season',
+    description:
+      'Pick two drivers each race week — one for the Podium, one for Top 10. Stay alive all season to claim the championship.',
+    icon: Flag,
+    color: 'from-red-900/60 to-f1red/20',
+    borderColor: 'border-f1red/50',
+    accentColor: 'text-f1red',
+    badgeColor: 'bg-f1red',
+    status: 'live',
+    path: '/f1-survivor',
+    features: ['Survivor Rules', '22 Races', 'Driver Constraints', 'Leaderboard'],
   },
   {
     id: 'football-win-league',
