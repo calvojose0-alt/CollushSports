@@ -197,7 +197,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 rounded-lg bg-f1red/20 flex items-center justify-center shrink-0">
                   <Trophy className="w-3.5 h-3.5 text-f1red" />
                 </div>
-                F1 Survivor — Season Leaderboard &amp; Groups
+                Motorsport Survivor — Season Leaderboard &amp; Groups
               </div>
               <div className="flex items-center gap-2.5 text-sm text-gray-300">
                 <div className="w-7 h-7 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">

@@ -233,7 +233,7 @@ export default function SiteAdminPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Last Login</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Games</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  <span className="flex items-center justify-end gap-1"><Flag className="w-3 h-3 text-orange-400" /> F1 Races</span>
+                  <span className="flex items-center justify-end gap-1"><Flag className="w-3 h-3 text-orange-400" /> Racing Picks</span>
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   <span className="flex items-center justify-end gap-1"><Globe className="w-3 h-3 text-yellow-400" /> WC Group</span>
@@ -288,13 +288,13 @@ export default function SiteAdminPage() {
                   {/* Games */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 flex-wrap">
-                      {u.playsF1 && <Badge color="green"><Flag className="w-2.5 h-2.5" /> F1</Badge>}
+                      {u.playsF1 && <Badge color="green"><Flag className="w-2.5 h-2.5" /> Racing</Badge>}
                       {u.playsWC && <Badge color="yellow"><Globe className="w-2.5 h-2.5" /> WC</Badge>}
                       {!u.playsF1 && !u.playsWC && <span className="text-gray-600 text-xs">—</span>}
                     </div>
                   </td>
 
-                  {/* F1 Races */}
+                  {/* Racing Picks */}
                   <td className="px-4 py-3 text-right">
                     {u.playsF1
                       ? <span className="font-semibold text-orange-300">{u.f1RacesPicked}</span>

@@ -7,7 +7,7 @@ import { Users, Flag, AlertCircle, CheckCircle2, LogIn, UserPlus, Globe } from '
 // Map game IDs to display info + redirect path
 const GAME_META = {
   f1_survivor_2026: {
-    label: 'F1 Survivor 2025',
+    label: 'Motorsport Survivor 2026',
     icon: <Flag className="w-5 h-5 text-f1red" />,
     color: 'text-f1red',
     redirect: '/f1-survivor/groups',

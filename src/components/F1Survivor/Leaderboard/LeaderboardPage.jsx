@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
         <div className="bg-gradient-to-r from-yellow-900/60 to-orange-900/40 border border-yellow-700 rounded-2xl px-6 py-5 text-center">
           <div className="text-4xl mb-2">🏆</div>
           <h2 className="text-2xl font-black text-f1gold">{winner[0].displayName}</h2>
-          <p className="text-yellow-400 font-semibold">2026 F1 Survivor Champion</p>
+          <p className="text-yellow-400 font-semibold">2026 Motorsport Survivor Champion</p>
           <p className="text-gray-400 text-sm mt-1">{winner[0].points} bonus points accumulated</p>
         </div>
       )}
