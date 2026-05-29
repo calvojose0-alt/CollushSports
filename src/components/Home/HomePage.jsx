@@ -13,8 +13,8 @@ import {
 const GAMES = [
   {
     id: 'f1-survivor',
-    title: 'Formula 1 Survivor Pool',
-    subtitle: '2026 Season',
+    title: 'Motorsport Survivor Pool',
+    subtitle: '2026 Racing Season',
     description:
       'Pick two drivers each race week — one for the Podium, one for Top 10. Stay alive all season to claim the championship.',
     icon: Flag,
@@ -42,8 +42,8 @@ const GAMES = [
     features: ['72 Group Matches', 'Knockout Bracket', 'Live Standings', 'Groups'],
   },
   {
-    id: 'nfl-win-league',
-    title: 'NFL Win-League',
+    id: 'football-win-league',
+    title: 'Pro Football Win-League',
     subtitle: '2025–26 Season',
     description:
       'Predict match winners every week and accumulate points. The player with the most correct picks at season end wins.',
@@ -57,11 +57,11 @@ const GAMES = [
     features: ['All 18 Weeks', 'Points System', 'Weekly Rankings', 'Groups'],
   },
   {
-    id: 'nfl-survivor',
-    title: 'NFL Survivor Pool',
+    id: 'football-survivor',
+    title: 'Pro Football Survivor Pool',
     subtitle: '2025–26 Season',
     description:
-      "Pick one NFL team to win each week. Lose once and you're out. Classic survivor format across the full NFL season.",
+      "Pick one team to win each week. Lose once and you're out. Classic survivor format across the full football season.",
     icon: Trophy,
     color: 'from-blue-900/40 to-blue-800/10',
     borderColor: 'border-blue-700/30',
@@ -191,7 +191,7 @@ export default function HomePage() {
 
       {/* Footer note */}
       <p className="text-center text-xs text-gray-600 mt-10">
-        Collush Sports is a fan-made competition platform. Not affiliated with F1, NFL, or FIFA.
+        Collush Sports is an independent fan-made competition platform. Not officially affiliated with, endorsed by, or licensed by any sports league, federation, or team.
       </p>
     </div>
     </div>

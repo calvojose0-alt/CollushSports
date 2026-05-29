@@ -14,6 +14,38 @@
 //   created_at   timestamptz
 
 import { supabase, isSupabaseConfigured } from '@/supabase'
+import { Capacitor } from '@capacitor/core'
+
+// ─── Apple Sign In ────────────────────────────────────────────────────────────
+
+export async function signInWithApple() {
+  if (!isSupabaseConfigured || !supabase) throw new Error('Supabase not configured')
+
+  // Native iOS — use Capacitor plugin
+  if (Capacitor.isNativePlatform()) {
+    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in')
+    const result = await SignInWithApple.authorize({
+      clientId: 'com.collushsports.app',
+      redirectURI: 'https://bjjwwsnxbtlxrmjxtyed.supabase.co/auth/v1/callback',
+      scopes: 'email name',
+    })
+    const { identityToken } = result.response
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: identityToken,
+    })
+    if (error) throw new Error(error.message)
+    const profile = await ensureProfile(data.user)
+    return { user: normalizeUser(data.user, profile), profile }
+  }
+
+  // Web fallback — OAuth redirect
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: { redirectTo: window.location.origin },
+  })
+  if (error) throw new Error(error.message)
+}
 
 // ─── Demo Mode Auth (localStorage) ─────────────────────────────────────────
 
@@ -220,17 +252,25 @@ export async function getUserProfile(uid) {
  */
 export async function deleteAccount() {
   if (isSupabaseConfigured && supabase) {
-    // Delete profile row first (cascade any app data)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('No authenticated user')
+    const uid = user.id
 
-    // Remove profile and all associated data
-    await supabase.from('profiles').delete().eq('id', user.id)
+    // Delete all user data across every table in parallel
+    await Promise.allSettled([
+      supabase.from('picks').delete().eq('user_id', uid),
+      supabase.from('players').delete().eq('user_id', uid),
+      supabase.from('wc_picks').delete().eq('user_id', uid),
+      supabase.from('wc_playoff_picks').delete().eq('user_id', uid),
+      supabase.from('wc_players').delete().eq('user_id', uid),
+      supabase.from('group_members').delete().eq('user_id', uid),
+      supabase.from('support_messages').delete().eq('email', user.email),
+      supabase.from('profiles').delete().eq('id', uid),
+    ])
 
-    // Call RPC to delete the auth.users row (requires the SQL function above)
+    // Call RPC to delete the auth.users row
     const { error: rpcError } = await supabase.rpc('delete_own_account')
     if (rpcError) {
-      // If RPC not set up yet, still sign out so the UI flow works
       console.warn('[deleteAccount] RPC not available, signing out only:', rpcError.message)
     }
 
