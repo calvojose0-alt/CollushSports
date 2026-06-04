@@ -15,6 +15,7 @@
 
 import { supabase, isSupabaseConfigured } from '@/supabase'
 import { Capacitor } from '@capacitor/core'
+import { SignInWithApple } from '@capacitor-community/apple-sign-in'
 
 // ─── Apple Sign In ────────────────────────────────────────────────────────────
 
@@ -23,7 +24,6 @@ export async function signInWithApple() {
 
   // Native iOS — use Capacitor plugin
   if (Capacitor.isNativePlatform()) {
-    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in')
     const result = await SignInWithApple.authorize({
       clientId: 'com.collushsports.app',
       redirectURI: 'https://bjjwwsnxbtlxrmjxtyed.supabase.co/auth/v1/callback',

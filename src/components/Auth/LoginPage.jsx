@@ -21,7 +21,17 @@ export default function LoginPage() {
       await signInWithApple()
       navigate(redirectTo)
     } catch (err) {
-      setError(err.message)
+      if (
+        err.message?.toLowerCase().includes('not implemented') ||
+        err.message?.toLowerCase().includes('plugin') ||
+        err.message?.toLowerCase().includes('not available')
+      ) {
+        setError('Sign in with Apple is not available on this device. Please use email and password.')
+      } else if (err.message?.toLowerCase().includes('cancel') || err.message?.toLowerCase().includes('user cancel')) {
+        // User dismissed the sheet — don't show an error
+      } else {
+        setError(err.message)
+      }
     } finally {
       setAppleLoading(false)
     }
