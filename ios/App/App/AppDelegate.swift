@@ -36,6 +36,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
+        //
+        // Handle the collushsports:// deep link from password-reset emails.
+        // Supabase appends #access_token=...&type=recovery to the redirect URL.
+        // We forward the fragment as a query string so the web layer can read it via window.location.
+        if url.scheme == "collushsports" {
+            ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

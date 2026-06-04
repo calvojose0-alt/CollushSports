@@ -291,6 +291,52 @@ export async function deleteAccount() {
   }
 }
 
+// ─── Password Reset ──────────────────────────────────────────────────────────
+
+/**
+ * Send a password-reset email via Supabase.
+ * The email contains a link that redirects to the app's /reset-password route.
+ * redirectTo must be registered in Supabase Dashboard → Authentication → URL Configuration.
+ */
+export async function sendPasswordReset(email) {
+  if (isSupabaseConfigured && supabase) {
+    // For native iOS the deep-link scheme is collushsports://reset-password
+    // For web/browser the fallback is the current origin
+    const redirectTo = typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}/#/reset-password`
+      : 'collushsports://reset-password'
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+    if (error) throw new Error(error.message)
+    return
+  }
+  // Demo mode — just pretend the email was sent
+}
+
+/**
+ * Update the current user's password.
+ * Only works when the user has a valid recovery session
+ * (i.e. they followed the reset link from their email).
+ */
+export async function updatePassword(newPassword) {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(error.message)
+    return
+  }
+  // Demo mode — update stored password
+  const session = getDemoSession()
+  if (session) {
+    const users = getDemoUsers()
+    const entry = Object.values(users).find((u) => u.uid === session.uid)
+    if (entry) {
+      entry.password = newPassword
+      users[entry.email] = entry
+      saveDemoUsers(users)
+    }
+  }
+}
+
 export async function updateDisplayName(userId, newDisplayName) {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase

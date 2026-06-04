@@ -7,6 +7,8 @@ import Header from '@/components/Layout/Header'
 // Auth pages
 import LoginPage from '@/components/Auth/LoginPage'
 import RegisterPage from '@/components/Auth/RegisterPage'
+import ForgotPasswordPage from '@/components/Auth/ForgotPasswordPage'
+import ResetPasswordPage from '@/components/Auth/ResetPasswordPage'
 
 // Home
 import HomePage from '@/components/Home/HomePage'
@@ -92,6 +94,8 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route
