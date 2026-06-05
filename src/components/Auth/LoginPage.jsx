@@ -3,6 +3,19 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { signIn, signInWithApple } from '@/services/firebase/auth'
 import { Flag, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
+// ASAuthorizationError code 1001 = user cancelled the Apple sign-in sheet.
+// The localised description varies by iOS version so we check multiple signals.
+function isAppleCancelError(err) {
+  const msg = err.message?.toLowerCase() ?? ''
+  return (
+    msg.includes('cancel') ||
+    msg.includes('dismiss') ||
+    msg.includes('1000') ||   // ASAuthorizationError.unknown — iOS 26 fires this on dismiss
+    msg.includes('1001') ||   // ASAuthorizationError.canceled — older iOS
+    msg.includes('user stopped')
+  )
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -27,8 +40,8 @@ export default function LoginPage() {
         err.message?.toLowerCase().includes('not available')
       ) {
         setError('Sign in with Apple is not available on this device. Please use email and password.')
-      } else if (err.message?.toLowerCase().includes('cancel') || err.message?.toLowerCase().includes('user cancel')) {
-        // User dismissed the sheet — don't show an error
+      } else if (isAppleCancelError(err)) {
+        // User dismissed the sheet — silently return to login, no error
       } else {
         setError(err.message)
       }
@@ -164,7 +177,15 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-600 mt-4">
-          Collush Sports — Fan-made fantasy platform.
+          Collush Sports — Fan-made fantasy platform.{' '}
+          <a
+            href="https://jocular-fenglisu-219fd6.netlify.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-400 transition-colors"
+          >
+            Privacy Policy
+          </a>
         </p>
       </div>
     </div>

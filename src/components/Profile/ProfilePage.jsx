@@ -231,6 +231,19 @@ export default function ProfilePage() {
 
           </div>
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-xs text-gray-600 mt-4 pb-4">
+          Collush Sports — Fan-made fantasy platform.{' '}
+          <a
+            href="https://jocular-fenglisu-219fd6.netlify.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-400 transition-colors"
+          >
+            Privacy Policy
+          </a>
+        </p>
       </div>
 
       {/* Delete Account Confirmation Modal */}

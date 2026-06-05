@@ -40,7 +40,7 @@ export function useF1Game(gameId = DEFAULT_GAME_ID) {
       setLoading(true)
       setError(null)
 
-      await createGame({ gameId, season: 2026, name: 'F1 Survivor 2026', createdBy: user.uid })
+      await createGame({ gameId, season: 2026, name: 'Motorsport Survivor Pool 2026', createdBy: user.uid })
 
       // Load existing entries for this user
       let entries = await getEntriesForUser(gameId, user.uid)
