@@ -40,9 +40,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Handle the collushsports:// deep link from password-reset emails.
         // Supabase appends #access_token=...&type=recovery to the redirect URL.
         // We forward the fragment as a query string so the web layer can read it via window.location.
-        if url.scheme == "collushsports" {
-            ApplicationDelegateProxy.shared.application(app, open: url, options: options)
-        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
