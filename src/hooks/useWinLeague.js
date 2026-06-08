@@ -17,25 +17,31 @@ import { GROUP_MATCHES } from '@/data/wc2026Schedule'
 
 /**
  * Compute match-result points for a team from all match results.
- * Returns { matchPoints, wins, draws, losses }
+ * Returns { matchPoints, wins, draws, losses, matches }
+ * `matches` is an ordered list of per-match outcomes (World Cup games only)
+ * for the icon row: [{ matchId, outcome: 'win'|'draw'|'loss', opponentId }]
  */
 function computeMatchPoints(teamId, matchResults) {
   let matchPoints = 0, wins = 0, draws = 0, losses = 0
+  const matches = []
 
   for (const result of matchResults) {
     if (result.status !== 'final') continue
 
     let isHome = false, isAway = false
+    let opponentId = null
 
     // Group stage: look up teams from schedule
     const groupMatch = GROUP_MATCHES.find((m) => m.id === result.matchId)
     if (groupMatch) {
       isHome = groupMatch.homeTeam === teamId
       isAway = groupMatch.awayTeam === teamId
+      opponentId = isHome ? groupMatch.awayTeam : groupMatch.homeTeam
     } else {
       // Knockout: admin sets home_team/away_team in the result
       isHome = result.homeTeam === teamId
       isAway = result.awayTeam === teamId
+      opponentId = isHome ? result.awayTeam : result.homeTeam
     }
 
     if (!isHome && !isAway) continue
@@ -43,21 +49,27 @@ function computeMatchPoints(teamId, matchResults) {
     const hs = result.homeScore ?? 0
     const as = result.awayScore ?? 0
 
+    let outcome
     if (hs === as) {
       // Draw
       matchPoints += 1
       draws++
+      outcome = 'draw'
     } else if ((isHome && hs > as) || (isAway && as > hs)) {
       // Win
       matchPoints += 3
       wins++
+      outcome = 'win'
     } else {
       // Loss
       losses++
+      outcome = 'loss'
     }
+
+    matches.push({ matchId: result.matchId, outcome, opponentId })
   }
 
-  return { matchPoints, wins, draws, losses }
+  return { matchPoints, wins, draws, losses, matches }
 }
 
 /**
@@ -91,7 +103,7 @@ function buildLeaderboard(players, picks, advancements, matchResults) {
     let totalAdvanceBonuses = 0
 
     const teams = myPicks.map((pick) => {
-      const { matchPoints, wins } = computeMatchPoints(pick.teamId, matchResults)
+      const { matchPoints, wins, draws, losses, matches } = computeMatchPoints(pick.teamId, matchResults)
       const { advancePoints, roundsReached } = computeAdvancePoints(pick.teamId, advancements)
       totalMatchPoints   += matchPoints
       totalAdvancePoints += advancePoints
@@ -102,6 +114,10 @@ function buildLeaderboard(players, picks, advancements, matchResults) {
         pickNumber:   pick.pickNumber,
         matchPoints,
         advancePoints,
+        wins,
+        draws,
+        losses,
+        matches,
         roundsReached,
         teamInfo:     WC_TEAMS[pick.teamId] || null,
       }

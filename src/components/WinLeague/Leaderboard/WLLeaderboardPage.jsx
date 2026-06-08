@@ -21,33 +21,74 @@ function Avatar({ name, size = 'sm' }) {
   )
 }
 
+// One icon per World Cup match: green ✓ = win, grey – = draw/tie, red ✗ = loss
+function MatchResultIcons({ matches }) {
+  if (!matches || matches.length === 0) {
+    return <span className="text-[9px] text-gray-600 italic">No matches yet</span>
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {matches.map((m, i) => {
+        const opp = m.opponentId ? WC_TEAMS[m.opponentId] : null
+        const title = opp ? `vs ${opp.name}: ${m.outcome}` : m.outcome
+        if (m.outcome === 'win') {
+          return (
+            <span key={i} title={title}
+              className="w-4 h-4 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-[10px] font-bold leading-none">
+              ✓
+            </span>
+          )
+        }
+        if (m.outcome === 'draw') {
+          return (
+            <span key={i} title={title}
+              className="w-4 h-4 rounded-full bg-gray-500/20 text-gray-400 flex items-center justify-center text-[11px] font-bold leading-none">
+              –
+            </span>
+          )
+        }
+        return (
+          <span key={i} title={title}
+            className="w-4 h-4 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-[10px] font-bold leading-none">
+            ✗
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function TeamMiniCard({ team }) {
   const info = WC_TEAMS[team.teamId]
   if (!info) return null
   const isChampion = team.roundsReached?.includes('champion')
   return (
-    <div className="flex items-center gap-2 bg-f1dark rounded-lg px-3 py-2 flex-1 min-w-[130px]">
-      <span className="text-base leading-none">{info.flag}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-white truncate">{info.shortName}</p>
-        <div className="flex items-center gap-1 flex-wrap mt-0.5">
-          {(team.roundsReached || []).slice(0, 3).map((r) => {
-            const rInfo = WL_ROUNDS.find((x) => x.id === r)
-            return rInfo ? (
-              <span key={r} className="text-[9px] bg-emerald-900/50 text-emerald-300 px-1 rounded">{rInfo.shortLabel}</span>
-            ) : null
-          })}
-          {(team.roundsReached || []).length > 3 && (
-            <span className="text-[9px] text-gray-600">+{team.roundsReached.length - 3}</span>
-          )}
+    <div className="bg-f1dark rounded-lg px-3 py-2 flex-1 min-w-[150px] space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-base leading-none">{info.flag}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-white truncate">{info.name}</p>
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {(team.roundsReached || []).slice(0, 3).map((r) => {
+              const rInfo = WL_ROUNDS.find((x) => x.id === r)
+              return rInfo ? (
+                <span key={r} className="text-[9px] bg-emerald-900/50 text-emerald-300 px-1 rounded">{rInfo.shortLabel}</span>
+              ) : null
+            })}
+            {(team.roundsReached || []).length > 3 && (
+              <span className="text-[9px] text-gray-600">+{team.roundsReached.length - 3}</span>
+            )}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-xs font-black" style={{ color: info.color !== '#000000' ? info.color : '#9ca3af' }}>
+            {team.matchPoints + team.advancePoints}
+          </p>
+          {isChampion && <span className="text-[10px]">🏆</span>}
         </div>
       </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-xs font-black" style={{ color: info.color !== '#000000' ? info.color : '#9ca3af' }}>
-          {team.matchPoints + team.advancePoints}
-        </p>
-        {isChampion && <span className="text-[10px]">🏆</span>}
-      </div>
+      {/* Per-match result icons (World Cup games only) */}
+      <MatchResultIcons matches={team.matches} />
     </div>
   )
 }

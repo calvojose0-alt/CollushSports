@@ -444,6 +444,47 @@ export default function DraftPage() {
         </p>
       </div>
 
+      {/* Draft Results — numbered #1..N in pick order */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b border-f1light flex items-center gap-2">
+          <Globe className="w-4 h-4 text-emerald-400" />
+          <p className="text-sm font-bold text-white">Draft Results</p>
+          <span className="ml-auto text-xs text-gray-500">{picks.length} picks</span>
+        </div>
+        <div className="divide-y divide-f1light">
+          {[...picks]
+            .sort((a, b) => a.pickNumber - b.pickNumber)
+            .map((pick) => {
+              const team   = WC_TEAMS[pick.teamId]
+              const drafter = players.find((p) => p.userId === pick.userId)
+              const isMine  = pick.userId === user?.uid
+              return (
+                <div
+                  key={pick.id ?? `${pick.userId}-${pick.teamId}`}
+                  className={`px-4 py-2.5 flex items-center gap-3 ${isMine ? 'bg-emerald-900/15' : ''}`}
+                >
+                  <span className="w-8 text-center text-sm font-black text-gray-500 flex-shrink-0">
+                    #{pick.pickNumber + 1}
+                  </span>
+                  <span className="text-lg leading-none flex-shrink-0">{team?.flag || '🏳️'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{team?.name || pick.teamId}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-gray-400 truncate max-w-[120px]">
+                      {drafter?.displayName || '—'}
+                    </span>
+                    {isMine && <span className="text-[10px] text-emerald-400 font-semibold">You</span>}
+                  </div>
+                </div>
+              )
+            })}
+          {picks.length === 0 && (
+            <div className="px-4 py-6 text-center text-xs text-gray-600 italic">No picks recorded.</div>
+          )}
+        </div>
+      </div>
+
       {/* Final rosters */}
       <div className="card p-0 overflow-hidden">
         <div className="px-4 py-3 border-b border-f1light">
