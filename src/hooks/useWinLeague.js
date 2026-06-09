@@ -9,7 +9,7 @@ import {
   draftTeam as _draftTeam,
 } from '@/services/winLeague/winLeagueService'
 import { getAllMatchResults } from '@/services/firebase/wc2026Service'
-import { WL_RANKED_TEAMS, WL_ROUND_ORDER, WL_ADVANCE_POINTS } from '@/data/wl2026Rankings'
+import { WL_RANKED_TEAMS, WL_ROUND_ORDER, WL_ROUNDS } from '@/data/wl2026Rankings'
 import { WC_TEAMS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES } from '@/data/wc2026Schedule'
 
@@ -72,13 +72,17 @@ function computeMatchPoints(teamId, matchResults) {
   return { matchPoints, wins, draws, losses, matches }
 }
 
+// Per-round advancement bonus lookup (id -> points)
+const ROUND_POINTS = Object.fromEntries(WL_ROUNDS.map((r) => [r.id, r.points]))
+
 /**
  * Compute advancement bonus points for a team.
+ * Each recorded round contributes its own point value (variable by round).
  * Returns { advancePoints, roundsReached }
  */
 function computeAdvancePoints(teamId, advancements) {
   const teamAdv = advancements.filter((a) => a.teamId === teamId)
-  const advancePoints = teamAdv.length * WL_ADVANCE_POINTS
+  const advancePoints = teamAdv.reduce((sum, a) => sum + (ROUND_POINTS[a.round] ?? 0), 0)
   const roundsReached = teamAdv.map((a) => a.round)
   return { advancePoints, roundsReached }
 }

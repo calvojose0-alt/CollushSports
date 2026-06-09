@@ -502,7 +502,7 @@ export default function WLAdminPage() {
 
       <SectionCard title="Advancement Tracker" icon={Trophy}>
         <div className="text-xs text-gray-400 mb-3 bg-f1dark rounded-lg px-3 py-2.5">
-          <strong className="text-white">+2 pts</strong> are awarded to any player who drafted a team that advances to each round. Toggle the teams that have advanced to record their bonus points.
+          Mark each team as having <strong className="text-white">advanced to</strong> a round once they <strong className="text-white">win</strong> the previous knockout match. Bonus points vary by round (shown on each button): reach R16 <strong className="text-white">+2</strong>, QF <strong className="text-white">+4</strong>, SF <strong className="text-white">+5</strong>, Final <strong className="text-white">+6</strong>, Champion <strong className="text-white">+8</strong>. Reaching the Round of 32 alone is <strong className="text-white">0</strong>.
         </div>
         <AdvancementTracker picks={picks} advancements={advancements} reload={reload} />
       </SectionCard>

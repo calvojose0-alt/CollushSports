@@ -64,14 +64,23 @@ export const WL_RANKED_TEAMS = [
   'curacao',
 ]
 
-// Round labels for advancement tracking
+// Round labels for advancement tracking.
+// `points` = bonus awarded when a team is recorded as having ADVANCED TO
+// (i.e. reached) that round. Because reaching a round means you WON the
+// previous knockout match, the bonus effectively rewards winning that match:
+//   reach R16 = won R32 game  → 2
+//   reach QF  = won R16 game  → 4
+//   reach SF  = won QF game   → 5
+//   reach Final = won SF game → 6
+//   Champion  = won the Final → 8
+// Just qualifying for the Round of 32 (no knockout win yet) = 0.
 export const WL_ROUNDS = [
-  { id: 'r32',      label: 'Round of 32',   shortLabel: 'R32',  points: 2 },
+  { id: 'r32',      label: 'Round of 32',   shortLabel: 'R32',  points: 0 },
   { id: 'r16',      label: 'Round of 16',   shortLabel: 'R16',  points: 2 },
-  { id: 'qf',       label: 'Quarterfinals', shortLabel: 'QF',   points: 2 },
-  { id: 'sf',       label: 'Semifinals',    shortLabel: 'SF',   points: 2 },
-  { id: 'final',    label: 'Final',         shortLabel: 'FIN',  points: 2 },
-  { id: 'champion', label: 'Champion',      shortLabel: 'WIN',  points: 2 },
+  { id: 'qf',       label: 'Quarterfinals', shortLabel: 'QF',   points: 4 },
+  { id: 'sf',       label: 'Semifinals',    shortLabel: 'SF',   points: 5 },
+  { id: 'final',    label: 'Final',         shortLabel: 'FIN',  points: 6 },
+  { id: 'champion', label: 'Champion',      shortLabel: 'WIN',  points: 8 },
 ]
 
 // Round order for sorting/display
@@ -79,7 +88,8 @@ export const WL_ROUND_ORDER = ['r32', 'r16', 'qf', 'sf', 'final', 'champion']
 
 // Match scoring constants
 export const WL_MATCH_POINTS = { win: 3, draw: 1, loss: 0 }
-export const WL_ADVANCE_POINTS = 2
+// Max advancement bonus a single team can earn (R16 2 + QF 4 + SF 5 + Final 6 + Champion 8)
+export const WL_MAX_ADVANCE_POINTS = 25
 
 /**
  * Generate draft order for N players × picksEach rounds.

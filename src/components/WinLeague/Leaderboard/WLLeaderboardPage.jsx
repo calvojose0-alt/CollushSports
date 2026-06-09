@@ -288,16 +288,31 @@ export default function WLLeaderboardPage() {
       </div>
 
       {/* Scoring guide */}
-      <div className="text-xs text-gray-500 bg-f1dark border border-f1light rounded-xl px-4 py-3 space-y-1">
-        <p className="text-gray-400 font-semibold mb-2">Scoring Guide</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span>🏆 Win: <strong className="text-green-400">+3 pts</strong></span>
-          <span>➕ Advance each round: <strong className="text-emerald-400">+2 pts</strong></span>
-          <span>🤝 Draw: <strong className="text-yellow-400">+1 pt</strong></span>
-          <span>Max advancement: <strong className="text-white">+12 pts</strong> (champion)</span>
-          <span>❌ Loss: <strong className="text-gray-600">0 pts</strong></span>
+      <div className="text-xs text-gray-500 bg-f1dark border border-f1light rounded-xl px-4 py-3 space-y-2">
+        <p className="text-gray-400 font-semibold">Scoring Guide</p>
+
+        <div>
+          <p className="text-gray-500 mb-1">Each match (group stage + every game):</p>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+            <span>🏆 Win: <strong className="text-green-400">+3</strong></span>
+            <span>🤝 Draw: <strong className="text-yellow-400">+1</strong></span>
+            <span>❌ Loss: <strong className="text-gray-600">0</strong></span>
+          </div>
         </div>
-        <p className="mt-2 text-gray-600">Tiebreakers: 1. Total wins  2. Total advancement bonuses</p>
+
+        <div>
+          <p className="text-gray-500 mb-1">Knockout wins (advancement bonus):</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            <span>Win Round of 32: <strong className="text-emerald-400">+2</strong></span>
+            <span>Win Round of 16: <strong className="text-emerald-400">+4</strong></span>
+            <span>Win Quarterfinal: <strong className="text-emerald-400">+5</strong></span>
+            <span>Win Semifinal: <strong className="text-emerald-400">+6</strong></span>
+            <span>Win Final (Champion): <strong className="text-emerald-400">+8</strong></span>
+            <span>Max advancement: <strong className="text-white">+25</strong></span>
+          </div>
+        </div>
+
+        <p className="text-gray-600">Tiebreakers: 1. Total wins  2. Total advancement bonuses</p>
       </div>
     </div>
   )
