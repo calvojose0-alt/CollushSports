@@ -3,11 +3,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import {
   createGroup, joinGroupByCode, getWCGroupsForUser, removeGroupMember,
-  renameGroup, deleteGroup,
+  renameGroup, deleteGroup, searchProfiles, addUserToWCGroup,
 } from '@/services/firebase/wc2026Service'
 import {
   Users, Plus, LogIn, Copy, CheckCircle2, AlertCircle, ChevronDown,
   ChevronUp, Trophy, Calendar, Link2, Settings, Trash2, Pencil,
+  UserPlus, Search, X,
 } from 'lucide-react'
 import { WC_TEAMS, GROUP_LETTERS, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
@@ -343,7 +344,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 }
 
 // ── Group viewer (detail + management) ───────────────────────────────────────
-function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId, onGroupsChanged }) {
+function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId, onGroupsChanged, reloadPlayers }) {
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied]     = useState(null) // 'code' | 'link' | null
   const [managing, setManaging] = useState(false)
@@ -354,7 +355,33 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
   const [deleting, setDeleting] = useState(false)
   const [manageError, setManageError] = useState(null)
 
+  // ── Add-member state ──
+  const [addQuery, setAddQuery]       = useState('')
+  const [addResults, setAddResults]   = useState([])
+  const [addSearching, setAddSearching] = useState(false)
+  const [addingId, setAddingId]       = useState(null)
+  const [addNotice, setAddNotice]     = useState(null)
+
   const group = groups.find((g) => g.id === selectedGroupId) || groups[0]
+
+  // Debounced profile search (min 2 chars)
+  useEffect(() => {
+    const q = addQuery.trim()
+    if (q.length < 2) { setAddResults([]); setAddSearching(false); return }
+    setAddSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const results = await searchProfiles(q)
+        setAddResults(results)
+      } catch {
+        setAddResults([])
+      } finally {
+        setAddSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [addQuery])
+
   if (!group) return null
 
   const isCreator = group.createdBy === currentUserId
@@ -387,6 +414,32 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
       await onGroupsChanged()
     } finally {
       setRemoving(null)
+    }
+  }
+
+  const handleAddUser = async (profile) => {
+    setAddingId(profile.id)
+    setManageError(null)
+    setAddNotice(null)
+    try {
+      const { alreadyMember } = await addUserToWCGroup({
+        groupId: group.id,
+        userId: profile.id,
+        displayName: profile.displayName,
+      })
+      await onGroupsChanged()
+      if (reloadPlayers) await reloadPlayers()
+      setAddNotice(
+        alreadyMember
+          ? `${profile.displayName} is already in this group.`
+          : `Added ${profile.displayName} to the group.`
+      )
+      setAddQuery('')
+      setAddResults([])
+    } catch (err) {
+      setManageError(err.message || 'Failed to add member.')
+    } finally {
+      setAddingId(null)
     }
   }
 
@@ -531,6 +584,82 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
               >
                 <Pencil className="w-3.5 h-3.5" /> Rename "{group.name}"
               </button>
+            )}
+          </div>
+
+          {/* ── Add member section ─────────────────────────────── */}
+          <div className="px-3 py-3 border-b border-f1light">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <UserPlus className="w-3 h-3 text-green-400" /> Add Member
+            </p>
+            <p className="text-[11px] text-gray-500 mb-2">
+              Search an existing Collush account by name or email and add them directly — no invite link needed.
+            </p>
+
+            {addNotice && (
+              <div className="flex items-center gap-2 text-xs text-green-300 bg-green-900/20 border border-green-700/40 rounded-lg px-3 py-1.5 mb-2">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />{addNotice}
+              </div>
+            )}
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+              <input
+                type="text"
+                className="w-full bg-gray-800 border border-f1light rounded-lg pl-8 pr-8 py-1.5 text-sm text-white focus:outline-none focus:border-green-500"
+                placeholder="Name or email…"
+                value={addQuery}
+                onChange={(e) => { setAddQuery(e.target.value); setAddNotice(null) }}
+              />
+              {addQuery && (
+                <button
+                  onClick={() => { setAddQuery(''); setAddResults([]) }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  title="Clear"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Results */}
+            {addQuery.trim().length >= 2 && (
+              <div className="mt-2 rounded-lg border border-f1light divide-y divide-f1light overflow-hidden">
+                {addSearching ? (
+                  <p className="text-xs text-gray-500 px-3 py-2">Searching…</p>
+                ) : addResults.length === 0 ? (
+                  <p className="text-xs text-gray-500 px-3 py-2">No matching accounts found.</p>
+                ) : (
+                  addResults.map((profile) => {
+                    const isMember = (group.members || []).some((m) => m.userId === profile.id)
+                    return (
+                      <div key={profile.id} className="flex items-center gap-2 px-3 py-2">
+                        <div className="w-6 h-6 rounded-full bg-green-700 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+                          {profile.displayName[0]?.toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-200 truncate">{profile.displayName}</p>
+                          {profile.email && <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>}
+                        </div>
+                        {isMember ? (
+                          <span className="text-[11px] text-gray-500 flex items-center gap-1 flex-shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> In group
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleAddUser(profile)}
+                            disabled={addingId === profile.id}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-green-700/50 text-green-400 hover:bg-green-900/30 text-xs transition-colors disabled:opacity-50 flex-shrink-0"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            {addingId === profile.id ? 'Adding…' : 'Add'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
             )}
           </div>
 
@@ -739,7 +868,7 @@ function MySummary({ groups, currentUserId, players }) {
 
 export default function WCGroupsPage() {
   const { user } = useAuth()
-  const { players, allPicks, resultsByMatchId, myEntries, activeEntryNum } = useWCGame()
+  const { players, allPicks, resultsByMatchId, myEntries, activeEntryNum, reload } = useWCGame()
 
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -924,6 +1053,7 @@ export default function WCGroupsPage() {
             allPicks={allPicks}
             resultsByMatchId={resultsByMatchId}
             onGroupsChanged={loadGroups}
+            reloadPlayers={reload}
           />
         </>
       )}

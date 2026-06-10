@@ -559,6 +559,8 @@ import {
   removeGroupMember as _removeGroupMember,
   renameGroup as _renameGroup,
   deleteGroup as _deleteGroup,
+  searchProfiles as _searchProfiles,
+  addGroupMember as _addGroupMember,
 } from './firestore'
 export const createGroup       = _createGroup
 export const joinGroupByCode   = _joinGroupByCode
@@ -566,6 +568,21 @@ export const getGroupByCode    = _getGroupByCode
 export const removeGroupMember = _removeGroupMember
 export const renameGroup       = _renameGroup
 export const deleteGroup       = _deleteGroup
+export const searchProfiles    = _searchProfiles
+
+/**
+ * Creator-only: add an existing Collush user directly to a WC group.
+ * Inserts the group membership AND ensures the user has a wc_players row
+ * (so they appear named on the group leaderboard immediately). The player
+ * upsert uses ignoreDuplicates, so an existing player's name is never clobbered.
+ * Returns { alreadyMember, group }.
+ */
+export async function addUserToWCGroup({ groupId, userId, displayName }) {
+  const result = await _addGroupMember(groupId, userId, 1)
+  // Ensure a wc_players row exists so they show up named with 0 points
+  await joinWCGame({ userId, displayName: displayName || 'Player' })
+  return result
+}
 
 export async function getWCGroupsForUser(userId) {
   if (isSupabaseConfigured && supabase) {

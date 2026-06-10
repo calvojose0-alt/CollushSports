@@ -609,6 +609,81 @@ export async function removeGroupMember(groupId, userId, entryNumber = null) {
   return true
 }
 
+/**
+ * Search existing Collush accounts by email or display name.
+ * Used by group creators to find a user to add directly to their group.
+ * Returns up to `limit` matches: [{ id, displayName, email }].
+ */
+export async function searchProfiles(query, limit = 10) {
+  const q = (query || '').trim()
+  if (q.length < 2) return []
+  if (isSupabaseConfigured && supabase) {
+    // Strip characters that would break the PostgREST .or() filter syntax
+    const safe = q.replace(/[,()*]/g, ' ').trim()
+    if (safe.length < 2) return []
+    const like = `%${safe}%`
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .or(`email.ilike.${like},display_name.ilike.${like}`)
+      .limit(limit)
+    if (error) throw new Error(error.message)
+    return (data || []).map((p) => ({
+      id: p.id,
+      displayName: p.display_name || p.email || 'Player',
+      email: p.email || '',
+    }))
+  }
+  // Demo mode — no profiles store; return empty
+  return []
+}
+
+/**
+ * Add an existing user directly to a group (creator-only action).
+ * Idempotent: if they're already a member at this entryNumber, it's a no-op.
+ * Returns { alreadyMember, group }.
+ */
+export async function addGroupMember(groupId, userId, entryNumber = 1) {
+  if (isSupabaseConfigured && supabase) {
+    const { data: groups, error } = await supabase
+      .from('groups')
+      .select('*, group_members(user_id, entry_number)')
+      .eq('id', groupId)
+    if (error) throw new Error(error.message)
+    if (!groups || groups.length === 0) throw new Error('Group not found.')
+    const group = groups[0]
+    const members = group.group_members || []
+    const alreadyMember = members.some(
+      (m) => m.user_id === userId && (m.entry_number ?? 1) === entryNumber
+    )
+    if (!alreadyMember) {
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert({ group_id: groupId, user_id: userId, entry_number: entryNumber })
+      if (memberError) throw new Error(memberError.message)
+      members.push({ user_id: userId, entry_number: entryNumber })
+    }
+    return { alreadyMember, group: mapGroup({ ...group, group_members: members }) }
+  }
+  // Demo mode
+  const all = LS.getAll('groups')
+  const group = all.find((g) => g.id === groupId)
+  if (!group) throw new Error('Group not found.')
+  const normalizedMembers = (group.members || []).map((m) =>
+    typeof m === 'string' ? { userId: m, entryNumber: 1 } : m
+  )
+  const alreadyMember = normalizedMembers.some(
+    (m) => m.userId === userId && (m.entryNumber ?? 1) === entryNumber
+  )
+  if (!alreadyMember) {
+    LS.update('groups', groupId, { members: [...normalizedMembers, { userId, entryNumber }] })
+  }
+  return {
+    alreadyMember,
+    group: { ...group, members: alreadyMember ? normalizedMembers : [...normalizedMembers, { userId, entryNumber }] },
+  }
+}
+
 export async function renameGroup(groupId, newName) {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase
