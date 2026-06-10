@@ -577,10 +577,16 @@ export const searchProfiles    = _searchProfiles
  * upsert uses ignoreDuplicates, so an existing player's name is never clobbered.
  * Returns { alreadyMember, group }.
  */
-export async function addUserToWCGroup({ groupId, userId, displayName }) {
-  const result = await _addGroupMember(groupId, userId, 1)
-  // Ensure a wc_players row exists so they show up named with 0 points
-  await joinWCGame({ userId, displayName: displayName || 'Player' })
+export async function addUserToWCGroup({ groupId, userId, displayName, entryNumber = 1, entryName }) {
+  const result = await _addGroupMember(groupId, userId, entryNumber)
+  // Ensure a wc_players row exists for this entry so it shows up named with 0
+  // points. ignoreDuplicates means an existing entry's name is never clobbered.
+  await joinWCGame({
+    userId,
+    displayName: displayName || 'Player',
+    entryNumber,
+    entryName: entryName || `Entry ${entryNumber}`,
+  })
   return result
 }
 

@@ -417,8 +417,11 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
     }
   }
 
-  const handleAddUser = async (profile) => {
-    setAddingId(profile.id)
+  const handleAddUser = async (profile, entry) => {
+    const en = entry?.entryNumber ?? 1
+    const label = entry?.entryName || `Entry ${en}`
+    const addKey = `${profile.id}_${en}`
+    setAddingId(addKey)
     setManageError(null)
     setAddNotice(null)
     try {
@@ -426,16 +429,17 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
         groupId: group.id,
         userId: profile.id,
         displayName: profile.displayName,
+        entryNumber: en,
+        entryName: label,
       })
       await onGroupsChanged()
       if (reloadPlayers) await reloadPlayers()
+      // Keep the search open so the creator can add the user's other entries.
       setAddNotice(
         alreadyMember
-          ? `${profile.displayName} is already in this group.`
-          : `Added ${profile.displayName} to the group.`
+          ? `${profile.displayName} — ${label} is already in this group.`
+          : `Added ${profile.displayName} — ${label}.`
       )
-      setAddQuery('')
-      setAddResults([])
     } catch (err) {
       setManageError(err.message || 'Failed to add member.')
     } finally {
@@ -631,29 +635,83 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                   <p className="text-xs text-gray-500 px-3 py-2">No matching accounts found.</p>
                 ) : (
                   addResults.map((profile) => {
-                    const isMember = (group.members || []).some((m) => m.userId === profile.id)
+                    // A user's entries come from their wc_players rows. If none
+                    // exist yet, treat them as a single Entry 1 to be created.
+                    const found = players
+                      .filter((p) => p.userId === profile.id)
+                      .sort((a, b) => (a.entryNumber ?? 1) - (b.entryNumber ?? 1))
+                    const entryList = found.length > 0
+                      ? found
+                      : [{ userId: profile.id, entryNumber: 1, entryName: 'Entry 1' }]
+                    const multiEntry = entryList.length > 1
+
                     return (
-                      <div key={profile.id} className="flex items-center gap-2 px-3 py-2">
-                        <div className="w-6 h-6 rounded-full bg-green-700 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-                          {profile.displayName[0]?.toUpperCase()}
+                      <div key={profile.id} className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-green-700 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+                            {profile.displayName[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-200 truncate">{profile.displayName}</p>
+                            {profile.email && <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>}
+                          </div>
+                          {/* Single-entry users: Add button inline on the name row */}
+                          {!multiEntry && (() => {
+                            const e = entryList[0]
+                            const en = e.entryNumber ?? 1
+                            const isMember = (group.members || []).some(
+                              (m) => m.userId === profile.id && (m.entryNumber ?? 1) === en
+                            )
+                            return isMember ? (
+                              <span className="text-[11px] text-gray-500 flex items-center gap-1 flex-shrink-0">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> In group
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleAddUser(profile, e)}
+                                disabled={addingId === `${profile.id}_${en}`}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-green-700/50 text-green-400 hover:bg-green-900/30 text-xs transition-colors disabled:opacity-50 flex-shrink-0"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                {addingId === `${profile.id}_${en}` ? 'Adding…' : 'Add'}
+                              </button>
+                            )
+                          })()}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-200 truncate">{profile.displayName}</p>
-                          {profile.email && <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>}
-                        </div>
-                        {isMember ? (
-                          <span className="text-[11px] text-gray-500 flex items-center gap-1 flex-shrink-0">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> In group
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleAddUser(profile)}
-                            disabled={addingId === profile.id}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-green-700/50 text-green-400 hover:bg-green-900/30 text-xs transition-colors disabled:opacity-50 flex-shrink-0"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            {addingId === profile.id ? 'Adding…' : 'Add'}
-                          </button>
+
+                        {/* Multi-entry users: one row per entry */}
+                        {multiEntry && (
+                          <div className="mt-1.5 ml-8 space-y-1">
+                            {entryList.map((e) => {
+                              const en = e.entryNumber ?? 1
+                              const label = e.entryName || `Entry ${en}`
+                              const isMember = (group.members || []).some(
+                                (m) => m.userId === profile.id && (m.entryNumber ?? 1) === en
+                              )
+                              const addKey = `${profile.id}_${en}`
+                              return (
+                                <div key={addKey} className="flex items-center gap-2">
+                                  <span className="text-xs text-yellow-400 flex-1 flex items-center gap-1">
+                                    🎯 {label}
+                                  </span>
+                                  {isMember ? (
+                                    <span className="text-[11px] text-gray-500 flex items-center gap-1 flex-shrink-0">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> In group
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAddUser(profile, e)}
+                                      disabled={addingId === addKey}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-green-700/50 text-green-400 hover:bg-green-900/30 text-xs transition-colors disabled:opacity-50 flex-shrink-0"
+                                    >
+                                      <UserPlus className="w-3.5 h-3.5" />
+                                      {addingId === addKey ? 'Adding…' : 'Add'}
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
                         )}
                       </div>
                     )
