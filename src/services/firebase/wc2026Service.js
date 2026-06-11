@@ -373,11 +373,33 @@ export async function getPicksForMatch(matchId) {
   return LS.getAll('picks').filter((p) => p.matchId === matchId)
 }
 
+/**
+ * Fetch ALL rows from a table, paging past PostgREST's 1000-row default cap.
+ * Without this, large tables (e.g. wc_picks > 1000 rows) silently truncate and
+ * the Match Picks Explorer shows "No pick" for users beyond the first page.
+ */
+async function fetchAllWCRows(table, columns = '*', orderCol = 'id') {
+  const PAGE = 1000
+  let from = 0
+  const all = []
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let query = supabase.from(table).select(columns).range(from, from + PAGE - 1)
+    if (orderCol) query = query.order(orderCol, { ascending: true })
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    all.push(...data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return all
+}
+
 export async function getAllWCPicks() {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from('wc_picks').select('*')
-    if (error) throw new Error(error.message)
-    return (data || []).map(mapPick)
+    const rows = await fetchAllWCRows('wc_picks')
+    return rows.map(mapPick)
   }
   return LS.getAll('picks').filter((p) => p.id?.startsWith(WC_GAME_ID))
 }
@@ -429,9 +451,8 @@ export async function getPlayoffPicksForUser(userId, entryNumber) {
 
 export async function getAllPlayoffPicks() {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from('wc_playoff_picks').select('*')
-    if (error) throw new Error(error.message)
-    return (data || []).map(mapPlayoffPick)
+    const rows = await fetchAllWCRows('wc_playoff_picks')
+    return rows.map(mapPlayoffPick)
   }
   return LS.getAll('playoff_picks')
 }
