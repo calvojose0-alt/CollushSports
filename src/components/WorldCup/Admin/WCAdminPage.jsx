@@ -523,9 +523,11 @@ function PlayoffAdmin({ onRefresh }) {
     const r16Set = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => picks[m.id]).filter(Boolean))
     const qfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => picks[m.id]).filter(Boolean))
     const sfSet  = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => picks[m.id]).filter(Boolean))
+    // Finalists = winners of the two semifinal matches (the 2 teams reaching the Final).
+    const finalistSet = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'sf').map(m => picks[m.id]).filter(Boolean))
     const finalM = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
     const winnerSet = new Set(finalM && picks[finalM.id] ? [picks[finalM.id]] : [])
-    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, winner: winnerSet }
+    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, finalist: finalistSet, winner: winnerSet }
   }, [slotMap, groupStageComplete])
 
   const handlePick = useCallback((matchId, teamId) => {
@@ -926,9 +928,11 @@ function RandomFillAdmin({ onRefresh, resultsByMatchId }) {
     const r16Set   = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r32').map(m => koWinners[m.id]).filter(Boolean))
     const qfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'r16').map(m => koWinners[m.id]).filter(Boolean))
     const sfSet    = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'qf') .map(m => koWinners[m.id]).filter(Boolean))
+    // Finalists = winners of the two semifinal matches (the 2 teams reaching the Final).
+    const finalistSet = new Set(KNOCKOUT_MATCHES.filter(m => m.stage === 'sf').map(m => koWinners[m.id]).filter(Boolean))
     const finalM   = KNOCKOUT_MATCHES.find(m => m.stage === 'final')
     const winnerSet = new Set(finalM && koWinners[finalM.id] ? [koWinners[finalM.id]] : [])
-    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, winner: winnerSet }
+    return { r32: r32Set, r16: r16Set, qf: qfSet, sf: sfSet, finalist: finalistSet, winner: winnerSet }
   }
 
   const handleFill = async (mode) => {

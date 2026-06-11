@@ -100,11 +100,12 @@ export const SCORING = {
   GROUP_CORRECT_OUTCOME:   2,
   GROUP_QUALIFY_EXACT:     4,  // picked team to qualify AND in the exact position
   GROUP_QUALIFY_POSITION:  2,  // picked team to qualify but in the wrong position
-  PLAYOFF_R32:     0,  // no points — R32 advancement is covered by group qualification scoring
-  PLAYOFF_R16:     5,  // per team correctly predicted to reach Round of 16
-  PLAYOFF_QF:      8,  // per team correctly predicted to reach Quarterfinals
-  PLAYOFF_SF:     10,  // per team correctly predicted to reach Semifinals
-  PLAYOFF_WINNER: 15,  // champion
+  PLAYOFF_R32:       0,  // no points — R32 advancement is covered by group qualification scoring
+  PLAYOFF_R16:       4,  // per team correctly predicted to reach Round of 16
+  PLAYOFF_QF:        6,  // per team correctly predicted to reach Quarterfinals
+  PLAYOFF_SF:        8,  // per team correctly predicted to reach Semifinals
+  PLAYOFF_FINALIST: 10,  // per team correctly predicted to reach the Final (2 finalists)
+  PLAYOFF_WINNER:   15,  // champion
 }
 
 // Pick lock: 10 minutes before the first match.
@@ -116,8 +117,9 @@ export const PLAYOFF_ROUNDS = [
   { id: 'r32',    label: 'Round of 32',   shortLabel: 'R32', teamsNeeded: 32, points: SCORING.PLAYOFF_R32    },
   { id: 'r16',    label: 'Round of 16',   shortLabel: 'R16', teamsNeeded: 16, points: SCORING.PLAYOFF_R16    },
   { id: 'qf',     label: 'Quarterfinals', shortLabel: 'QF',  teamsNeeded: 8,  points: SCORING.PLAYOFF_QF     },
-  { id: 'sf',     label: 'Semifinals',    shortLabel: 'SF',  teamsNeeded: 4,  points: SCORING.PLAYOFF_SF     },
-  { id: 'winner', label: 'Champion',      shortLabel: 'WIN', teamsNeeded: 1,  points: SCORING.PLAYOFF_WINNER },
+  { id: 'sf',       label: 'Semifinals',  shortLabel: 'SF',  teamsNeeded: 4,  points: SCORING.PLAYOFF_SF       },
+  { id: 'finalist', label: 'Final',       shortLabel: 'FIN', teamsNeeded: 2,  points: SCORING.PLAYOFF_FINALIST },
+  { id: 'winner',   label: 'Champion',    shortLabel: 'WIN', teamsNeeded: 1,  points: SCORING.PLAYOFF_WINNER   },
 ]
 
 export function getTeam(id) {

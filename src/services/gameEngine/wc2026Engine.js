@@ -244,6 +244,7 @@ export async function recalculatePlayoffPoints(actualRounds) {
     r16: SCORING.PLAYOFF_R16,
     qf:  SCORING.PLAYOFF_QF,
     sf:  SCORING.PLAYOFF_SF,
+    finalist: SCORING.PLAYOFF_FINALIST,
     winner: SCORING.PLAYOFF_WINNER,
   }
 

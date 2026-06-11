@@ -32,7 +32,8 @@ const STAGE_LABELS    = {
 }
 const STAGE_SCORING = {
   r16: SCORING.PLAYOFF_R16, qf: SCORING.PLAYOFF_QF,
-  sf: SCORING.PLAYOFF_SF, winner: SCORING.PLAYOFF_WINNER,
+  sf: SCORING.PLAYOFF_SF, finalist: SCORING.PLAYOFF_FINALIST,
+  winner: SCORING.PLAYOFF_WINNER,
 }
 
 // ── Resolve a slot label to a teamId ──────────────────────────────────────────

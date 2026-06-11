@@ -164,6 +164,11 @@ export default function WCScoringPage() {
             pts:      `+${SCORING.PLAYOFF_SF} pts each`,
           },
           {
+            label:    'Final',
+            sublabel: 'Both teams reaching the Final',
+            pts:      `+${SCORING.PLAYOFF_FINALIST} pts each`,
+          },
+          {
             label:    'Champion',
             pts:      `+${SCORING.PLAYOFF_WINNER} pts`,
             color:    'text-yellow-300',
@@ -177,8 +182,8 @@ export default function WCScoringPage() {
         </div>
 
         <MaxBadge
-          label={`16×${SCORING.PLAYOFF_R16} + 8×${SCORING.PLAYOFF_QF} + 4×${SCORING.PLAYOFF_SF} + ${SCORING.PLAYOFF_WINNER}`}
-          pts={16 * SCORING.PLAYOFF_R16 + 8 * SCORING.PLAYOFF_QF + 4 * SCORING.PLAYOFF_SF + SCORING.PLAYOFF_WINNER}
+          label={`16×${SCORING.PLAYOFF_R16} + 8×${SCORING.PLAYOFF_QF} + 4×${SCORING.PLAYOFF_SF} + 2×${SCORING.PLAYOFF_FINALIST} + ${SCORING.PLAYOFF_WINNER}`}
+          pts={16 * SCORING.PLAYOFF_R16 + 8 * SCORING.PLAYOFF_QF + 4 * SCORING.PLAYOFF_SF + 2 * SCORING.PLAYOFF_FINALIST + SCORING.PLAYOFF_WINNER}
         />
       </Section>
 
@@ -335,7 +340,7 @@ export default function WCScoringPage() {
           {[
             { label: 'Group stage match picks',     pts: 72 * SCORING.GROUP_EXACT_SCORE },
             { label: 'Group qualification bonus',   pts: 12 * SCORING.GROUP_QUALIFY_EXACT * 2 + 8 * SCORING.GROUP_QUALIFY_EXACT },
-            { label: 'Knockout bracket picks',      pts: 16 * SCORING.PLAYOFF_R16 + 8 * SCORING.PLAYOFF_QF + 4 * SCORING.PLAYOFF_SF + SCORING.PLAYOFF_WINNER },
+            { label: 'Knockout bracket picks',      pts: 16 * SCORING.PLAYOFF_R16 + 8 * SCORING.PLAYOFF_QF + 4 * SCORING.PLAYOFF_SF + 2 * SCORING.PLAYOFF_FINALIST + SCORING.PLAYOFF_WINNER },
           ].map(({ label, pts }) => (
             <div key={label} className="flex justify-between">
               <span className="text-gray-400">{label}</span>
@@ -351,6 +356,7 @@ export default function WCScoringPage() {
                 + 16 * SCORING.PLAYOFF_R16
                 + 8  * SCORING.PLAYOFF_QF
                 + 4  * SCORING.PLAYOFF_SF
+                + 2  * SCORING.PLAYOFF_FINALIST
                 + SCORING.PLAYOFF_WINNER} pts
             </span>
           </div>

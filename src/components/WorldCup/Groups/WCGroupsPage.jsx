@@ -66,18 +66,21 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
   const r32Matches = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r32'),  [])
   const r16Matches = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'r16'),  [])
   const qfMatches  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'qf'),   [])
+  const sfMatches  = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'sf'),   [])
   const finalMatch = useMemo(() => KNOCKOUT_MATCHES.filter((m) => m.stage === 'final'), [])
 
-  const actualR16    = useMemo(() => new Set(r32Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r32Matches, resultsByMatchId])
-  const actualQF     = useMemo(() => new Set(r16Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r16Matches, resultsByMatchId])
-  const actualSF     = useMemo(() => new Set(qfMatches.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [qfMatches,  resultsByMatchId])
-  const actualWinner = useMemo(() => new Set(finalMatch.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [finalMatch,  resultsByMatchId])
+  const actualR16      = useMemo(() => new Set(r32Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r32Matches, resultsByMatchId])
+  const actualQF       = useMemo(() => new Set(r16Matches.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [r16Matches, resultsByMatchId])
+  const actualSF       = useMemo(() => new Set(qfMatches.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [qfMatches,  resultsByMatchId])
+  const actualFinalist = useMemo(() => new Set(sfMatches.flatMap((m)  => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [sfMatches,  resultsByMatchId])
+  const actualWinner   = useMemo(() => new Set(finalMatch.flatMap((m) => resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])), [finalMatch, resultsByMatchId])
 
   const roundMeta = {
-    r16:    { label: 'Round of 16',  actualSet: actualR16,   decided: r32Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_R16    },
-    qf:     { label: 'Quarterfinals', actualSet: actualQF,   decided: r16Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_QF     },
-    sf:     { label: 'Semifinals',    actualSet: actualSF,   decided: qfMatches.every((m)  => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_SF     },
-    winner: { label: 'Champion',      actualSet: actualWinner, decided: finalMatch.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_WINNER },
+    r16:      { label: 'Round of 16',  actualSet: actualR16,      decided: r32Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_R16       },
+    qf:       { label: 'Quarterfinals', actualSet: actualQF,      decided: r16Matches.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_QF        },
+    sf:       { label: 'Semifinals',    actualSet: actualSF,      decided: qfMatches.every((m)  => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_SF        },
+    finalist: { label: 'Final',         actualSet: actualFinalist, decided: sfMatches.every((m)  => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_FINALIST  },
+    winner:   { label: 'Champion',      actualSet: actualWinner,  decided: finalMatch.every((m) => resultsByMatchId[m.id]?.homeTeam), pts: SCORING.PLAYOFF_WINNER    },
   }
 
   // Build a per-entry map of playoff picks: { "userId_entryNum": { r16: [...], ... } }

@@ -223,8 +223,9 @@ export default function WorldCupLayout() {
                       {[
                         { label: 'Round of 16',    sub: 'R32 qualifiers', pts: SCORING.PLAYOFF_R16  },
                         { label: 'Quarterfinals',  sub: 'R16 qualifiers', pts: SCORING.PLAYOFF_QF   },
-                        { label: 'Semifinals',     sub: 'QF qualifiers',  pts: SCORING.PLAYOFF_SF   },
-                        { label: 'Champion',       sub: null,             pts: SCORING.PLAYOFF_WINNER},
+                        { label: 'Semifinals',     sub: 'QF qualifiers',  pts: SCORING.PLAYOFF_SF       },
+                        { label: 'Final',          sub: 'SF qualifiers',  pts: SCORING.PLAYOFF_FINALIST },
+                        { label: 'Champion',       sub: null,             pts: SCORING.PLAYOFF_WINNER   },
                       ].map(({ label, sub, pts }) => (
                         <tr key={label}>
                           <td className="py-1 pr-2 text-gray-400">
