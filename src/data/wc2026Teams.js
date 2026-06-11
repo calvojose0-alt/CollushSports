@@ -107,8 +107,10 @@ export const SCORING = {
   PLAYOFF_WINNER: 15,  // champion
 }
 
-// Pick lock: 1 hour before first match (June 11, 2026 ~8PM ET → 23:00 UTC)
-export const PICK_LOCK_TIME = new Date('2026-06-11T23:00:00Z')
+// Pick lock: 10 minutes before the first match.
+// First match: MEX–RSA, June 11, 2026 at 3:00 PM ET (19:00 UTC, EDT = UTC-4).
+// Lock = 2:50 PM ET → 18:50 UTC.
+export const PICK_LOCK_TIME = new Date('2026-06-11T18:50:00Z')
 
 export const PLAYOFF_ROUNDS = [
   { id: 'r32',    label: 'Round of 32',   shortLabel: 'R32', teamsNeeded: 32, points: SCORING.PLAYOFF_R32    },

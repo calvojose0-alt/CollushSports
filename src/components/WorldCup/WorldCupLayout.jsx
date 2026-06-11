@@ -29,8 +29,8 @@ function LockCountdown() {
   }
   return (
     <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-3 py-2 text-xs text-yellow-300 text-center">
-      <div className="font-semibold">Picks lock June 11, 2026</div>
-      <div className="text-yellow-500 mt-0.5">1h before first match</div>
+      <div className="font-semibold">Picks lock June 11, 2026 · 2:50 PM ET</div>
+      <div className="text-yellow-500 mt-0.5">10 min before first match</div>
     </div>
   )
 }
