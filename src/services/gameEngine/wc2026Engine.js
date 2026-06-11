@@ -348,11 +348,52 @@ export function sortLeaderboard(players, actualTotalGoals = null) {
   })
 }
 
+// ── Head-to-head tiebreak among a set of tied teams ──────────────────────────
+// Builds a mini-table from ONLY the matches played between the tied teams and
+// orders them by: H2H points → H2H goal difference → H2H goals scored.
+// Anything still level falls through to the caller's deterministic fallback.
+//
+// tiedTeams: array of standing objects that are equal on overall pts/gd/gf.
+// validMatches: parsed matches [{ homeTeam, awayTeam, hs, as }] for the group.
+function breakGroupTie(tiedTeams, validMatches) {
+  const ids = new Set(tiedTeams.map((t) => t.teamId))
+  const mini = {}
+  tiedTeams.forEach((t) => { mini[t.teamId] = { pts: 0, gf: 0, ga: 0 } })
+
+  validMatches.forEach(({ homeTeam, awayTeam, hs, as }) => {
+    // Only count matches played strictly between the tied teams
+    if (!ids.has(homeTeam) || !ids.has(awayTeam)) return
+    mini[homeTeam].gf += hs; mini[homeTeam].ga += as
+    mini[awayTeam].gf += as; mini[awayTeam].ga += hs
+    if (hs > as)      mini[homeTeam].pts += 3
+    else if (hs < as) mini[awayTeam].pts += 3
+    else { mini[homeTeam].pts++; mini[awayTeam].pts++ }
+  })
+
+  return [...tiedTeams].sort((a, b) => {
+    const ma = mini[a.teamId], mb = mini[b.teamId]
+    const agd = ma.gf - ma.ga, bgd = mb.gf - mb.ga
+    if (mb.pts !== ma.pts) return mb.pts - ma.pts   // H2H points
+    if (bgd !== agd)       return bgd - agd          // H2H goal difference
+    if (mb.gf !== ma.gf)   return mb.gf - ma.gf       // H2H goals scored
+    // Deterministic final fallback (FIFA uses fair-play then drawing of lots,
+    // which we can't replicate without disciplinary data). Alphabetical by
+    // teamId guarantees identical inputs always yield the same order rather
+    // than depending on array/insertion order.
+    return a.teamId < b.teamId ? -1 : a.teamId > b.teamId ? 1 : 0
+  })
+}
+
 // ── Group standings simulation (client-side, no DB) ──────────────────────────
 // Used in MyPicksPage to show live standings as user enters scores.
 //
 // picks = array of { homeTeam, awayTeam, homeScore, awayScore }
 // (only picks with both scores filled in are counted)
+//
+// Ranking follows FIFA group-stage criteria: overall points → overall goal
+// difference → overall goals scored, and teams still level are separated by
+// head-to-head results between only those tied teams (points → GD → GF),
+// then a deterministic alphabetical fallback.
 
 export function computeGroupStandings(groupId, picks) {
   const teams = WC_GROUPS[groupId] || []
@@ -362,6 +403,9 @@ export function computeGroupStandings(groupId, picks) {
     standings[teamId] = { teamId, played: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0, gd: 0, pts: 0 }
   })
 
+  // Collect parsed valid matches once — reused for head-to-head tiebreaks.
+  const validMatches = []
+
   picks.forEach(({ homeTeam, awayTeam, homeScore, awayScore }) => {
     if (homeScore === null || homeScore === undefined || homeScore === '') return
     if (awayScore === null || awayScore === undefined || awayScore === '') return
@@ -369,6 +413,8 @@ export function computeGroupStandings(groupId, picks) {
     const as = parseInt(awayScore, 10)
     if (isNaN(hs) || isNaN(as)) return
     if (!standings[homeTeam] || !standings[awayTeam]) return
+
+    validMatches.push({ homeTeam, awayTeam, hs, as })
 
     standings[homeTeam].played++
     standings[awayTeam].played++
@@ -393,16 +439,29 @@ export function computeGroupStandings(groupId, picks) {
     }
   })
 
-  // Compute GD and sort
+  // Compute GD, then sort by overall criteria first.
   const sorted = Object.values(standings).map((s) => ({ ...s, gd: s.gf - s.ga }))
   sorted.sort((a, b) => {
-    if (b.pts !== a.pts)  return b.pts - a.pts
+    if (b.pts !== a.pts) return b.pts - a.pts
     if (b.gd  !== a.gd)  return b.gd  - a.gd
     if (b.gf  !== a.gf)  return b.gf  - a.gf
     return 0
   })
 
-  return sorted
+  // Resolve any remaining ties (equal overall pts/gd/gf) via head-to-head.
+  const overallKey = (s) => `${s.pts}|${s.gd}|${s.gf}`
+  const ranked = []
+  let i = 0
+  while (i < sorted.length) {
+    let j = i
+    while (j < sorted.length && overallKey(sorted[j]) === overallKey(sorted[i])) j++
+    const tiedGroup = sorted.slice(i, j)
+    if (tiedGroup.length > 1) ranked.push(...breakGroupTie(tiedGroup, validMatches))
+    else                      ranked.push(tiedGroup[0])
+    i = j
+  }
+
+  return ranked
 }
 
 // ── Validate that all group picks are filled ─────────────────────────────────
