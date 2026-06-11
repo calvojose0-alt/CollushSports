@@ -635,6 +635,7 @@ export default function BracketPage() {
 
   const [bracketPicks, setBracketPicks]     = useState({})
   const lastInitVersionRef                  = useRef(-1)
+  const lastInitSlotSigRef                  = useRef('')
   const [saving, setSaving]                   = useState(false)
   const [msg, setMsg]                         = useState(null)
   const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
@@ -790,7 +791,22 @@ export default function BracketPage() {
   // or entry switch). Using it as the trigger guarantees we always have the correct
   // entry's data before rebuilding bracketPicks — no stale-closure race condition.
   useEffect(() => {
-    if (picksVersion === lastInitVersionRef.current) return
+    // Signature of the R32 slot resolution. The best-3rd (`3XXXX`) slots are the
+    // volatile part of slotMap — they can re-resolve to a different team after the
+    // initial reconstruction has already run. When that happens the stored winner
+    // (e.g. Germany in ko_r32_1) no longer matches the freshly-resolved home/away
+    // team, so the card's ▶ "advance" flag disappears even though the pick is
+    // saved correctly (the later columns still show it because they read
+    // bracketPicks directly, not slotMap). Re-running reconstruction on slot drift
+    // keeps the displayed R32 teams in sync with the stored winners so the flag
+    // shows. Guarded by `locked` so it can never clobber an unsaved in-progress edit.
+    const slotSig = KNOCKOUT_MATCHES
+      .filter(m => m.stage === 'r32')
+      .map(m => `${resolveSlot(m.homeSlot, slotMap, {}) || ''}|${resolveSlot(m.awaySlot, slotMap, {}) || ''}`)
+      .join(',')
+    const versionChanged = picksVersion !== lastInitVersionRef.current
+    const slotDrifted    = slotSig !== lastInitSlotSigRef.current
+    if (!versionChanged && !(locked && slotDrifted)) return
     const r16Set      = new Set(myPlayoffPicksByRound.r16?.teamIds      || [])
     const qfSet       = new Set(myPlayoffPicksByRound.qf?.teamIds       || [])
     const sfSet       = new Set(myPlayoffPicksByRound.sf?.teamIds       || [])
@@ -844,7 +860,8 @@ export default function BracketPage() {
 
     setBracketPicks(newPicks)
     lastInitVersionRef.current = picksVersion
-  }, [picksVersion, myPlayoffPicksByRound, slotMap, myPicks.length])
+    lastInitSlotSigRef.current = slotSig
+  }, [picksVersion, myPlayoffPicksByRound, slotMap, myPicks.length, locked])
 
   // ── Pick a winner for a match ─────────────────────────────────────────────
   const handlePick = useCallback((matchId, teamId) => {
