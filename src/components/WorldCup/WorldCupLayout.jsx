@@ -13,7 +13,7 @@ const ALL_NAV = [
   { to: '/world-cup',            label: 'Group Stage Picks',      mobileLabel: 'My Picks',  icon: Flag,  exact: true },
   { to: '/world-cup/bracket',    label: 'Knockout Bracket Picks', mobileLabel: 'Bracket',   icon: Globe              },
   { to: '/world-cup/groups',     label: 'My Groups',              mobileLabel: 'My Groups', icon: Users              },
-  { to: '/world-cup/leaderboard',label: 'Leaderboard',            mobileLabel: 'Standings', icon: Trophy             },
+  { to: '/world-cup/leaderboard',label: 'Leaderboard',            mobileLabel: 'Standings', icon: Trophy, hidden: true },
   { to: '/world-cup/scoring',    label: 'Scoring Rules',          mobileLabel: 'Rules',     icon: Star               },
   { to: '/world-cup/admin',      label: 'Admin',                  mobileLabel: 'Admin',     icon: Settings, adminOnly: true },
 ]
@@ -68,7 +68,7 @@ export default function WorldCupLayout() {
   const myTotalPoints      = myGroupPoints + myQualPoints + myPlayoffPoints
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
-  const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)
+  const NAV = ALL_NAV.filter((item) => !item.hidden && (!item.adminOnly || isAdmin))
 
   const myRank = myPlayer
     ? leaderboard.findIndex((p) => p.userId === user?.uid) + 1

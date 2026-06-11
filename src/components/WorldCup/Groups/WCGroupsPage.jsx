@@ -800,7 +800,12 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                   key={`${player.userId}_${player.entryNumber ?? 1}`}
                   className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
                 >
-                  <span className="text-xs text-gray-500 w-5 text-center font-semibold flex-shrink-0">{idx + 1}</span>
+                  <span className="w-5 text-center font-semibold flex-shrink-0 flex items-center justify-center">
+                    {idx === 0 ? <span className="text-lg">🥇</span>
+                      : idx === 1 ? <span className="text-lg">🥈</span>
+                      : idx === 2 ? <span className="text-lg">🥉</span>
+                      : <span className="text-xs text-gray-500">{idx + 1}</span>}
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-yellow-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                     {player.displayName?.[0]?.toUpperCase()}
                   </div>
