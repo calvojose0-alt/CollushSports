@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
-import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, SCORING } from '@/data/wc2026Teams'
+import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
@@ -430,7 +430,7 @@ function MatchCard({ match, homeTeamId, awayTeamId, picked, onPick, locked, isR3
 }
 
 // ── Bracket column ────────────────────────────────────────────────────────────
-function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, allPlayoffPicks, resultsByMatchId, getTeamEntryStatus }) {
+function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, lockedForMatch, allPlayoffPicks, resultsByMatchId, getTeamEntryStatus }) {
   const roundIdx = STAGE_ROUND_IDX[stage]
   const isR32    = stage === 'r32'
 
@@ -580,7 +580,7 @@ function BracketColumn({ stage, matches, slotMap, bracketPicks, onPick, locked, 
                 awayTeamId={awayTeamId}
                 picked={picked}
                 onPick={(teamId) => onPick(match.id, teamId)}
-                locked={locked}
+                locked={lockedForMatch(match)}
                 isR32={isR32}
                 communityStats={communityStatsByMatch[match.id]}
                 result={resultsByMatchId?.[match.id] ?? null}
@@ -632,7 +632,20 @@ export default function BracketPage() {
     myPlayer, reload, activeEntryNum, myEntries, switchEntry, picksVersion,
   } = useWCGame()
 
-  const locked = isPicksLocked()
+  const globalLocked = isPicksLocked()
+  // Special access: this user may make knockout picks late, but only for matches
+  // that haven't kicked off yet. Past matches stay locked (no pick → no points).
+  const isLatePicker = user?.email?.toLowerCase() === LATE_PICK_EMAIL
+  // Page-level lock still applies to everyone except the late picker.
+  const locked = globalLocked && !isLatePicker
+  // Per-match lock: for the late picker, gate each knockout card by its kickoff.
+  const cardLocked = useCallback((matchOrId) => {
+    if (!isLatePicker) return locked
+    const km = typeof matchOrId === 'string'
+      ? KNOCKOUT_MATCHES.find((m) => m.id === matchOrId)
+      : matchOrId
+    return km ? isMatchLocked(km) : locked
+  }, [isLatePicker, locked])
 
   const [bracketPicks, setBracketPicks]     = useState({})
   const lastInitVersionRef                  = useRef(-1)
@@ -866,7 +879,7 @@ export default function BracketPage() {
 
   // ── Pick a winner for a match ─────────────────────────────────────────────
   const handlePick = useCallback((matchId, teamId) => {
-    if (locked) return
+    if (cardLocked(matchId)) return
     setBracketPicks(prev => {
       const next = { ...prev }
       const prev_winner = next[matchId]
@@ -880,7 +893,7 @@ export default function BracketPage() {
       }
       return next
     })
-  }, [locked])
+  }, [cardLocked])
 
   // ── Save all bracket picks ────────────────────────────────────────────────
   const handleSave = async () => {
@@ -958,8 +971,13 @@ export default function BracketPage() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {!locked && <TournamentCountdown compact />}
-          {locked && (
+          {isLatePicker && (
+            <span className="flex items-center gap-1.5 text-xs text-yellow-300 bg-yellow-900/30 border border-yellow-700 px-3 py-1.5 rounded-lg">
+              <Lock className="w-3 h-3" /> Late access — upcoming matches only
+            </span>
+          )}
+          {!isLatePicker && !locked && <TournamentCountdown compact />}
+          {!isLatePicker && locked && (
             <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
               <Lock className="w-3 h-3" /> Locked
             </span>
@@ -1038,7 +1056,7 @@ export default function BracketPage() {
                 slotMap={slotMap}
                 bracketPicks={bracketPicks}
                 onPick={handlePick}
-                locked={locked}
+                lockedForMatch={cardLocked}
                 allPlayoffPicks={allPlayoffPicks}
                 resultsByMatchId={resultsByMatchId}
                 getTeamEntryStatus={getTeamEntryStatus}

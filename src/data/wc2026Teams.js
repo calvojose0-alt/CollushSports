@@ -133,3 +133,26 @@ export function getGroupTeams(group) {
 export function isPicksLocked() {
   return new Date() >= PICK_LOCK_TIME
 }
+
+// Email allowed to enter picks late, but ONLY for matches that haven't kicked off yet.
+export const LATE_PICK_EMAIL = 'jcalvo222@hotmail.com'
+
+// Kickoff time (UTC) for a match. Schedule times are listed in ET, which during the
+// tournament is EDT = UTC-4, so UTC = ET + 4h. Returns null if date/time missing.
+export function getMatchKickoff(match) {
+  if (!match?.date || !match?.time) return null
+  const [y, mo, d] = match.date.split('-').map(Number)
+  const m = match.time.match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!m) return null
+  let hour = Number(m[1]) % 12
+  if (/PM/i.test(m[3])) hour += 12
+  const minute = Number(m[2])
+  // Date.UTC handles hour overflow (e.g. 9:30 PM ET → 01:30 UTC next day).
+  return new Date(Date.UTC(y, mo - 1, d, hour + 4, minute))
+}
+
+// True once a match has kicked off — its individual pick window has closed.
+export function isMatchLocked(match) {
+  const ko = getMatchKickoff(match)
+  return ko ? new Date() >= ko : true
+}

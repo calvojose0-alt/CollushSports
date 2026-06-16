@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { saveGroupPick } from '@/services/firebase/wc2026Service'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
-import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
+import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
 import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users, RefreshCw } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
@@ -265,7 +265,17 @@ export default function MyPicksPage() {
     myEntries, activeEntryNum, switchEntry, createEntry,
   } = useWCGame()
 
-  const locked = isPicksLocked()
+  const globalLocked = isPicksLocked()
+  // Special access: this user may enter picks late, but only for matches that
+  // haven't kicked off yet. Past matches stay locked (no pick → no points).
+  const isLatePicker = user?.email?.toLowerCase() === LATE_PICK_EMAIL
+  // Page-level "locked" still applies to everyone except the late picker.
+  const locked = globalLocked && !isLatePicker
+  // Per-match lock: for the late picker, gate by individual kickoff time.
+  const matchLocked = useCallback(
+    (match) => (isLatePicker ? isMatchLocked(match) : globalLocked),
+    [isLatePicker, globalLocked]
+  )
   const [activeGroup, setActiveGroup] = useState('A')
   const [showOverview, setShowOverview] = useState(true)
   const [localScores, setLocalScores] = useState({}) // { matchId: { home, away } }
@@ -286,7 +296,8 @@ export default function MyPicksPage() {
   }, [localScores, myPicksByMatchId])
 
   const handleScoreChange = (matchId, side, value) => {
-    if (locked) return
+    const match = groupMatches.find((m) => m.id === matchId)
+    if (match && matchLocked(match)) return
     setLocalScores((prev) => ({
       ...prev,
       [matchId]: { ...prev[matchId], [side]: value },
@@ -338,11 +349,13 @@ export default function MyPicksPage() {
     setSaving(true)
     setSaveMsg(null)
     try {
-      const toSave = groupMatches.map((m) => ({
-        matchId:   m.id,
-        homeScore: getScore(m.id, 'home'),
-        awayScore: getScore(m.id, 'away'),
-      })).filter((p) => p.homeScore !== null && p.awayScore !== null)
+      const toSave = groupMatches
+        .filter((m) => !matchLocked(m)) // never save a pick for a match that already kicked off
+        .map((m) => ({
+          matchId:   m.id,
+          homeScore: getScore(m.id, 'home'),
+          awayScore: getScore(m.id, 'away'),
+        })).filter((p) => p.homeScore !== null && p.awayScore !== null)
 
       if (toSave.length === 0) {
         setSaveMsg({ type: 'error', text: 'Enter at least one score before saving.' })
@@ -426,8 +439,13 @@ export default function MyPicksPage() {
           <h2 className="font-bold text-blue-800">My Group Stage Picks</h2>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          {!locked && <TournamentCountdown compact />}
-          {locked && (
+          {isLatePicker ? (
+            <span className="flex items-center gap-1.5 text-xs text-yellow-300 bg-yellow-900/30 border border-yellow-700 px-3 py-1.5 rounded-lg">
+              <Lock className="w-3 h-3" /> Late access — upcoming matches only
+            </span>
+          ) : !locked ? (
+            <TournamentCountdown compact />
+          ) : (
             <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
               <Lock className="w-3 h-3" /> Picks Locked
             </span>
@@ -625,7 +643,7 @@ export default function MyPicksPage() {
                     homeScore={getScore(match.id, 'home')}
                     awayScore={getScore(match.id, 'away')}
                     onChange={handleScoreChange}
-                    locked={locked}
+                    locked={matchLocked(match)}
                     result={resultsByMatchId[match.id]}
                     communityStats={communityStatsByMatch[match.id]}
                   />
