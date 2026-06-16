@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { saveGroupPick } from '@/services/firebase/wc2026Service'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
-import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
+import { GROUP_LETTERS, WC_TEAMS, WC_GROUPS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, LATE_PICK_ENABLED, PICK_LOCK_TIME, SCORING } from '@/data/wc2026Teams'
 import { getGroupMatches } from '@/data/wc2026Schedule'
 import { Flag, Lock, Save, CheckCircle2, AlertCircle, Loader, Trophy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users, RefreshCw } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
@@ -268,7 +268,7 @@ export default function MyPicksPage() {
   const globalLocked = isPicksLocked()
   // Special access: this user may enter picks late, but only for matches that
   // haven't kicked off yet. Past matches stay locked (no pick → no points).
-  const isLatePicker = user?.email?.toLowerCase() === LATE_PICK_EMAIL
+  const isLatePicker = LATE_PICK_ENABLED && user?.email?.toLowerCase() === LATE_PICK_EMAIL
   // Page-level "locked" still applies to everyone except the late picker.
   const locked = globalLocked && !isLatePicker
   // Per-match lock: for the late picker, gate by individual kickoff time.

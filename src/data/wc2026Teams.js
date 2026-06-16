@@ -136,6 +136,9 @@ export function isPicksLocked() {
 
 // Email allowed to enter picks late, but ONLY for matches that haven't kicked off yet.
 export const LATE_PICK_EMAIL = 'jcalvo222@hotmail.com'
+// Master switch for the late-pick exception. When false, NO ONE gets late access —
+// picks are closed for everyone (including LATE_PICK_EMAIL) per the global lock.
+export const LATE_PICK_ENABLED = false
 
 // Kickoff time (UTC) for a match. Schedule times are listed in ET, which during the
 // tournament is EDT = UTC-4, so UTC = ET + 4h. Returns null if date/time missing.

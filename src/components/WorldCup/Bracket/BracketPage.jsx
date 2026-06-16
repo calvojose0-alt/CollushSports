@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
-import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, SCORING } from '@/data/wc2026Teams'
+import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, LATE_PICK_ENABLED, SCORING } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
@@ -635,7 +635,7 @@ export default function BracketPage() {
   const globalLocked = isPicksLocked()
   // Special access: this user may make knockout picks late, but only for matches
   // that haven't kicked off yet. Past matches stay locked (no pick → no points).
-  const isLatePicker = user?.email?.toLowerCase() === LATE_PICK_EMAIL
+  const isLatePicker = LATE_PICK_ENABLED && user?.email?.toLowerCase() === LATE_PICK_EMAIL
   // Page-level lock still applies to everyone except the late picker.
   const locked = globalLocked && !isLatePicker
   // Per-match lock: for the late picker, gate each knockout card by its kickoff.
