@@ -265,6 +265,7 @@ import {
 } from 'lucide-react'
 import { seedTestUsers, removeTestUsers, TEST_USERS } from '@/services/firebase/wcTestSeeder'
 import ViewBracketsAdmin from '@/components/WorldCup/Admin/ViewBracketsAdmin'
+import UnlockBracketsAdmin from '@/components/WorldCup/Admin/UnlockBracketsAdmin'
 
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
@@ -1231,6 +1232,7 @@ export default function WCAdminPage() {
           { id: 'group',    label: 'Group Stage' },
           { id: 'playoff',  label: 'Knockout Rounds' },
           { id: 'brackets', label: '👁 View Brackets' },
+          { id: 'access',   label: '🔓 Bracket Access' },
           { id: 'settings', label: 'Tournament' },
           { id: 'devtools', label: '🧪 Dev Tools' },
         ].map((tab) => (
@@ -1251,6 +1253,7 @@ export default function WCAdminPage() {
       {activeTab === 'group'    && <GroupStageAdmin matchResults={matchResults} onRefresh={handleRefresh} resultsByMatchId={resultsByMatchId} />}
       {activeTab === 'playoff'  && <PlayoffAdmin onRefresh={handleRefresh} />}
       {activeTab === 'brackets' && <ViewBracketsAdmin />}
+      {activeTab === 'access'   && <UnlockBracketsAdmin onRefresh={handleRefresh} />}
       {activeTab === 'settings' && <TournamentSettingsAdmin tournamentMeta={tournamentMeta} onRefresh={handleRefresh} />}
       {activeTab === 'devtools' && <DevToolsAdmin onRefresh={handleRefresh} resultsByMatchId={resultsByMatchId} />}
     </div>

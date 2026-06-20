@@ -109,6 +109,7 @@ function mapPlayer(row) {
     qualificationPoints:  row.qualification_points  ?? 0,
     totalGoalsGuess:      row.total_goals_guess     ?? null,
     groupStageLeader:     row.group_stage_leader    ?? false,
+    bracketUnlocked:      row.bracket_unlocked      ?? false,
     joinedAt:             row.joined_at,
     entryNumber:          row.entry_number          ?? 1,
     entryName:            row.entry_name            ?? 'Entry 1',
@@ -251,6 +252,7 @@ export async function updateWCPlayer(userId, updates, entryNumber = 1) {
     if (updates.qualificationPoints  !== undefined) dbUpdates.qualification_points  = updates.qualificationPoints
     if (updates.totalGoalsGuess      !== undefined) dbUpdates.total_goals_guess     = updates.totalGoalsGuess
     if (updates.groupStageLeader     !== undefined) dbUpdates.group_stage_leader    = updates.groupStageLeader
+    if (updates.bracketUnlocked      !== undefined) dbUpdates.bracket_unlocked      = updates.bracketUnlocked
     const { error } = await supabase.from('wc_players').update(dbUpdates).eq('id', playerId)
     if (error) throw new Error(error.message)
     return

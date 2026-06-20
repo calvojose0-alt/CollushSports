@@ -635,18 +635,22 @@ export default function BracketPage({ viewOnly = false }) {
   const globalLocked = isPicksLocked()
   // Special access: this user may make knockout picks late, but only for matches
   // that haven't kicked off yet. Past matches stay locked (no pick → no points).
-  // viewOnly (admin bracket viewer) forces read-only and disables the late-pick path.
+  // viewOnly (admin bracket viewer) forces read-only and disables all edit paths.
   const isLatePicker = !viewOnly && LATE_PICK_ENABLED && user?.email?.toLowerCase() === LATE_PICK_EMAIL
-  // Page-level lock still applies to everyone except the late picker.
-  const locked = viewOnly || (globalLocked && !isLatePicker)
-  // Per-match lock: for the late picker, gate each knockout card by its kickoff.
+  // Admin can unlock this specific entry's bracket (flag on the player row).
+  const adminUnlocked = !viewOnly && !!myPlayer?.bracketUnlocked
+  // Either path grants editing — but still gated per match by kickoff time.
+  const canEditLate = isLatePicker || adminUnlocked
+  // Page-level lock still applies to everyone without an edit grant.
+  const locked = viewOnly || (globalLocked && !canEditLate)
+  // Per-match lock: for granted users, gate each knockout card by its kickoff.
   const cardLocked = useCallback((matchOrId) => {
-    if (!isLatePicker) return locked
+    if (!canEditLate) return locked
     const km = typeof matchOrId === 'string'
       ? KNOCKOUT_MATCHES.find((m) => m.id === matchOrId)
       : matchOrId
     return km ? isMatchLocked(km) : locked
-  }, [isLatePicker, locked])
+  }, [canEditLate, locked])
 
   const [bracketPicks, setBracketPicks]     = useState({})
   const lastInitVersionRef                  = useRef(-1)
@@ -978,13 +982,13 @@ export default function BracketPage({ viewOnly = false }) {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {isLatePicker && (
+          {canEditLate && (
             <span className="flex items-center gap-1.5 text-xs text-yellow-300 bg-yellow-900/30 border border-yellow-700 px-3 py-1.5 rounded-lg">
-              <Lock className="w-3 h-3" /> Late access — upcoming matches only
+              <Lock className="w-3 h-3" /> Bracket unlocked — upcoming matches only
             </span>
           )}
-          {!isLatePicker && !locked && <TournamentCountdown compact />}
-          {!isLatePicker && locked && (
+          {!canEditLate && !locked && <TournamentCountdown compact />}
+          {!canEditLate && locked && (
             <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-900/30 border border-red-700 px-3 py-1.5 rounded-lg">
               <Lock className="w-3 h-3" /> Locked
             </span>
