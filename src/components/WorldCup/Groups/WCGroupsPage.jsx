@@ -10,7 +10,7 @@ import {
   ChevronUp, Trophy, Calendar, Link2, Settings, Trash2, Pencil,
   UserPlus, Search, X,
 } from 'lucide-react'
-import { WC_TEAMS, GROUP_LETTERS, SCORING } from '@/data/wc2026Teams'
+import { WC_TEAMS, GROUP_LETTERS, SCORING, getMatchKickoff } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import CountryFlag from '@/components/shared/CountryFlag'
 
@@ -26,18 +26,57 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 
   const [open, setOpen]             = useState(true)
   const [explorerTab, setExplorerTab] = useState('group') // 'group' | 'bracket'
-  const [selectedGroup, setSelectedGroup] = useState('A')
   const [selectedMatchId, setSelectedMatchId] = useState(null)
   const [bracketRound, setBracketRound] = useState('r16')
 
-  const groupMatches = getGroupMatches(selectedGroup)
+  // ── Date-based group-match selection (recent & upcoming) ──────────────────────
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const parseYmd = (s) => new Date(s + 'T12:00:00')
 
-  // Auto-select first match when group changes
+  // Default focus = the group-match day closest to today.
+  const defaultFocus = useMemo(() => {
+    const today = new Date(); today.setHours(12, 0, 0, 0)
+    let best = today, diff = Infinity
+    ;[...new Set(GROUP_MATCHES.map((m) => m.date))].forEach((ds) => {
+      const delta = Math.abs(parseYmd(ds) - today)
+      if (delta < diff) { diff = delta; best = parseYmd(ds) }
+    })
+    return best
+  }, [])
+  const [focusDate, setFocusDate] = useState(defaultFocus)
+  const shiftFocus = (days) => setFocusDate((d) => { const n = new Date(d); n.setDate(n.getDate() + days); return n })
+
+  // 3-day window: previous, current, next.
+  const windowDays = useMemo(
+    () => [-1, 0, 1].map((off) => { const d = new Date(focusDate); d.setDate(d.getDate() + off); return d }),
+    [focusDate]
+  )
+  const rangeLabel = `${windowDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${windowDays[2].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+
+  // Matches grouped by day within the window, sorted by kickoff.
+  const daySections = useMemo(() => {
+    const todayStr = ymd(new Date())
+    const yStr = ymd(new Date(Date.now() - 864e5))
+    const tStr = ymd(new Date(Date.now() + 864e5))
+    return windowDays.map((d) => {
+      const ds = ymd(d)
+      const matches = GROUP_MATCHES
+        .filter((m) => m.date === ds)
+        .sort((a, b) => (getMatchKickoff(a)?.getTime() || 0) - (getMatchKickoff(b)?.getTime() || 0))
+      const base = parseYmd(ds).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const prefix = ds === todayStr ? 'Today · ' : ds === yStr ? 'Yesterday · ' : ds === tStr ? 'Tomorrow · ' : ''
+      return { ds, label: prefix + base, matches }
+    }).filter((s) => s.matches.length > 0)
+  }, [windowDays])
+
+  const selectedMatch = GROUP_MATCHES.find((m) => m.id === selectedMatchId) || null
+
+  // Auto-select a sensible default match on first open.
   useEffect(() => {
-    if (groupMatches.length > 0) setSelectedMatchId(groupMatches[0].id)
-  }, [selectedGroup])
-
-  const selectedMatch = groupMatches.find((m) => m.id === selectedMatchId) || groupMatches[0]
+    if (selectedMatchId) return
+    const firstDay = daySections.find((s) => s.matches.length)
+    if (firstDay) setSelectedMatchId(firstDay.matches[0].id)
+  }, [daySections, selectedMatchId])
 
   const picksByUser = useMemo(() => {
     if (!selectedMatchId) return {}
@@ -136,57 +175,73 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
           {/* ── Group Stage tab ────────────────────────────────────────────── */}
           {explorerTab === 'group' && (
             <div className="space-y-3 p-3">
-              {/* Group tabs A–L */}
-              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-                {GROUP_LETTERS.map((g) => (
+              {/* Day-window navigator (previous / current / next day) */}
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => shiftFocus(-1)}
+                  className="px-2.5 py-1 rounded-lg bg-gray-800 border border-f1light text-gray-300 hover:text-white text-xs font-semibold"
+                >
+                  ‹ Prev
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-yellow-300 bg-yellow-900/20 border border-yellow-700/40 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                    {rangeLabel}
+                  </span>
                   <button
-                    key={g}
-                    onClick={() => setSelectedGroup(g)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
-                      g === selectedGroup
-                        ? 'bg-yellow-600 text-white shadow-lg'
-                        : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
-                    }`}
+                    onClick={() => setFocusDate(defaultFocus)}
+                    className="text-[10px] text-gray-500 hover:text-gray-300 underline"
                   >
-                    {g}
+                    Now
                   </button>
-                ))}
+                </div>
+                <button
+                  onClick={() => shiftFocus(1)}
+                  className="px-2.5 py-1 rounded-lg bg-gray-800 border border-f1light text-gray-300 hover:text-white text-xs font-semibold"
+                >
+                  Next ›
+                </button>
               </div>
 
-              {/* Match bubbles */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {groupMatches.map((match) => {
-                  const home = WC_TEAMS[match.homeTeam]
-                  const away = WC_TEAMS[match.awayTeam]
-                  const isSelected = match.id === selectedMatchId
-                  const done = resultsByMatchId[match.id]?.status === 'final'
-                  return (
-                    <button
-                      key={match.id}
-                      onClick={() => setSelectedMatchId(match.id)}
-                      className={`flex-shrink-0 px-3 py-2 rounded-xl border text-left transition-all ${
-                        isSelected
-                          ? 'bg-yellow-600/20 border-yellow-500'
-                          : 'bg-gray-800/60 border-f1light hover:border-gray-500'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
-                        <CountryFlag cc={home?.cc} size={16} alt={home?.name} />
-                        <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
-                        <span className="text-gray-600 mx-0.5">vs</span>
-                        <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
-                        <CountryFlag cc={away?.cc} size={16} alt={away?.name} />
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {done
-                          ? <span className="text-[9px] text-green-400 font-bold">✓ Final</span>
-                          : <span className="text-[9px] text-gray-500">{fmtDate(match.date)}</span>
-                        }
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {/* Matches grouped by day */}
+              {daySections.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-4">No matches in this window — use Prev / Next.</p>
+              ) : daySections.map((sec) => (
+                <div key={sec.ds} className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-0.5">{sec.label}</p>
+                  <div className="space-y-1">
+                    {sec.matches.map((match) => {
+                      const home = WC_TEAMS[match.homeTeam]
+                      const away = WC_TEAMS[match.awayTeam]
+                      const isSelected = match.id === selectedMatchId
+                      const res = resultsByMatchId[match.id]
+                      const done = res?.status === 'final'
+                      return (
+                        <button
+                          key={match.id}
+                          onClick={() => setSelectedMatchId(match.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'bg-yellow-600/20 border-yellow-500'
+                              : 'bg-gray-800/60 border-f1light hover:border-gray-500'
+                          }`}
+                        >
+                          <span className={`text-[9px] font-bold w-12 flex-shrink-0 text-left whitespace-nowrap ${done ? 'text-green-400' : 'text-gray-500'}`}>
+                            {done ? 'FT' : (match.time?.replace(' ET', '') || '')}
+                          </span>
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center text-xs font-semibold">
+                            <span className={isSelected ? 'text-white' : 'text-gray-300'}>{home?.shortName}</span>
+                            <CountryFlag cc={home?.cc} size={16} alt={home?.name} />
+                            <span className="text-gray-500 mx-0.5 tabular-nums">{done ? `${res.homeScore}–${res.awayScore}` : 'vs'}</span>
+                            <CountryFlag cc={away?.cc} size={16} alt={away?.name} />
+                            <span className={isSelected ? 'text-white' : 'text-gray-300'}>{away?.shortName}</span>
+                          </div>
+                          <span className="w-12 flex-shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
 
               {/* Selected match — member picks */}
               {selectedMatch && (
