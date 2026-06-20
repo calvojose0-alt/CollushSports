@@ -624,7 +624,7 @@ function PickProgress({ bracketPicks }) {
 }
 
 // ── Main bracket page ─────────────────────────────────────────────────────────
-export default function BracketPage() {
+export default function BracketPage({ viewOnly = false }) {
   const { user }         = useAuth()
   const {
     myPicks, myPicksByMatchId, myPlayoffPicksByRound,
@@ -635,9 +635,10 @@ export default function BracketPage() {
   const globalLocked = isPicksLocked()
   // Special access: this user may make knockout picks late, but only for matches
   // that haven't kicked off yet. Past matches stay locked (no pick → no points).
-  const isLatePicker = LATE_PICK_ENABLED && user?.email?.toLowerCase() === LATE_PICK_EMAIL
+  // viewOnly (admin bracket viewer) forces read-only and disables the late-pick path.
+  const isLatePicker = !viewOnly && LATE_PICK_ENABLED && user?.email?.toLowerCase() === LATE_PICK_EMAIL
   // Page-level lock still applies to everyone except the late picker.
-  const locked = globalLocked && !isLatePicker
+  const locked = viewOnly || (globalLocked && !isLatePicker)
   // Per-match lock: for the late picker, gate each knockout card by its kickoff.
   const cardLocked = useCallback((matchOrId) => {
     if (!isLatePicker) return locked
@@ -653,6 +654,12 @@ export default function BracketPage() {
   const [saving, setSaving]                   = useState(false)
   const [msg, setMsg]                         = useState(null)
   const [totalGoalsGuess, setTotalGoalsGuess] = useState(myPlayer?.totalGoalsGuess ?? '')
+
+  // In the admin viewer the selected player changes; keep the (disabled) goals
+  // field in sync with whoever is being viewed.
+  useEffect(() => {
+    if (viewOnly) setTotalGoalsGuess(myPlayer?.totalGoalsGuess ?? '')
+  }, [viewOnly, myPlayer?.userId, myPlayer?.entryNumber, myPlayer?.totalGoalsGuess])
 
   // ── Build slot map: '1A'→teamId, '2B'→teamId, and '3XXXX'→best-3rd teamId ──
   // Always uses the user's own group stage picks to determine which teams
