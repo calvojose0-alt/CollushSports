@@ -102,8 +102,9 @@ async function fetchAll(t, sel, q='') { const out=[]; let o=0; for(;;){ const r=
 const DISPLAY = process.argv[2] || 'Bryce'
 ;(async () => {
   const players = await fetchAll('wc_players','user_id,entry_number,entry_name,display_name')
-  const pl = players.find(p => p.display_name === DISPLAY)
-  if (!pl) { console.log('No player named', DISPLAY); return }
+  const wantEn = process.env.ENTRY ? Number(process.env.ENTRY) : null
+  const pl = players.find(p => p.display_name === DISPLAY && (wantEn == null || (p.entry_number ?? 1) === wantEn))
+  if (!pl) { console.log('No player named', DISPLAY, wantEn ? `entry ${wantEn}` : ''); return }
   const uid = pl.user_id, en = pl.entry_number ?? 1
   const gp = await fetchAll('wc_picks','match_id,home_score,away_score', `&user_id=eq.${uid}&entry_number=eq.${en}`)
   const pp = await fetchAll('wc_playoff_picks','round,team_ids', `&user_id=eq.${uid}&entry_number=eq.${en}`)
@@ -113,6 +114,8 @@ const DISPLAY = process.argv[2] || 'Bryce'
 
   if (process.env.SWAP_REMOVE) sets.r16.delete(process.env.SWAP_REMOVE)
   if (process.env.SWAP_ADD)    sets.r16.add(process.env.SWAP_ADD)
+  if (process.env.QF_REMOVE)   sets.qf.delete(process.env.QF_REMOVE)
+  if (process.env.QF_ADD)      sets.qf.add(process.env.QF_ADD)
 
   const slotMap = buildSlotMap(pbm)
   const np = reconstruct(slotMap, sets)

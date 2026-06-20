@@ -1,4 +1,4 @@
-// scripts/diagnoseBracket.mjs
+// scripts/diagnoseGroupR32.mjs
 import fs from "fs";
 
 // src/data/wc2026Teams.js
@@ -248,7 +248,7 @@ var KNOCKOUT_MATCHES = [
 ];
 var ALL_MATCHES = [...GROUP_MATCHES, ...KNOCKOUT_MATCHES];
 
-// scripts/diagnoseBracket.mjs
+// scripts/diagnoseGroupR32.mjs
 function breakGroupTie(tied, vm) {
   const ids = new Set(tied.map((t) => t.teamId));
   const mini = {};
@@ -349,42 +349,15 @@ function buildSlotMap(pbm) {
   Object.assign(map, bt);
   return map;
 }
-function resolveSlot(slot, slotMap, picks) {
-  if (!slot) return null;
-  if (slot.startsWith("W_")) return picks["ko_" + slot.slice(2)] || null;
-  if (slot.startsWith("3rd") || slot.startsWith("L_")) return null;
-  return slotMap[slot] || null;
-}
-function reconstruct(slotMap, sets) {
-  const r16 = sets.r16, qf = sets.qf, sf = sets.sf, fin = sets.finalist, win = sets.winner;
-  const np = {};
+function derivedR32(slotMap) {
+  const set = /* @__PURE__ */ new Set();
   KNOCKOUT_MATCHES.filter((m) => m.stage === "r32").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, {}), a = resolveSlot(m.awaySlot, slotMap, {});
-    if (h && r16.has(h)) np[m.id] = h;
-    else if (a && r16.has(a)) np[m.id] = a;
+    [m.homeSlot, m.awaySlot].forEach((s) => {
+      const t = slotMap[s];
+      if (t) set.add(t);
+    });
   });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "r16").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && qf.has(h)) np[m.id] = h;
-    else if (a && qf.has(a)) np[m.id] = a;
-  });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "qf").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && sf.has(h)) np[m.id] = h;
-    else if (a && sf.has(a)) np[m.id] = a;
-  });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "sf").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && fin.has(h)) np[m.id] = h;
-    else if (a && fin.has(a)) np[m.id] = a;
-  });
-  const fm = KNOCKOUT_MATCHES.find((m) => m.stage === "final");
-  if (fm) {
-    const h = resolveSlot(fm.homeSlot, slotMap, np), a = resolveSlot(fm.awaySlot, slotMap, np);
-    if (h && win.has(h)) np[fm.id] = h;
-    else if (a && win.has(a)) np[fm.id] = a;
-  }
-  return np;
+  return set;
 }
 var tn = (id) => WC_TEAMS[id]?.name || id;
 var env = Object.fromEntries(fs.readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n").filter(Boolean).map((l) => {
@@ -400,74 +373,71 @@ async function fetchAll(t, sel, q = "") {
   for (; ; ) {
     const r = await fetch(`${BASE}/rest/v1/${t}?select=${sel}&limit=1000&offset=${o}${q}`, { headers: H });
     const rows = await r.json();
+    if (!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
     out.push(...rows);
     if (rows.length < 1e3) break;
     o += 1e3;
   }
   return out;
 }
-var DISPLAY = process.argv[2] || "Bryce";
+var GROUP_NAME = process.argv[2] || "Waterford";
 (async () => {
-  const players = await fetchAll("wc_players", "user_id,entry_number,entry_name,display_name");
-  const wantEn = process.env.ENTRY ? Number(process.env.ENTRY) : null;
-  const pl = players.find((p) => p.display_name === DISPLAY && (wantEn == null || (p.entry_number ?? 1) === wantEn));
-  if (!pl) {
-    console.log("No player named", DISPLAY, wantEn ? `entry ${wantEn}` : "");
+  const groups = await (await fetch(`${BASE}/rest/v1/groups?select=*,group_members(user_id,entry_number)&name=ilike.*${encodeURIComponent(GROUP_NAME)}*`, { headers: H })).json();
+  if (!groups.length) {
+    console.log("No group matching", GROUP_NAME);
     return;
   }
-  const uid = pl.user_id, en = pl.entry_number ?? 1;
-  const gp = await fetchAll("wc_picks", "match_id,home_score,away_score", `&user_id=eq.${uid}&entry_number=eq.${en}`);
-  const pp = await fetchAll("wc_playoff_picks", "round,team_ids", `&user_id=eq.${uid}&entry_number=eq.${en}`);
-  const pbm = {};
-  gp.forEach((p) => {
-    pbm[p.match_id] = { homeScore: p.home_score, awayScore: p.away_score };
-  });
-  const saved = {};
-  pp.forEach((p) => {
-    saved[p.round] = p.team_ids || [];
-  });
-  const sets = {};
-  ["r16", "qf", "sf", "finalist", "winner"].forEach((r) => sets[r] = new Set(saved[r] || []));
-  if (process.env.SWAP_REMOVE) sets.r16.delete(process.env.SWAP_REMOVE);
-  if (process.env.SWAP_ADD) sets.r16.add(process.env.SWAP_ADD);
-  if (process.env.QF_REMOVE) sets.qf.delete(process.env.QF_REMOVE);
-  if (process.env.QF_ADD) sets.qf.add(process.env.QF_ADD);
-  const slotMap = buildSlotMap(pbm);
-  const np = reconstruct(slotMap, sets);
-  const visual = {
-    r16: KNOCKOUT_MATCHES.filter((m) => m.stage === "r32").map((m) => np[m.id]).filter(Boolean),
-    qf: KNOCKOUT_MATCHES.filter((m) => m.stage === "r16").map((m) => np[m.id]).filter(Boolean),
-    sf: KNOCKOUT_MATCHES.filter((m) => m.stage === "qf").map((m) => np[m.id]).filter(Boolean),
-    finalist: KNOCKOUT_MATCHES.filter((m) => m.stage === "sf").map((m) => np[m.id]).filter(Boolean),
-    winner: [np[KNOCKOUT_MATCHES.find((m) => m.stage === "final")?.id]].filter(Boolean)
+  const grp = groups[0];
+  const members = grp.group_members.map((m) => ({ uid: m.user_id, en: m.entry_number ?? 1 }));
+  const [players, gp, pp] = await Promise.all([
+    fetchAll("wc_players", "user_id,entry_number,entry_name,display_name"),
+    fetchAll("wc_picks", "user_id,entry_number,match_id,home_score,away_score"),
+    fetchAll("wc_playoff_picks", "user_id,entry_number,round,team_ids")
+  ]);
+  const nameOf = (uid, en) => {
+    const p = players.find((p2) => p2.user_id === uid && (p2.entry_number ?? 1) === en);
+    return p ? `${p.display_name} \u2014 ${p.entry_name}` : uid;
   };
-  const need = { r16: 16, qf: 8, sf: 4, finalist: 2, winner: 1 };
-  const lab = { r16: "Round of 16", qf: "Quarterfinals", sf: "Semifinals", finalist: "Finalists", winner: "Champion" };
+  const gbk = {};
+  gp.forEach((p) => {
+    const k = `${p.user_id}_${p.entry_number ?? 1}`;
+    (gbk[k] ||= {})[p.match_id] = { homeScore: p.home_score, awayScore: p.away_score };
+  });
+  const r32saved = {};
+  pp.forEach((p) => {
+    if (p.round === "r32") {
+      r32saved[`${p.user_id}_${p.entry_number ?? 1}`] = p.team_ids || [];
+    }
+  });
   console.log(`
-DIAGNOSIS \u2014 ${pl.display_name} / ${pl.entry_name}  (uid=${uid} entry=${en})
+\u2550\u2550 ${grp.name} \u2014 R32: group-pick-derived (bracket visual) vs SAVED \u2550\u2550`);
+  console.log(`${members.length} member entries
 `);
-  if (process.env.VERBOSE) {
-    console.log("--- reconstructed bracket (home / away \u2192 winner) ---");
-    for (const stage of ["r32", "r16", "qf", "sf", "final"]) {
-      KNOCKOUT_MATCHES.filter((m) => m.stage === stage).forEach((m) => {
-        const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-        console.log(`  ${m.id.padEnd(10)} ${(tn(h) || "\u2014").padEnd(15)} vs ${(tn(a) || "\u2014").padEnd(15)} \u2192 ${tn(np[m.id]) || "\xB7\xB7 TBD \xB7\xB7"}`);
-      });
+  const rows = [];
+  for (const { uid, en } of members.sort((a, b) => nameOf(a.uid, a.en).localeCompare(nameOf(b.uid, b.en)))) {
+    const k = `${uid}_${en}`;
+    const gpCount = Object.keys(gbk[k] || {}).length;
+    const slotMap = buildSlotMap(gbk[k] || {});
+    const derived = derivedR32(slotMap);
+    const saved = new Set(r32saved[k] || []);
+    const inDerivedNotSaved = [...derived].filter((t) => !saved.has(t));
+    const inSavedNotDerived = [...saved].filter((t) => !derived.has(t));
+    const match = inDerivedNotSaved.length === 0 && inSavedNotDerived.length === 0 && saved.size === 32;
+    rows.push({ name: nameOf(uid, en), gpCount, savedSize: saved.size, derivedSize: derived.size, inDerivedNotSaved, inSavedNotDerived, match });
+  }
+  for (const r of rows) {
+    const status = r.savedSize === 0 ? "\u2014 no bracket saved" : r.match ? "\u2713 MATCH (saved R32 == group picks)" : "\u2717 MISMATCH";
+    console.log(`\u25CF ${r.name}`);
+    console.log(`   group picks: ${r.gpCount}/72   |   saved R32: ${r.savedSize}   |   derived R32: ${r.derivedSize}   \u2192   ${status}`);
+    if (r.savedSize > 0 && !r.match) {
+      if (r.inSavedNotDerived.length) console.log(`     saved but NOT in current group results: ${r.inSavedNotDerived.map(tn).join(", ")}`);
+      if (r.inDerivedNotSaved.length) console.log(`     in current group results but NOT saved: ${r.inDerivedNotSaved.map(tn).join(", ")}`);
     }
     console.log("");
   }
-  for (const r of ["r16", "qf", "sf", "finalist", "winner"]) {
-    const savedArr = saved[r] || [];
-    const visSet = new Set(visual[r]);
-    const missing = savedArr.filter((t) => !visSet.has(t));
-    console.log(`\u25A0 ${lab[r]}  (need ${need[r]})`);
-    console.log(`   SAVED (${savedArr.length}):  ${savedArr.map(tn).join(", ") || "\u2014"}`);
-    console.log(`   VISUAL(${visual[r].length}):  ${visual[r].map(tn).join(", ") || "\u2014"}`);
-    console.log(`   \u25BA saved but NOT shown: ${missing.map(tn).join(", ") || "none"}`);
-    const tbd = need[r] - visual[r].length;
-    if (tbd > 0) console.log(`   \u25BA TBD / unfilled slots: ${tbd}`);
-    console.log("");
-  }
+  const mism = rows.filter((r) => r.savedSize > 0 && !r.match).length;
+  const empty = rows.filter((r) => r.savedSize === 0).length;
+  console.log(`Summary: ${rows.length} entries \u2014 ${rows.length - mism - empty} match, ${mism} mismatch, ${empty} no bracket.`);
 })().catch((e) => {
   console.error("FATAL", e);
   process.exit(1);

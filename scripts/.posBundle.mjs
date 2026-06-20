@@ -1,4 +1,4 @@
-// scripts/diagnoseBracket.mjs
+// scripts/positionCheck.mjs
 import fs from "fs";
 
 // src/data/wc2026Teams.js
@@ -248,7 +248,7 @@ var KNOCKOUT_MATCHES = [
 ];
 var ALL_MATCHES = [...GROUP_MATCHES, ...KNOCKOUT_MATCHES];
 
-// scripts/diagnoseBracket.mjs
+// scripts/positionCheck.mjs
 function breakGroupTie(tied, vm) {
   const ids = new Set(tied.map((t) => t.teamId));
   const mini = {};
@@ -314,79 +314,8 @@ function standings(group, picks) {
   return ranked;
 }
 var GL = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
-function buildSlotMap(pbm) {
-  const map = {}, third = [];
-  GL.forEach((g) => {
-    const list = GROUP_MATCHES.filter((m) => m.group === g);
-    const picks = list.map((m) => ({ homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: pbm[m.id]?.homeScore ?? null, awayScore: pbm[m.id]?.awayScore ?? null }));
-    const st = standings(g, picks);
-    st.forEach((x, idx) => {
-      map[`${idx + 1}${g}`] = x.teamId;
-    });
-    if (st[2]) third.push({ group: g, ...st[2] });
-  });
-  third.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-  const q = third.slice(0, 8), codes = [];
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "r32").forEach((m) => {
-    if (/^3[A-L]{2,}/.test(m.homeSlot) && !codes.includes(m.homeSlot)) codes.push(m.homeSlot);
-    if (/^3[A-L]{2,}/.test(m.awaySlot) && !codes.includes(m.awaySlot)) codes.push(m.awaySlot);
-  });
-  const used = /* @__PURE__ */ new Set(), bt = {};
-  (function rec(i) {
-    if (i === codes.length) return true;
-    const el = codes[i].slice(1).split("");
-    for (const t of q) {
-      if (!used.has(t.teamId) && el.includes(t.group)) {
-        used.add(t.teamId);
-        bt[codes[i]] = t.teamId;
-        if (rec(i + 1)) return true;
-        used.delete(t.teamId);
-        delete bt[codes[i]];
-      }
-    }
-    return false;
-  })(0);
-  Object.assign(map, bt);
-  return map;
-}
-function resolveSlot(slot, slotMap, picks) {
-  if (!slot) return null;
-  if (slot.startsWith("W_")) return picks["ko_" + slot.slice(2)] || null;
-  if (slot.startsWith("3rd") || slot.startsWith("L_")) return null;
-  return slotMap[slot] || null;
-}
-function reconstruct(slotMap, sets) {
-  const r16 = sets.r16, qf = sets.qf, sf = sets.sf, fin = sets.finalist, win = sets.winner;
-  const np = {};
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "r32").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, {}), a = resolveSlot(m.awaySlot, slotMap, {});
-    if (h && r16.has(h)) np[m.id] = h;
-    else if (a && r16.has(a)) np[m.id] = a;
-  });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "r16").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && qf.has(h)) np[m.id] = h;
-    else if (a && qf.has(a)) np[m.id] = a;
-  });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "qf").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && sf.has(h)) np[m.id] = h;
-    else if (a && sf.has(a)) np[m.id] = a;
-  });
-  KNOCKOUT_MATCHES.filter((m) => m.stage === "sf").forEach((m) => {
-    const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-    if (h && fin.has(h)) np[m.id] = h;
-    else if (a && fin.has(a)) np[m.id] = a;
-  });
-  const fm = KNOCKOUT_MATCHES.find((m) => m.stage === "final");
-  if (fm) {
-    const h = resolveSlot(fm.homeSlot, slotMap, np), a = resolveSlot(fm.awaySlot, slotMap, np);
-    if (h && win.has(h)) np[fm.id] = h;
-    else if (a && win.has(a)) np[fm.id] = a;
-  }
-  return np;
-}
 var tn = (id) => WC_TEAMS[id]?.name || id;
+var groupOf = (id) => GL.find((g) => (WC_GROUPS[g] || []).includes(id));
 var env = Object.fromEntries(fs.readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n").filter(Boolean).map((l) => {
   const i = l.indexOf("=");
   return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
@@ -394,81 +323,37 @@ var env = Object.fromEntries(fs.readFileSync(new URL("../.env.local", import.met
 var BASE = env.VITE_SUPABASE_URL;
 var KEY = env.VITE_SUPABASE_ANON_KEY;
 var H = { apikey: KEY, Authorization: "Bearer " + KEY };
-async function fetchAll(t, sel, q = "") {
-  const out = [];
-  let o = 0;
-  for (; ; ) {
-    const r = await fetch(`${BASE}/rest/v1/${t}?select=${sel}&limit=1000&offset=${o}${q}`, { headers: H });
-    const rows = await r.json();
-    out.push(...rows);
-    if (rows.length < 1e3) break;
-    o += 1e3;
-  }
-  return out;
-}
-var DISPLAY = process.argv[2] || "Bryce";
+var UID = "2dd5db17-535c-4c5b-babb-4f14674afc8f";
+var EN = 1;
 (async () => {
-  const players = await fetchAll("wc_players", "user_id,entry_number,entry_name,display_name");
-  const wantEn = process.env.ENTRY ? Number(process.env.ENTRY) : null;
-  const pl = players.find((p) => p.display_name === DISPLAY && (wantEn == null || (p.entry_number ?? 1) === wantEn));
-  if (!pl) {
-    console.log("No player named", DISPLAY, wantEn ? `entry ${wantEn}` : "");
-    return;
-  }
-  const uid = pl.user_id, en = pl.entry_number ?? 1;
-  const gp = await fetchAll("wc_picks", "match_id,home_score,away_score", `&user_id=eq.${uid}&entry_number=eq.${en}`);
-  const pp = await fetchAll("wc_playoff_picks", "round,team_ids", `&user_id=eq.${uid}&entry_number=eq.${en}`);
+  const r = await fetch(`${BASE}/rest/v1/wc_picks?user_id=eq.${UID}&entry_number=eq.${EN}&select=match_id,home_score,away_score`, { headers: H });
+  const gp = await r.json();
   const pbm = {};
   gp.forEach((p) => {
     pbm[p.match_id] = { homeScore: p.home_score, awayScore: p.away_score };
   });
-  const saved = {};
-  pp.forEach((p) => {
-    saved[p.round] = p.team_ids || [];
+  const allThird = [];
+  const standByGroup = {};
+  GL.forEach((g) => {
+    const list = GROUP_MATCHES.filter((m) => m.group === g);
+    const picks = list.map((m) => ({ homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: pbm[m.id]?.homeScore ?? null, awayScore: pbm[m.id]?.awayScore ?? null }));
+    const st = standings(g, picks);
+    standByGroup[g] = st;
+    if (st[2]) allThird.push({ group: g, ...st[2] });
   });
-  const sets = {};
-  ["r16", "qf", "sf", "finalist", "winner"].forEach((r) => sets[r] = new Set(saved[r] || []));
-  if (process.env.SWAP_REMOVE) sets.r16.delete(process.env.SWAP_REMOVE);
-  if (process.env.SWAP_ADD) sets.r16.add(process.env.SWAP_ADD);
-  if (process.env.QF_REMOVE) sets.qf.delete(process.env.QF_REMOVE);
-  if (process.env.QF_ADD) sets.qf.add(process.env.QF_ADD);
-  const slotMap = buildSlotMap(pbm);
-  const np = reconstruct(slotMap, sets);
-  const visual = {
-    r16: KNOCKOUT_MATCHES.filter((m) => m.stage === "r32").map((m) => np[m.id]).filter(Boolean),
-    qf: KNOCKOUT_MATCHES.filter((m) => m.stage === "r16").map((m) => np[m.id]).filter(Boolean),
-    sf: KNOCKOUT_MATCHES.filter((m) => m.stage === "qf").map((m) => np[m.id]).filter(Boolean),
-    finalist: KNOCKOUT_MATCHES.filter((m) => m.stage === "sf").map((m) => np[m.id]).filter(Boolean),
-    winner: [np[KNOCKOUT_MATCHES.find((m) => m.stage === "final")?.id]].filter(Boolean)
+  allThird.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+  const best8 = new Set(allThird.slice(0, 8).map((t) => t.teamId));
+  const posLabel = (g, teamId) => {
+    const st = standByGroup[g];
+    const idx = st.findIndex((s) => s.teamId === teamId);
+    if (idx === 0) return `1st in Group ${g} (qualifies)`;
+    if (idx === 1) return `2nd in Group ${g} (qualifies)`;
+    if (idx === 2) return best8.has(teamId) ? `3rd in Group ${g} \u2014 BEST-3rd (qualifies)` : `3rd in Group ${g} \u2014 NOT a best-3rd (eliminated)`;
+    return `${idx + 1}th in Group ${g} (eliminated)`;
   };
-  const need = { r16: 16, qf: 8, sf: 4, finalist: 2, winner: 1 };
-  const lab = { r16: "Round of 16", qf: "Quarterfinals", sf: "Semifinals", finalist: "Finalists", winner: "Champion" };
-  console.log(`
-DIAGNOSIS \u2014 ${pl.display_name} / ${pl.entry_name}  (uid=${uid} entry=${en})
-`);
-  if (process.env.VERBOSE) {
-    console.log("--- reconstructed bracket (home / away \u2192 winner) ---");
-    for (const stage of ["r32", "r16", "qf", "sf", "final"]) {
-      KNOCKOUT_MATCHES.filter((m) => m.stage === stage).forEach((m) => {
-        const h = resolveSlot(m.homeSlot, slotMap, np), a = resolveSlot(m.awaySlot, slotMap, np);
-        console.log(`  ${m.id.padEnd(10)} ${(tn(h) || "\u2014").padEnd(15)} vs ${(tn(a) || "\u2014").padEnd(15)} \u2192 ${tn(np[m.id]) || "\xB7\xB7 TBD \xB7\xB7"}`);
-      });
-    }
-    console.log("");
+  for (const team of ["norway", "senegal"]) {
+    const g = groupOf(team);
+    console.log(`${tn(team)}: ${posLabel(g, team)}`);
+    console.log(`   Group ${g} predicted order: ${standByGroup[g].map((s, i) => `${i + 1}.${tn(s.teamId)}(${s.pts}p)`).join("  ")}`);
   }
-  for (const r of ["r16", "qf", "sf", "finalist", "winner"]) {
-    const savedArr = saved[r] || [];
-    const visSet = new Set(visual[r]);
-    const missing = savedArr.filter((t) => !visSet.has(t));
-    console.log(`\u25A0 ${lab[r]}  (need ${need[r]})`);
-    console.log(`   SAVED (${savedArr.length}):  ${savedArr.map(tn).join(", ") || "\u2014"}`);
-    console.log(`   VISUAL(${visual[r].length}):  ${visual[r].map(tn).join(", ") || "\u2014"}`);
-    console.log(`   \u25BA saved but NOT shown: ${missing.map(tn).join(", ") || "none"}`);
-    const tbd = need[r] - visual[r].length;
-    if (tbd > 0) console.log(`   \u25BA TBD / unfilled slots: ${tbd}`);
-    console.log("");
-  }
-})().catch((e) => {
-  console.error("FATAL", e);
-  process.exit(1);
-});
+})().catch((e) => console.error("ERR", e.message));
