@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { WC_TEAMS, GROUP_LETTERS, SCORING, getMatchKickoff } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
+import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 const WC_GAME_ID = 'wc2026'
@@ -138,6 +139,43 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 
   const currentRound = roundMeta[bracketRound]
 
+  // ── Positions tab: predicted vs actual group standings ──────────────────────
+  const [posGroup, setPosGroup] = useState('A')
+  const [comparePlayerKey, setComparePlayerKey] = useState(null)
+
+  // Actual standings per group (from results) + actual best-3rd qualifiers.
+  const { actualByGroup, bestThirdSet, groupComplete, groupStarted } = useMemo(() => {
+    const actualByGroup = {}, thirds = [], complete = {}, started = {}
+    GROUP_LETTERS.forEach((g) => {
+      const ms = getGroupMatches(g)
+      const picks = ms.map((m) => {
+        const r = resultsByMatchId[m.id]
+        return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null }
+      })
+      complete[g] = ms.every((m) => resultsByMatchId[m.id]?.status === 'final')
+      started[g] = ms.some((m) => resultsByMatchId[m.id]?.status === 'final')
+      const st = computeGroupStandings(g, picks)
+      actualByGroup[g] = st
+      if (complete[g] && st[2]) thirds.push({ group: g, ...st[2] })
+    })
+    thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+    // Best-3rd qualification is only known once EVERY group is final — otherwise
+    // the top-8 third-place ranking is incomplete and shouldn't be shown.
+    const allGroupsComplete = GROUP_LETTERS.every((g) => complete[g])
+    const bestThirdSet = allGroupsComplete ? new Set(thirds.slice(0, 8).map((t) => t.teamId)) : new Set()
+    return { actualByGroup, bestThirdSet, groupComplete: complete, groupStarted: started, allGroupsComplete }
+  }, [resultsByMatchId])
+
+  // A player/entry's predicted standings for a group (from their saved picks).
+  const predictedStandings = (group, userId, entryNumber) => {
+    const ms = getGroupMatches(group)
+    const picks = ms.map((m) => {
+      const p = allPicks.find((pp) => pp.matchId === m.id && pp.userId === userId && (pp.entryNumber ?? 1) === entryNumber)
+      return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: p?.homeScore ?? null, awayScore: p?.awayScore ?? null }
+    })
+    return computeGroupStandings(group, picks)
+  }
+
   return (
     <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">
       {/* Header */}
@@ -157,7 +195,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 
           {/* Explorer tab strip */}
           <div className="flex border-b border-f1light">
-            {[['group', 'Group Stage'], ['bracket', 'Bracket']].map(([key, label]) => (
+            {[['group', 'Group Stage'], ['positions', 'Positions'], ['bracket', 'Bracket']].map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setExplorerTab(key)}
@@ -394,6 +432,120 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
               </div>
             </div>
           )}
+
+          {/* ── Positions tab ─────────────────────────────────────────────── */}
+          {explorerTab === 'positions' && (() => {
+            const actual = actualByGroup[posGroup] || []
+            const complete = groupComplete[posGroup]
+            const started = groupStarted[posGroup]
+            const qualSet = new Set()
+            if (actual[0]) qualSet.add(actual[0].teamId)
+            if (actual[1]) qualSet.add(actual[1].teamId)
+            if (actual[2] && bestThirdSet.has(actual[2].teamId)) qualSet.add(actual[2].teamId)
+
+            const meEntry = memberPlayers.find((p) => p.userId === currentUserId) || null
+            const meKey = meEntry ? `${meEntry.userId}_${meEntry.entryNumber ?? 1}` : null
+            const fallback = memberPlayers.find((p) => `${p.userId}_${p.entryNumber ?? 1}` !== meKey) || memberPlayers[0] || null
+            const cmpKey = comparePlayerKey || (fallback ? `${fallback.userId}_${fallback.entryNumber ?? 1}` : null)
+            const cmpEntry = memberPlayers.find((p) => `${p.userId}_${p.entryNumber ?? 1}` === cmpKey) || null
+
+            const youStd = meEntry ? predictedStandings(posGroup, meEntry.userId, meEntry.entryNumber ?? 1) : []
+            const cmpStd = cmpEntry ? predictedStandings(posGroup, cmpEntry.userId, cmpEntry.entryNumber ?? 1) : []
+
+            const statusOf = (team, i) => {
+              if (!team) return 'empty'
+              if (!started) return 'neutral'
+              // 3rd-place qualification isn't decided until every group is final.
+              if (i === 2 && !allGroupsComplete) return 'neutral'
+              if (actual[i]?.teamId === team) return 'exact'
+              if (qualSet.has(team)) return 'wrong'
+              return 'miss'
+            }
+            // Count green (exact) cells — naturally skips 3rd until best-3rd resolves.
+            const exactCount = (std) => started ? [0, 1, 2, 3].filter((i) => statusOf(std[i]?.teamId, i) === 'exact').length : null
+
+            const cell = (team, status, opts = {}) => {
+              const t = team ? WC_TEAMS[team] : null
+              const box = status === 'exact' ? 'bg-green-900/30 border-green-700/50'
+                : status === 'wrong' ? 'bg-amber-900/30 border-amber-700/50'
+                : status === 'ref' ? 'bg-gray-800/50 border-f1light'
+                : 'bg-gray-800/30 border-f1light/60'
+              const txt = status === 'exact' ? 'text-green-300' : status === 'wrong' ? 'text-amber-300' : 'text-gray-300'
+              return (
+                <div className={`flex items-center gap-1 px-1.5 py-1 rounded-lg border ${box} min-w-0`}>
+                  {t ? (
+                    <>
+                      <CountryFlag cc={t.cc} size={13} alt={t.name} />
+                      <span className={`text-[11px] font-bold truncate ${txt}`}>{t.shortName}</span>
+                      {opts.badge && <span className="ml-0.5 text-[7px] bg-blue-900/60 text-blue-300 px-1 rounded font-bold flex-shrink-0">3Q</span>}
+                      {opts.pts != null && <span className="ml-auto text-[9px] text-gray-500 font-semibold flex-shrink-0">{opts.pts}p</span>}
+                    </>
+                  ) : <span className="text-gray-600 text-[11px]">—</span>}
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-3 p-3">
+                {/* Group selector */}
+                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+                  {GROUP_LETTERS.map((g) => (
+                    <button key={g} onClick={() => setPosGroup(g)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition-all ${
+                        g === posGroup ? 'bg-yellow-600 text-white shadow-lg' : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white hover:border-gray-500'
+                      }`}>{g}</button>
+                  ))}
+                </div>
+
+                {/* Legend / status */}
+                <div className="flex items-center gap-3 flex-wrap text-[10px] text-gray-400">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-green-700/70 border border-green-600" /> Right team &amp; spot</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-700/70 border border-amber-600" /> Right team, wrong spot</span>
+                  {!started
+                    ? <span className="ml-auto text-[9px] text-gray-500 font-semibold">Not started</span>
+                    : !complete
+                      ? <span className="ml-auto text-[9px] text-yellow-500 font-semibold">⏳ Live — not final</span>
+                      : <span className="ml-auto text-[9px] text-green-500 font-semibold">✓ Final</span>}
+                </div>
+
+                {/* Comparison grid */}
+                <div className="space-y-1">
+                  <div className="grid grid-cols-[18px_1fr_1fr_1fr] gap-1 items-center px-0.5">
+                    <span />
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Actual</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate">
+                      You {exactCount(youStd) != null && <span className="text-green-400">{exactCount(youStd)}✓</span>}
+                    </span>
+                    <select
+                      value={cmpKey || ''}
+                      onChange={(e) => setComparePlayerKey(e.target.value)}
+                      className="text-[10px] bg-gray-800 border border-f1light rounded px-1 py-0.5 text-gray-300 min-w-0 w-full"
+                    >
+                      {memberPlayers.map((p) => {
+                        const k = `${p.userId}_${p.entryNumber ?? 1}`
+                        const dup = memberPlayers.filter((x) => x.userId === p.userId).length > 1
+                        return <option key={k} value={k}>{p.displayName}{dup ? ` (${p.entryName})` : ''}</option>
+                      })}
+                    </select>
+                  </div>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className={`grid grid-cols-[18px_1fr_1fr_1fr] gap-1 items-stretch ${i === 3 ? 'opacity-60' : ''}`}>
+                      <span className="flex items-center justify-center text-[11px] font-bold text-gray-500">{i + 1}</span>
+                      {cell(actual[i]?.teamId, 'ref', { pts: actual[i]?.pts, badge: i === 2 && actual[2] && bestThirdSet.has(actual[2].teamId) })}
+                      {cell(youStd[i]?.teamId, statusOf(youStd[i]?.teamId, i))}
+                      {cell(cmpStd[i]?.teamId, statusOf(cmpStd[i]?.teamId, i))}
+                    </div>
+                  ))}
+                </div>
+
+                {cmpEntry && exactCount(cmpStd) != null && (
+                  <p className="text-[10px] text-gray-500 text-center">
+                    {cmpEntry.displayName}: <span className="text-green-400 font-semibold">{exactCount(cmpStd)}</span> exact positions
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
         </div>
       )}
