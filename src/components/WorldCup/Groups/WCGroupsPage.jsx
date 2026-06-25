@@ -455,22 +455,32 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
             const statusOf = (team, i) => {
               if (!team) return 'empty'
               if (!started) return 'neutral'
-              // 3rd-place qualification isn't decided until every group is final.
-              if (i === 2 && !allGroupsComplete) return 'neutral'
-              if (actual[i]?.teamId === team) return 'exact'
+              if (actual[i]?.teamId === team) {
+                // An exact 3rd-place match is held until best-3rd qualification is decided.
+                return (i === 2 && !allGroupsComplete) ? 'neutral' : 'exact'
+              }
+              // qualSet only contains decided qualifiers (1st/2nd, plus 3rd once best-3rd known),
+              // so a team placed in the wrong spot still scores as a right-team-wrong-spot pick.
               if (qualSet.has(team)) return 'wrong'
               return 'miss'
             }
             // Count green (exact) cells — naturally skips 3rd until best-3rd resolves.
             const exactCount = (std) => started ? [0, 1, 2, 3].filter((i) => statusOf(std[i]?.teamId, i) === 'exact').length : null
+            // Qualification points per predicted cell: 4 exact, 2 right-team-wrong-spot,
+            // 0 for 4th place and for 3rd until best-3rd is decided (driven by statusOf).
+            const qptsFor = (status, i) => i === 3 ? 0
+              : status === 'exact' ? SCORING.GROUP_QUALIFY_EXACT
+              : status === 'wrong' ? SCORING.GROUP_QUALIFY_POSITION
+              : 0
+            const totalPts = (std) => started ? [0, 1, 2, 3].reduce((s, i) => s + qptsFor(statusOf(std[i]?.teamId, i), i), 0) : null
 
             const cell = (team, status, opts = {}) => {
               const t = team ? WC_TEAMS[team] : null
               const box = status === 'exact' ? 'bg-green-900/30 border-green-700/50'
-                : status === 'wrong' ? 'bg-amber-900/30 border-amber-700/50'
+                : status === 'wrong' ? 'bg-yellow-500/15 border-yellow-500/50'
                 : status === 'ref' ? 'bg-gray-800/50 border-f1light'
                 : 'bg-gray-800/30 border-f1light/60'
-              const txt = status === 'exact' ? 'text-green-300' : status === 'wrong' ? 'text-amber-300' : 'text-gray-300'
+              const txt = status === 'exact' ? 'text-green-300' : status === 'wrong' ? 'text-yellow-300' : 'text-gray-300'
               return (
                 <div className={`flex items-center gap-1 px-1.5 py-1 rounded-lg border ${box} min-w-0`}>
                   {t ? (
@@ -479,6 +489,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                       <span className={`text-[11px] font-bold truncate ${txt}`}>{t.shortName}</span>
                       {opts.badge && <span className="ml-0.5 text-[7px] bg-blue-900/60 text-blue-300 px-1 rounded font-bold flex-shrink-0">3Q</span>}
                       {opts.pts != null && <span className="ml-auto text-[9px] text-gray-500 font-semibold flex-shrink-0">{opts.pts}p</span>}
+                      {opts.qpts ? <span className={`ml-auto text-[10px] font-bold flex-shrink-0 ${status === 'exact' ? 'text-green-400' : 'text-yellow-400'}`}>+{opts.qpts}</span> : null}
                     </>
                   ) : <span className="text-gray-600 text-[11px]">—</span>}
                 </div>
@@ -500,7 +511,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                 {/* Legend / status */}
                 <div className="flex items-center gap-3 flex-wrap text-[10px] text-gray-400">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-green-700/70 border border-green-600" /> Right team &amp; spot</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-700/70 border border-amber-600" /> Right team, wrong spot</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-yellow-500 border border-yellow-400" /> Right team, wrong spot</span>
                   {!started
                     ? <span className="ml-auto text-[9px] text-gray-500 font-semibold">Not started</span>
                     : !complete
@@ -514,7 +525,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                     <span />
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Actual</span>
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate">
-                      You {exactCount(youStd) != null && <span className="text-green-400">{exactCount(youStd)}✓</span>}
+                      You {totalPts(youStd) != null && <span className="text-green-400">{totalPts(youStd)}p · {exactCount(youStd)}✓</span>}
                     </span>
                     <select
                       value={cmpKey || ''}
@@ -532,15 +543,15 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                     <div key={i} className={`grid grid-cols-[18px_1fr_1fr_1fr] gap-1 items-stretch ${i === 3 ? 'opacity-60' : ''}`}>
                       <span className="flex items-center justify-center text-[11px] font-bold text-gray-500">{i + 1}</span>
                       {cell(actual[i]?.teamId, 'ref', { pts: actual[i]?.pts, badge: i === 2 && actual[2] && bestThirdSet.has(actual[2].teamId) })}
-                      {cell(youStd[i]?.teamId, statusOf(youStd[i]?.teamId, i))}
-                      {cell(cmpStd[i]?.teamId, statusOf(cmpStd[i]?.teamId, i))}
+                      {cell(youStd[i]?.teamId, statusOf(youStd[i]?.teamId, i), { qpts: qptsFor(statusOf(youStd[i]?.teamId, i), i) })}
+                      {cell(cmpStd[i]?.teamId, statusOf(cmpStd[i]?.teamId, i), { qpts: qptsFor(statusOf(cmpStd[i]?.teamId, i), i) })}
                     </div>
                   ))}
                 </div>
 
                 {cmpEntry && exactCount(cmpStd) != null && (
                   <p className="text-[10px] text-gray-500 text-center">
-                    {cmpEntry.displayName}: <span className="text-green-400 font-semibold">{exactCount(cmpStd)}</span> exact positions
+                    {cmpEntry.displayName}: <span className="text-green-400 font-semibold">{totalPts(cmpStd)} pts</span> · {exactCount(cmpStd)} exact
                   </p>
                 )}
               </div>
