@@ -144,7 +144,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
   const [comparePlayerKey, setComparePlayerKey] = useState(null)
 
   // Actual standings per group (from results) + actual best-3rd qualifiers.
-  const { actualByGroup, bestThirdSet, groupComplete, groupStarted } = useMemo(() => {
+  const { actualByGroup, bestThirdSet, groupComplete, groupStarted, allGroupsComplete } = useMemo(() => {
     const actualByGroup = {}, thirds = [], complete = {}, started = {}
     GROUP_LETTERS.forEach((g) => {
       const ms = getGroupMatches(g)
@@ -195,7 +195,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 
           {/* Explorer tab strip */}
           <div className="flex border-b border-f1light">
-            {[['group', 'Group Stage'], ['positions', 'Positions'], ['bracket', 'Bracket']].map(([key, label]) => (
+            {[['group', 'Group Stage'], ['positions', 'Group Positions'], ['bracket', 'Bracket']].map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setExplorerTab(key)}
