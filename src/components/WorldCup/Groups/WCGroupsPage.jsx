@@ -142,6 +142,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
   // ── Positions tab: predicted vs actual group standings ──────────────────────
   const [posGroup, setPosGroup] = useState('A')
   const [comparePlayerKey, setComparePlayerKey] = useState(null)
+  const [youEntryNum, setYouEntryNum] = useState(null) // which of MY entries the YOU column shows
 
   // Actual standings per group (from results) + actual best-3rd qualifiers.
   const { actualByGroup, bestThirdSet, groupComplete, groupStarted, allGroupsComplete } = useMemo(() => {
@@ -443,7 +444,11 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
             if (actual[1]) qualSet.add(actual[1].teamId)
             if (actual[2] && bestThirdSet.has(actual[2].teamId)) qualSet.add(actual[2].teamId)
 
-            const meEntry = memberPlayers.find((p) => p.userId === currentUserId) || null
+            const myEntries = memberPlayers
+              .filter((p) => p.userId === currentUserId)
+              .sort((a, b) => (a.entryNumber ?? 1) - (b.entryNumber ?? 1))
+            const youEN = youEntryNum ?? (myEntries[0]?.entryNumber ?? 1)
+            const meEntry = myEntries.find((e) => (e.entryNumber ?? 1) === youEN) || myEntries[0] || null
             const meKey = meEntry ? `${meEntry.userId}_${meEntry.entryNumber ?? 1}` : null
             const fallback = memberPlayers.find((p) => `${p.userId}_${p.entryNumber ?? 1}` !== meKey) || memberPlayers[0] || null
             const cmpKey = comparePlayerKey || (fallback ? `${fallback.userId}_${fallback.entryNumber ?? 1}` : null)
@@ -515,7 +520,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                   {!started
                     ? <span className="ml-auto text-[9px] text-gray-500 font-semibold">Not started</span>
                     : !complete
-                      ? <span className="ml-auto text-[9px] text-yellow-500 font-semibold">⏳ Live — not final</span>
+                      ? <span className="ml-auto text-xs font-bold text-yellow-300 bg-yellow-900/30 border border-yellow-700/50 px-2 py-0.5 rounded-full">⏳ Live — points not counted yet</span>
                       : <span className="ml-auto text-[9px] text-green-500 font-semibold">✓ Final</span>}
                 </div>
 
@@ -524,9 +529,29 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                   <div className="grid grid-cols-[18px_1fr_1fr_1fr] gap-1 items-center px-0.5">
                     <span />
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Actual</span>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate">
-                      You {totalPts(youStd) != null && <span className="text-green-400">{totalPts(youStd)}p · {exactCount(youStd)}✓</span>}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate">
+                        You {totalPts(youStd) != null && <span className="text-green-400">{totalPts(youStd)}p · {exactCount(youStd)}✓</span>}
+                      </span>
+                      {myEntries.length > 1 && (
+                        <div className="flex gap-1 mt-0.5">
+                          {myEntries.map((e) => {
+                            const en = e.entryNumber ?? 1
+                            return (
+                              <button
+                                key={en}
+                                onClick={() => setYouEntryNum(en)}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold truncate max-w-[5.5rem] transition-colors ${
+                                  youEN === en ? 'bg-yellow-600 text-white' : 'bg-gray-800 border border-f1light text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                {e.entryName}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={cmpKey || ''}
                       onChange={(e) => setComparePlayerKey(e.target.value)}
