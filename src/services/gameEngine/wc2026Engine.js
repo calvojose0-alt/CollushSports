@@ -66,6 +66,14 @@ export async function processMatchResult(matchId, result) {
 //   Without r32Teams, only 1st/2nd-place qualification is scored (group stage
 //   is still in progress; best-3rd slots aren't yet determined).
 //
+// Late-access users who couldn't pick the early (already-played) group matches.
+// For these accounts ONLY, group qualification is scored from whatever games they
+// did pick, instead of requiring all 6 — so they get credit for their partial
+// predictions. Does not affect any other player's scoring.
+const PARTIAL_QUAL_USERS = new Set([
+  '5028a33c-e68b-4c00-aaf2-fdee0d845d80', // Juan A (jcalvo222@hotmail.com) — late access
+])
+
 // Returns { ["userId_entryNum"]: qualificationPoints }
 export function computeQualificationPoints(allPicks, actualResultsById, r32Teams = null) {
   const qualPtsByEntry = {}
@@ -107,8 +115,10 @@ export function computeQualificationPoints(allPicks, actualResultsById, r32Teams
 
     // For each entry that has picks in this group, compute their predicted standings
     Object.entries(picksByEntry).forEach(([entryKey, entryPicks]) => {
-      // Need all 6 matches picked to determine predicted qualification
-      if (entryPicks.length < groupMatchList.length) return
+      // Need all 6 matches picked to determine predicted qualification — except for
+      // late-access users, who are scored from whatever games they did pick.
+      const uid = entryKey.slice(0, entryKey.lastIndexOf('_'))
+      if (entryPicks.length < groupMatchList.length && !PARTIAL_QUAL_USERS.has(uid)) return
       const predictedStandings = computeGroupStandings(group, entryPicks)
       const pred1st = predictedStandings[0]?.teamId
       const pred2nd = predictedStandings[1]?.teamId
