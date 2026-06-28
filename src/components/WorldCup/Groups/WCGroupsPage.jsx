@@ -491,8 +491,14 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
               if (!team) return 'empty'
               if (!started) return 'neutral'
               if (actual[i]?.teamId === team) {
-                // An exact 3rd-place match is held until best-3rd qualification is decided.
-                return (i === 2 && !allGroupsComplete) ? 'neutral' : 'exact'
+                if (i === 2) {
+                  // 3rd place is held until best-3rd is decided, and only scores if
+                  // that team actually qualified as a best-3rd (else it earns nothing,
+                  // matching the engine — e.g. a 3rd-place team that didn't advance).
+                  if (!allGroupsComplete) return 'neutral'
+                  if (!bestThirdSet.has(team)) return 'miss'
+                }
+                return 'exact'
               }
               // qualSet only contains decided qualifiers (1st/2nd, plus 3rd once best-3rd known),
               // so a team placed in the wrong spot still scores as a right-team-wrong-spot pick.
