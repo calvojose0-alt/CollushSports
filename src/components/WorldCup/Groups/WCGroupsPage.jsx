@@ -26,7 +26,7 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
   const { allPlayoffPicks } = useWCGame()
 
   const [open, setOpen]             = useState(true)
-  const [explorerTab, setExplorerTab] = useState('group') // 'group' | 'bracket'
+  const [explorerTab, setExplorerTab] = useState('bracket') // 'group' | 'positions' | 'bracket'
   const [selectedMatchId, setSelectedMatchId] = useState(null)
   const [bracketRound, setBracketRound] = useState('r16')
 
