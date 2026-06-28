@@ -3,7 +3,7 @@
 //          leaderboard ranking, group stage standings simulation.
 
 import { SCORING, WC_GROUPS, WC_TEAMS } from '@/data/wc2026Teams'
-import { GROUP_MATCHES } from '@/data/wc2026Schedule'
+import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import {
   getPicksForMatch,
   getAllWCPicks,
@@ -473,6 +473,58 @@ export function computeGroupStandings(groupId, picks) {
   }
 
   return ranked
+}
+
+// ── Teams already eliminated from the real tournament ────────────────────────
+// Given actual match results (keyed by matchId), returns a Set of teamIds that
+// are out: group-stage non-qualifiers (4th always; 3rd once best-3rd is decided
+// and it isn't a top-8 third) plus knockout losers once each round is complete.
+// Shared by the World Cup bracket explorer and the Win League standings.
+export function getEliminatedTeams(resultsByMatchId = {}) {
+  const elim = new Set()
+  const groups = Object.keys(WC_GROUPS)
+
+  const actualByGroup = {}, complete = {}, thirds = []
+  groups.forEach((g) => {
+    const ms = GROUP_MATCHES.filter((m) => m.group === g)
+    const picks = ms.map((m) => {
+      const r = resultsByMatchId[m.id]
+      return { homeTeam: m.homeTeam, awayTeam: m.awayTeam, homeScore: r?.homeScore ?? null, awayScore: r?.awayScore ?? null }
+    })
+    complete[g] = ms.every((m) => resultsByMatchId[m.id]?.status === 'final')
+    actualByGroup[g] = computeGroupStandings(g, picks)
+    if (complete[g] && actualByGroup[g][2]) thirds.push({ group: g, ...actualByGroup[g][2] })
+  })
+  const allComplete = groups.every((g) => complete[g])
+  thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+  const best3 = allComplete ? new Set(thirds.slice(0, 8).map((t) => t.teamId)) : new Set()
+
+  groups.forEach((g) => {
+    if (!complete[g]) return
+    const st = actualByGroup[g]
+    if (st[3]) elim.add(st[3].teamId)
+    if (st[2] && allComplete && !best3.has(st[2].teamId)) elim.add(st[2].teamId)
+  })
+
+  const winners = (stage) => new Set(KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
+    .flatMap((m) => (resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])))
+  const done = (stage) => {
+    const mm = KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
+    return mm.length > 0 && mm.every((m) => resultsByMatchId[m.id]?.status === 'final')
+  }
+  const r16 = winners('r32'), qf = winners('r16'), sf = winners('qf'), fin = winners('sf'), champ = winners('final')
+  if (allComplete && done('r32')) {
+    const r32 = new Set()
+    groups.forEach((g) => { const st = actualByGroup[g]; if (st[0]) r32.add(st[0].teamId); if (st[1]) r32.add(st[1].teamId) })
+    best3.forEach((t) => r32.add(t))
+    r32.forEach((t) => { if (!r16.has(t)) elim.add(t) })
+  }
+  if (done('r16')) r16.forEach((t) => { if (!qf.has(t)) elim.add(t) })
+  if (done('qf'))  qf.forEach((t)  => { if (!sf.has(t)) elim.add(t) })
+  if (done('sf'))  sf.forEach((t)  => { if (!fin.has(t)) elim.add(t) })
+  if (done('final')) fin.forEach((t) => { if (!champ.has(t)) elim.add(t) })
+
+  return elim
 }
 
 // ── Validate that all group picks are filled ─────────────────────────────────

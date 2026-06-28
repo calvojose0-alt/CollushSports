@@ -146,12 +146,24 @@ function PlayerRow({ player, rank, isMe, expanded, onToggle, isChampion }) {
         </div>
 
         {/* Team flags preview */}
-        <div className="flex items-center gap-2 pl-10">
+        <div className="flex items-center gap-1.5 pl-10 flex-wrap">
           {(player.teams || []).map((t) => {
             const info = WC_TEAMS[t.teamId]
-            return info ? (
-              <span key={t.teamId} className="text-sm" title={info.name}>{info.flag}</span>
-            ) : null
+            if (!info) return null
+            return (
+              <span
+                key={t.teamId}
+                title={t.eliminated ? `${info.name} (eliminated)` : info.name}
+                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md border ${
+                  t.eliminated
+                    ? 'bg-red-900/30 border-red-700/50 text-red-300 line-through decoration-red-400/70'
+                    : 'bg-gray-800/60 border-f1light text-gray-300'
+                }`}
+              >
+                <span className="text-sm leading-none no-underline">{info.flag}</span>
+                {info.shortName}
+              </span>
+            )
           })}
           {(!player.teams || player.teams.length === 0) && (
             <span className="text-xs text-gray-600 italic">No picks yet</span>

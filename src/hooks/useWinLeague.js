@@ -9,6 +9,7 @@ import {
   draftTeam as _draftTeam,
 } from '@/services/winLeague/winLeagueService'
 import { getAllMatchResults } from '@/services/firebase/wc2026Service'
+import { getEliminatedTeams } from '@/services/gameEngine/wc2026Engine'
 import { WL_RANKED_TEAMS, WL_ROUND_ORDER, WL_ROUNDS } from '@/data/wl2026Rankings'
 import { WC_TEAMS } from '@/data/wc2026Teams'
 import { GROUP_MATCHES } from '@/data/wc2026Schedule'
@@ -92,6 +93,10 @@ function computeAdvancePoints(teamId, advancements) {
  * Returns sorted array of player objects with computed scores.
  */
 function buildLeaderboard(players, picks, advancements, matchResults) {
+  // Teams already knocked out of the World Cup (won't earn more points).
+  const resultsByMatchId = Object.fromEntries((matchResults || []).map((r) => [r.matchId, r]))
+  const eliminatedTeams = getEliminatedTeams(resultsByMatchId)
+
   // Group picks by userId
   const picksByUser = {}
   for (const p of picks) {
@@ -123,6 +128,7 @@ function buildLeaderboard(players, picks, advancements, matchResults) {
         losses,
         matches,
         roundsReached,
+        eliminated:   eliminatedTeams.has(pick.teamId),
         teamInfo:     WC_TEAMS[pick.teamId] || null,
       }
     })
