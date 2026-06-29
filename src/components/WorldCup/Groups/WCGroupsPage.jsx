@@ -438,12 +438,14 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
                           <div className="flex flex-wrap gap-1">
                             {teamIds.map((teamId) => {
                               const team = WC_TEAMS[teamId]
+                              // Green as soon as the team has actually reached this round
+                              // (won the previous stage); red if eliminated before it; else gray.
                               const isCorrect = currentRound.actualSet.has(teamId)
                               const isElim = eliminatedTeams.has(teamId)
-                              const chipCls = isElim
-                                ? 'bg-red-900/50 border-red-600 text-red-300 line-through decoration-red-400/70'
-                                : currentRound.decided && isCorrect
-                                  ? 'bg-green-900/40 border-green-600 text-green-300'
+                              const chipCls = isCorrect
+                                ? 'bg-green-900/40 border-green-600 text-green-300'
+                                : isElim
+                                  ? 'bg-red-900/50 border-red-600 text-red-300 line-through decoration-red-400/70'
                                   : 'bg-gray-800/60 border-gray-700 text-gray-300'
                               return (
                                 <span key={teamId} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[10px] font-semibold ${chipCls}`}>
