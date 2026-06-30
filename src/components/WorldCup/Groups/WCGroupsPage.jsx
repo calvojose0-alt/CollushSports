@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { WC_TEAMS, GROUP_LETTERS, SCORING, getMatchKickoff } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
-import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
+import { computeGroupStandings, getEliminatedTeams } from '@/services/gameEngine/wc2026Engine'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 const WC_GAME_ID = 'wc2026'
@@ -177,34 +177,8 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
     return computeGroupStandings(group, picks)
   }
 
-  // ── Teams already ELIMINATED in the real tournament (for red bracket chips) ──
-  const eliminatedTeams = useMemo(() => {
-    const elim = new Set()
-    // Group stage: 4th place is always out; 3rd place is out once best-3rd is
-    // decided (all groups final) and it isn't one of the 8 qualifiers.
-    GROUP_LETTERS.forEach((g) => {
-      if (!groupComplete[g]) return
-      const st = actualByGroup[g] || []
-      if (st[3]) elim.add(st[3].teamId)
-      if (st[2] && allGroupsComplete && !bestThirdSet.has(st[2].teamId)) elim.add(st[2].teamId)
-    })
-    // Knockout: once a round is fully played, anyone who reached it but didn't
-    // advance to the next round is eliminated.
-    const done = (mm) => mm.length > 0 && mm.every((m) => resultsByMatchId[m.id]?.status === 'final')
-    if (allGroupsComplete && done(r32Matches)) {
-      const r32 = new Set()
-      GROUP_LETTERS.forEach((g) => { const st = actualByGroup[g] || []; if (st[0]) r32.add(st[0].teamId); if (st[1]) r32.add(st[1].teamId) })
-      bestThirdSet.forEach((t) => r32.add(t))
-      r32.forEach((t) => { if (!actualR16.has(t)) elim.add(t) })
-    }
-    if (done(r16Matches)) actualR16.forEach((t) => { if (!actualQF.has(t)) elim.add(t) })
-    if (done(qfMatches))  actualQF.forEach((t)  => { if (!actualSF.has(t)) elim.add(t) })
-    if (done(sfMatches))  actualSF.forEach((t)  => { if (!actualFinalist.has(t)) elim.add(t) })
-    if (done(finalMatch)) actualFinalist.forEach((t) => { if (!actualWinner.has(t)) elim.add(t) })
-    return elim
-  }, [actualByGroup, groupComplete, allGroupsComplete, bestThirdSet, resultsByMatchId,
-      actualR16, actualQF, actualSF, actualFinalist, actualWinner,
-      r32Matches, r16Matches, qfMatches, sfMatches, finalMatch])
+  // Teams already eliminated (group non-qualifiers + per-match knockout losers).
+  const eliminatedTeams = useMemo(() => getEliminatedTeams(resultsByMatchId), [resultsByMatchId])
 
   return (
     <div className="bg-f1dark rounded-xl overflow-hidden border border-f1light">

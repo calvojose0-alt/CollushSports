@@ -172,3 +172,52 @@ export function getMatchesByMatchday(group, matchday) {
 export function getKnockoutMatchesByStage(stage) {
   return KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
 }
+
+// ── Best third-placed team allocation ────────────────────────────────────────
+// FIFA assigns the 8 qualifying third-placed teams to fixed R32 "3XXXX" slots via
+// a predetermined table — eligibility alone is ambiguous (several valid maps
+// exist), so a generic search can pick the wrong-but-valid one. This table is
+// keyed by the sorted set of qualifying 3rd-place group letters → { slotCode:
+// group }. Combinations not in the table fall back to eligibility backtracking.
+export const THIRD_PLACE_ALLOCATION = {
+  // 2026 actual qualifiers (groups B,D,E,F,I,J,K,L):
+  // GER-PAR, FRA-SWE, BEL-SEN, MEX-ECU, etc.
+  BDEFIJKL: { '3ABCDF': 'D', '3CDFGH': 'F', '3BEFIJ': 'B', '3AEHIJ': 'I', '3CEFHI': 'E', '3EHIJK': 'K', '3EFGIJ': 'J', '3DEIJL': 'L' },
+}
+
+// qualified: [{ teamId, group }] (top-8 third-placed). r32ThirdCodes: ['3ABCDF', …].
+// Returns { slotCode: teamId }.
+export function assignBestThird(qualified, r32ThirdCodes) {
+  // 1) Authoritative FIFA table when we know this combination of groups.
+  const key = qualified.map((t) => t.group).slice().sort().join('')
+  const table = THIRD_PLACE_ALLOCATION[key]
+  if (table) {
+    const byGroup = Object.fromEntries(qualified.map((t) => [t.group, t.teamId]))
+    const out = {}
+    let complete = true
+    for (const code of r32ThirdCodes) {
+      const g = table[code]
+      if (g && byGroup[g]) out[code] = byGroup[g]
+      else { complete = false; break }
+    }
+    if (complete) return out
+  }
+  // 2) Fallback: eligibility backtracking (finds any valid assignment).
+  const result = {}
+  const used = new Set()
+  ;(function bt(i) {
+    if (i === r32ThirdCodes.length) return true
+    const eligible = r32ThirdCodes[i].slice(1).split('')
+    for (const team of qualified) {
+      if (!used.has(team.teamId) && eligible.includes(team.group)) {
+        used.add(team.teamId)
+        result[r32ThirdCodes[i]] = team.teamId
+        if (bt(i + 1)) return true
+        used.delete(team.teamId)
+        delete result[r32ThirdCodes[i]]
+      }
+    }
+    return false
+  })(0)
+  return result
+}

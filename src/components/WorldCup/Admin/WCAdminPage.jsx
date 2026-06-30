@@ -18,7 +18,7 @@ import {
   computeGroupStandings,
 } from '@/services/gameEngine/wc2026Engine'
 import { SCORING, GROUP_LETTERS, WC_TEAMS, PLAYOFF_ROUNDS } from '@/data/wc2026Teams'
-import { GROUP_MATCHES, KNOCKOUT_MATCHES, getGroupMatches } from '@/data/wc2026Schedule'
+import { GROUP_MATCHES, KNOCKOUT_MATCHES, getGroupMatches, assignBestThird } from '@/data/wc2026Schedule'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 // ── Bracket layout constants (shared with visual bracket) ─────────────────────
@@ -47,30 +47,6 @@ function bResolveSlot(slot, slotMap, picks) {
 }
 
 // Backtracking assignment of top-8 3rd-place teams to R32 slot codes.
-// Greedy ordering can leave slots empty when teams shared across slots get
-// consumed early. Backtracking finds a valid assignment whenever one exists,
-// while still preferring higher-ranked teams (qualified is sorted best-first).
-function assignBestThird(qualified, r32ThirdCodes) {
-  const result = {}
-  const used   = new Set()
-  function bt(i) {
-    if (i === r32ThirdCodes.length) return true
-    const eligible = r32ThirdCodes[i].slice(1).split('')
-    for (const team of qualified) {
-      if (!used.has(team.teamId) && eligible.includes(team.group)) {
-        used.add(team.teamId)
-        result[r32ThirdCodes[i]] = team.teamId
-        if (bt(i + 1)) return true
-        used.delete(team.teamId)
-        delete result[r32ThirdCodes[i]]
-      }
-    }
-    return false
-  }
-  bt(0)
-  return result
-}
-
 // Rank all 12 third-place teams and assign the top 8 to the R32 "3XXXX" slot codes.
 // Mutates `map` in place; call after the group standings loop.
 function computeThirdPlaceAssignments(map, resultsById) {

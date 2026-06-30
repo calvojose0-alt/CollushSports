@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useWCGameContext as useWCGame } from '@/contexts/WCGameContext'
 import { savePlayoffPick, updateWCPlayer } from '@/services/firebase/wc2026Service'
 import { WC_TEAMS, GROUP_LETTERS, isPicksLocked, isMatchLocked, LATE_PICK_EMAIL, LATE_PICK_ENABLED, SCORING } from '@/data/wc2026Teams'
-import { GROUP_MATCHES, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
+import { GROUP_MATCHES, KNOCKOUT_MATCHES, assignBestThird } from '@/data/wc2026Schedule'
 import { computeGroupStandings } from '@/services/gameEngine/wc2026Engine'
 import { Save, Loader, Lock, CheckCircle2, AlertCircle, Trophy, Users, Globe } from 'lucide-react'
 import TournamentCountdown from '@/components/WorldCup/TournamentCountdown'
@@ -699,27 +699,8 @@ export default function BracketPage({ viewOnly = false }) {
       if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
       if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
     })
-
-    // Backtracking assignment — guarantees all eligible slots are filled
-    // even when greedy ordering would leave some empty.
-    const used   = new Set()
-    const btResult = {}
-    function bt(i) {
-      if (i === r32ThirdCodes.length) return true
-      const eligible = r32ThirdCodes[i].slice(1).split('')
-      for (const team of qualified) {
-        if (!used.has(team.teamId) && eligible.includes(team.group)) {
-          used.add(team.teamId)
-          btResult[r32ThirdCodes[i]] = team.teamId
-          if (bt(i + 1)) return true
-          used.delete(team.teamId)
-          delete btResult[r32ThirdCodes[i]]
-        }
-      }
-      return false
-    }
-    bt(0)
-    Object.assign(map, btResult)
+    // FIFA allocation table (with eligibility-backtracking fallback).
+    Object.assign(map, assignBestThird(qualified, r32ThirdCodes))
 
     return map
   }, [myPicksByMatchId])
@@ -761,24 +742,7 @@ export default function BracketPage({ viewOnly = false }) {
         if (/^3[A-L]{2,}/.test(m.homeSlot) && !r32ThirdCodes.includes(m.homeSlot)) r32ThirdCodes.push(m.homeSlot)
         if (/^3[A-L]{2,}/.test(m.awaySlot) && !r32ThirdCodes.includes(m.awaySlot)) r32ThirdCodes.push(m.awaySlot)
       })
-      const used = new Set()
-      const btResult = {}
-      function bt(i) {
-        if (i === r32ThirdCodes.length) return true
-        const eligible = r32ThirdCodes[i].slice(1).split('')
-        for (const team of qualified) {
-          if (!used.has(team.teamId) && eligible.includes(team.group)) {
-            used.add(team.teamId)
-            btResult[r32ThirdCodes[i]] = team.teamId
-            if (bt(i + 1)) return true
-            used.delete(team.teamId)
-            delete btResult[r32ThirdCodes[i]]
-          }
-        }
-        return false
-      }
-      bt(0)
-      Object.assign(map, btResult)
+      Object.assign(map, assignBestThird(qualified, r32ThirdCodes))
     }
 
     return { actualGroupSlotMap: map, groupsWithAllResults, allGroupsComplete }

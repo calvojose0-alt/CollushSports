@@ -506,23 +506,12 @@ export function getEliminatedTeams(resultsByMatchId = {}) {
     if (st[2] && allComplete && !best3.has(st[2].teamId)) elim.add(st[2].teamId)
   })
 
-  const winners = (stage) => new Set(KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
-    .flatMap((m) => (resultsByMatchId[m.id]?.homeTeam ? [resultsByMatchId[m.id].homeTeam] : [])))
-  const done = (stage) => {
-    const mm = KNOCKOUT_MATCHES.filter((m) => m.stage === stage)
-    return mm.length > 0 && mm.every((m) => resultsByMatchId[m.id]?.status === 'final')
-  }
-  const r16 = winners('r32'), qf = winners('r16'), sf = winners('qf'), fin = winners('sf'), champ = winners('final')
-  if (allComplete && done('r32')) {
-    const r32 = new Set()
-    groups.forEach((g) => { const st = actualByGroup[g]; if (st[0]) r32.add(st[0].teamId); if (st[1]) r32.add(st[1].teamId) })
-    best3.forEach((t) => r32.add(t))
-    r32.forEach((t) => { if (!r16.has(t)) elim.add(t) })
-  }
-  if (done('r16')) r16.forEach((t) => { if (!qf.has(t)) elim.add(t) })
-  if (done('qf'))  qf.forEach((t)  => { if (!sf.has(t)) elim.add(t) })
-  if (done('sf'))  sf.forEach((t)  => { if (!fin.has(t)) elim.add(t) })
-  if (done('final')) fin.forEach((t) => { if (!champ.has(t)) elim.add(t) })
+  // Knockout: the loser of each finished match is out immediately. The admin
+  // stores the advancing team as home_team and the eliminated side as away_team.
+  KNOCKOUT_MATCHES.forEach((m) => {
+    const r = resultsByMatchId[m.id]
+    if (r?.status === 'final' && r.awayTeam) elim.add(r.awayTeam)
+  })
 
   return elim
 }
