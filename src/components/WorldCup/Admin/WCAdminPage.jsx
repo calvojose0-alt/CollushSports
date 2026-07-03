@@ -148,7 +148,7 @@ function AdminTeamSlot({ teamId, slotLabel, selected, onClick }) {
   )
 }
 
-function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, onSave, onDelete, saving }) {
+function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, onSave, onDelete, saving, isPenalty, onTogglePenalty }) {
   const fmtDate = (d) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const isDirty = picked && picked !== saved
@@ -159,6 +159,18 @@ function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, 
       <div className="px-2 flex items-center justify-between flex-shrink-0 bg-gray-900/60 border-b border-gray-700/50"
         style={{ height: 16 }}>
         <span className="text-[8px] text-gray-500 uppercase tracking-wide truncate flex-1 mr-1">{match.venue || ''}</span>
+        {(picked || saved) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePenalty && onTogglePenalty() }}
+            disabled={saving}
+            title="Won on penalties — counts as a draw (1 pt each)"
+            className={`rounded px-1 py-px text-[8px] font-bold leading-none flex-shrink-0 mr-1 transition-colors disabled:opacity-50 ${
+              isPenalty ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
+            }`}
+          >
+            PK
+          </button>
+        )}
         {isDirty && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave() }}
@@ -202,7 +214,7 @@ function AdminMatchCard({ match, homeTeamId, awayTeamId, picked, saved, onPick, 
   )
 }
 
-function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, savingMatch, onPick, onSave, onDelete }) {
+function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, savingMatch, onPick, onSave, onDelete, penaltyMatches, onTogglePenalty }) {
   const roundIdx = B_STAGE_IDX[stage]
   return (
     <div style={{ width: B_COL_W, flexShrink: 0 }}>
@@ -227,6 +239,8 @@ function AdminBracketColumn({ stage, matches, slotMap, adminPicks, savedPicks, s
                 onPick={(teamId) => onPick(match.id, teamId)}
                 onSave={() => onSave(match.id)}
                 onDelete={() => onDelete(match.id)}
+                isPenalty={penaltyMatches?.has(match.id)}
+                onTogglePenalty={() => onTogglePenalty(match.id)}
               />
             </div>
           )
@@ -442,6 +456,9 @@ function PlayoffAdmin({ onRefresh }) {
   const [savedPicks, setSavedPicks] = useState({})
   const [savingMatch, setSavingMatch] = useState(null) // matchId currently being saved
   const [msg, setMsg] = useState(null)
+  // Matches decided on penalties (a draw in play) — scored 1–1 so match points
+  // count a tie, while the winner still advances via homeTeam.
+  const [penaltyMatches, setPenaltyMatches] = useState(new Set())
   const initializedRef = useRef(false)
 
   // ── Initialize admin bracket from previously saved knockout results in DB ──
@@ -452,12 +469,17 @@ function PlayoffAdmin({ onRefresh }) {
     if (!hasKo) return
     initializedRef.current = true
     const loaded = {}
+    const pens = new Set()
     koIds.forEach((id) => {
       const r = resultsByMatchId[id]
-      if (r?.status === 'final' && r?.homeTeam) loaded[id] = r.homeTeam
+      if (r?.status === 'final' && r?.homeTeam) {
+        loaded[id] = r.homeTeam
+        if (r.homeScore != null && r.homeScore === r.awayScore) pens.add(id) // saved as a draw
+      }
     })
     setSavedPicks(loaded)
     setAdminPicks(loaded)
+    setPenaltyMatches(pens)
   }, [resultsByMatchId])
 
   // Build slot map from actual group stage results
@@ -571,24 +593,27 @@ function PlayoffAdmin({ onRefresh }) {
   }, [adminPicks, savedPicks, buildRounds, onRefresh])
 
   // Save & score a single match result
+  // Persist a knockout result: regulation win = 1–0, penalty win = 1–1 (a draw for
+  // match-point scoring). The advancing team is always stored as homeTeam.
+  const persistResult = useCallback(async (matchId, winner, viaPk) => {
+    const koMatch = KNOCKOUT_MATCHES.find((m) => m.id === matchId)
+    const homeResolved = koMatch ? bResolveSlot(koMatch.homeSlot, slotMap, adminPicks) : null
+    const awayResolved = koMatch ? bResolveSlot(koMatch.awaySlot, slotMap, adminPicks) : null
+    const loser = winner === homeResolved ? awayResolved : homeResolved
+    const [hs, as] = viaPk ? [1, 1] : [1, 0]
+    await saveMatchResult({ matchId, homeScore: hs, awayScore: as, homeTeam: winner, awayTeam: loser || null })
+  }, [slotMap, adminPicks])
+
   const handleSaveMatch = useCallback(async (matchId) => {
     const winner = adminPicks[matchId]
     if (!winner) return
     setSavingMatch(matchId)
     setMsg(null)
     try {
-      // Merge this match into saved picks and score
       const newSaved = { ...savedPicks, [matchId]: winner }
       setSavedPicks(newSaved)
       await recalculatePlayoffPoints(buildRounds(newSaved))
-
-      // Persist winner to wc_match_results so the player bracket overlay can read it
-      const koMatch = KNOCKOUT_MATCHES.find((m) => m.id === matchId)
-      const homeResolved = koMatch ? bResolveSlot(koMatch.homeSlot, slotMap, adminPicks) : null
-      const awayResolved = koMatch ? bResolveSlot(koMatch.awaySlot, slotMap, adminPicks) : null
-      const loser = winner === homeResolved ? awayResolved : homeResolved
-      await saveMatchResult({ matchId, homeScore: 1, awayScore: 0, homeTeam: winner, awayTeam: loser || null })
-
+      await persistResult(matchId, winner, penaltyMatches.has(matchId))
       await onRefresh()
       setMsg({ type: 'success', text: `${WC_TEAMS[winner]?.shortName || winner} saved & scored.` })
       setTimeout(() => setMsg(null), 3000)
@@ -597,7 +622,27 @@ function PlayoffAdmin({ onRefresh }) {
     } finally {
       setSavingMatch(null)
     }
-  }, [adminPicks, savedPicks, buildRounds, slotMap, onRefresh])
+  }, [adminPicks, savedPicks, buildRounds, penaltyMatches, persistResult, onRefresh])
+
+  // Toggle "won on penalties" for a match; if already saved, re-persist immediately.
+  const togglePenalty = useCallback(async (matchId) => {
+    const on = !penaltyMatches.has(matchId)
+    setPenaltyMatches((prev) => { const n = new Set(prev); on ? n.add(matchId) : n.delete(matchId); return n })
+    const winner = adminPicks[matchId] || savedPicks[matchId]
+    if (winner && savedPicks[matchId]) {
+      setSavingMatch(matchId)
+      try {
+        await persistResult(matchId, winner, on)
+        await onRefresh()
+        setMsg({ type: 'success', text: `Updated — ${on ? 'penalty tie (1–1)' : 'win (1–0)'}.` })
+        setTimeout(() => setMsg(null), 3000)
+      } catch (err) {
+        setMsg({ type: 'error', text: err.message })
+      } finally {
+        setSavingMatch(null)
+      }
+    }
+  }, [penaltyMatches, adminPicks, savedPicks, persistResult, onRefresh])
 
   const savedCount = Object.values(savedPicks).filter(Boolean).length
   const totalMatches = 31
@@ -684,6 +729,8 @@ function PlayoffAdmin({ onRefresh }) {
                 onPick={handlePick}
                 onSave={handleSaveMatch}
                 onDelete={handleDeleteMatch}
+                penaltyMatches={penaltyMatches}
+                onTogglePenalty={togglePenalty}
               />
               {colIdx < columns.length - 1 && (
                 <AdminConnector
