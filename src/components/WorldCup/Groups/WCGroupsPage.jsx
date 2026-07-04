@@ -603,6 +603,45 @@ function MatchPicksExplorer({ memberPlayers, allPicks, resultsByMatchId, current
 
 // ── Group viewer (detail + management) ───────────────────────────────────────
 function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchId, onGroupsChanged, reloadPlayers }) {
+  const { allPlayoffPicks } = useWCGame()
+  // Teams already eliminated (for red champion/finalist bubbles).
+  const eliminatedTeams = useMemo(() => getEliminatedTeams(resultsByMatchId), [resultsByMatchId])
+  // Each entry's predicted champion + the other finalist (runner-up).
+  const finalPicksByEntry = useMemo(() => {
+    const raw = {}
+    allPlayoffPicks.forEach((p) => {
+      const k = `${p.userId}_${p.entryNumber ?? 1}`
+      if (!raw[k]) raw[k] = {}
+      if (p.round === 'winner')   raw[k].winner = p.teamIds || []
+      if (p.round === 'finalist') raw[k].finalist = p.teamIds || []
+    })
+    const out = {}
+    Object.entries(raw).forEach(([k, v]) => {
+      const champion = (v.winner || [])[0] || null
+      const runnerUp = (v.finalist || []).find((t) => t !== champion) || null
+      out[k] = { champion, runnerUp }
+    })
+    return out
+  }, [allPlayoffPicks])
+  // Small flag chip for a champion/finalist pick — red & struck-through if eliminated.
+  const finalBubble = (teamId, tag) => {
+    const t = teamId ? WC_TEAMS[teamId] : null
+    if (!t) return null
+    const elim = eliminatedTeams.has(teamId)
+    return (
+      <span
+        title={`${tag === '🏆' ? 'Champion' : 'Finalist'}: ${t.name}${elim ? ' — eliminated' : ''}`}
+        className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full border text-[9px] font-bold ${
+          elim ? 'bg-red-900/50 border-red-600 text-red-300 line-through decoration-red-400/70'
+               : 'bg-gray-800/70 border-f1light text-gray-300'
+        }`}
+      >
+        <span className="no-underline">{tag}</span>
+        <CountryFlag cc={t.cc} size={10} alt={t.name} />
+        {t.shortName}
+      </span>
+    )
+  }
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '')
   const [copied, setCopied]     = useState(null) // 'code' | 'link' | null
   const [managing, setManaging] = useState(false)
@@ -1071,6 +1110,16 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                         {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
                       </span>
                       {isMe && <span className="text-xs text-yellow-400">(You)</span>}
+                      {(() => {
+                        const f = finalPicksByEntry[`${player.userId}_${player.entryNumber ?? 1}`]
+                        if (!f || (!f.champion && !f.runnerUp)) return null
+                        return (
+                          <span className="inline-flex items-center gap-1">
+                            {finalBubble(f.champion, '🏆')}
+                            {finalBubble(f.runnerUp, '🥈')}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
                       <span className="text-xs text-gray-500">
