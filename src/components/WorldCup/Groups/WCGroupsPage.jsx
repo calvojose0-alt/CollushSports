@@ -1142,18 +1142,18 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                         {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
                       </span>
                       {isMe && <span className="text-xs text-yellow-400">(You)</span>}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {(() => {
-                        const f = finalPicksByEntry[`${player.userId}_${player.entryNumber ?? 1}`]
+                        const f = finalPicksByEntry[pkey]
                         if (!f || (!f.champion && !f.runnerUp)) return null
                         return (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 mr-0.5">
                             {finalBubble(f.champion, '🏆')}
                             {finalBubble(f.runnerUp, '🥈')}
                           </span>
                         )
                       })()}
-                    </div>
-                    <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
                       <span className="text-xs text-gray-500">
                         Exact: <strong className="text-green-400">{player.exactHits || 0}</strong>
                       </span>
@@ -1177,7 +1177,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                       wp.status === 'win' ? 'bg-green-900/40 text-green-300 border border-green-700/50'
                         : wp.status === 'podium' ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-700/50'
                         : 'bg-red-900/30 text-red-300 border border-red-700/50'}`}>
-                      {wp.status === 'win' ? 'Alive' : wp.status === 'podium' ? `Alive · ${wp.best === 2 ? '2nd' : '3rd'} max` : 'Out'}
+                      {wp.status === 'win' ? 'Alive' : wp.status === 'podium' ? `${wp.best === 2 ? '2nd' : '3rd'} max` : 'Out'}
                       {canExpand && <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />}
                     </span>
                   )}
