@@ -13,6 +13,7 @@ import {
 import { WC_TEAMS, GROUP_LETTERS, SCORING, getMatchKickoff } from '@/data/wc2026Teams'
 import { GROUP_MATCHES, getGroupMatches, KNOCKOUT_MATCHES } from '@/data/wc2026Schedule'
 import { computeGroupStandings, getEliminatedTeams } from '@/services/gameEngine/wc2026Engine'
+import { computeWinChances } from '@/services/gameEngine/winChances'
 import CountryFlag from '@/components/shared/CountryFlag'
 
 const WC_GAME_ID = 'wc2026'
@@ -689,6 +690,25 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
     (a, b) => (b.totalPoints || 0) - (a.totalPoints || 0) || (b.exactHits || 0) - (a.exactHits || 0)
   )
 
+  // Who can still win / podium / is out — exact enumeration once few knockout games remain.
+  const winPicture = useMemo(() => {
+    const entries = sorted.map((p) => {
+      const k = `${p.userId}_${p.entryNumber ?? 1}`
+      const picks = {}
+      allPlayoffPicks.forEach((pp) => {
+        if (pp.userId === p.userId && (pp.entryNumber ?? 1) === (p.entryNumber ?? 1)) picks[pp.round] = new Set(pp.teamIds || [])
+      })
+      return {
+        key: k, exact: p.exactHits || 0, base: (p.totalPoints || 0) - (p.playoffPoints || 0),
+        r16: picks.r16 || new Set(), qf: picks.qf || new Set(), sf: picks.sf || new Set(),
+        finalist: picks.finalist || new Set(), winner: picks.winner || new Set(),
+      }
+    })
+    return computeWinChances(entries, resultsByMatchId)
+  }, [sorted, allPlayoffPicks, resultsByMatchId])
+  const [expandedRow, setExpandedRow] = useState(null)
+  const winTally = winPicture && Object.values(winPicture).reduce((a, v) => (v.status === 'win' ? { ...a, win: a.win + 1 } : v.status === 'podium' ? { ...a, podium: a.podium + 1 } : { ...a, out: a.out + 1 }), { win: 0, podium: 0, out: 0 })
+
   const inviteLink = `${window.location.origin}/join/${group.inviteCode}`
 
   const handleCopyCode = () => {
@@ -1082,6 +1102,13 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
           <div className="px-3 py-2 border-b border-f1light flex items-center gap-2">
             <Trophy className="w-3.5 h-3.5 text-yellow-400" />
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Group Leaderboard</p>
+            {winTally && (
+              <div className="ml-auto flex items-center gap-1 text-[10px] font-semibold">
+                <span className="bg-green-900/40 text-green-300 border border-green-700/50 px-1.5 py-0.5 rounded-full">{winTally.win} can win</span>
+                {winTally.podium > 0 && <span className="bg-yellow-900/30 text-yellow-300 border border-yellow-700/50 px-1.5 py-0.5 rounded-full">{winTally.podium} podium</span>}
+                <span className="bg-red-900/30 text-red-300 border border-red-700/50 px-1.5 py-0.5 rounded-full">{winTally.out} out</span>
+              </div>
+            )}
           </div>
           <div className="divide-y divide-f1light">
             {sorted.map((player, idx) => {
@@ -1089,10 +1116,15 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
               // Show entry name when the same user appears more than once (multi-entry)
               const userCount = sorted.filter(p => p.userId === player.userId).length
               const showEntry = userCount > 1 && player.entryName
+              const pkey = `${player.userId}_${player.entryNumber ?? 1}`
+              const wp = winPicture?.[pkey]
+              const canExpand = wp && (wp.status === 'win' || wp.status === 'podium')
+              const isExpanded = expandedRow === pkey
               return (
+                <div key={pkey}>
                 <div
-                  key={`${player.userId}_${player.entryNumber ?? 1}`}
-                  className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''}`}
+                  onClick={() => canExpand && setExpandedRow(isExpanded ? null : pkey)}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? 'bg-yellow-900/10' : ''} ${wp?.status === 'out' ? 'opacity-60' : ''} ${canExpand ? 'cursor-pointer hover:bg-white/5' : ''}`}
                 >
                   <span className="w-5 text-center font-semibold flex-shrink-0 flex items-center justify-center">
                     {idx === 0 ? <span className="text-lg">🥇</span>
@@ -1140,10 +1172,30 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                       )}
                     </div>
                   </div>
+                  {wp && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 inline-flex items-center gap-1 ${
+                      wp.status === 'win' ? 'bg-green-900/40 text-green-300 border border-green-700/50'
+                        : wp.status === 'podium' ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-700/50'
+                        : 'bg-red-900/30 text-red-300 border border-red-700/50'}`}>
+                      {wp.status === 'win' ? 'Alive' : wp.status === 'podium' ? `Alive · ${wp.best === 2 ? '2nd' : '3rd'} max` : 'Out'}
+                      {canExpand && <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />}
+                    </span>
+                  )}
                   <div className="text-right flex-shrink-0">
                     <div className="text-sm font-bold text-yellow-400">{player.totalPoints || 0}</div>
                     <div className="text-xs text-gray-500">pts</div>
                   </div>
+                </div>
+                {isExpanded && wp && (
+                  <div className="px-3 pb-2.5">
+                    <div className={`text-[11px] rounded-lg px-2.5 py-1.5 border-l-2 ${
+                      wp.status === 'win' ? 'bg-green-900/20 border-green-600 text-green-300' : 'bg-yellow-900/20 border-yellow-600 text-yellow-300'}`}>
+                      {wp.status === 'win'
+                        ? wp.condition
+                        : `Can't win the group — best possible finish is ${wp.best === 2 ? '2nd' : '3rd'} place.`}
+                    </div>
+                  </div>
+                )}
                 </div>
               )
             })}
