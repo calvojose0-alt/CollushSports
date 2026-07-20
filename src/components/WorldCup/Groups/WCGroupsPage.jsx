@@ -607,6 +607,19 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
   const { allPlayoffPicks } = useWCGame()
   // Teams already eliminated (for red champion/finalist bubbles).
   const eliminatedTeams = useMemo(() => getEliminatedTeams(resultsByMatchId), [resultsByMatchId])
+  // Actual champion (final winner) + finalists (both teams that reached the final).
+  const { actualChampion, actualFinalists, tournamentComplete } = useMemo(() => {
+    const fm = KNOCKOUT_MATCHES.find((m) => m.stage === 'final')
+    const fr = fm ? resultsByMatchId[fm.id] : null
+    const champ = fr?.status === 'final' ? fr.homeTeam : null
+    const fin = new Set(
+      KNOCKOUT_MATCHES.filter((m) => m.stage === 'sf')
+        .map((m) => resultsByMatchId[m.id])
+        .filter((r) => r?.status === 'final' && r.homeTeam)
+        .map((r) => r.homeTeam)
+    )
+    return { actualChampion: champ, actualFinalists: fin, tournamentComplete: !!champ }
+  }, [resultsByMatchId])
   // Each entry's predicted champion + the other finalist (runner-up).
   const finalPicksByEntry = useMemo(() => {
     const raw = {}
@@ -624,18 +637,21 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
     })
     return out
   }, [allPlayoffPicks])
-  // Small flag chip for a champion/finalist pick — red & struck-through if eliminated.
-  const finalBubble = (teamId, tag) => {
+  // Small flag chip for a champion/finalist pick — green if the pick came true,
+  // red & struck-through if eliminated, neutral while still undecided.
+  const finalBubble = (teamId, tag, achieved) => {
     const t = teamId ? WC_TEAMS[teamId] : null
     if (!t) return null
     const elim = eliminatedTeams.has(teamId)
+    const cls = achieved
+      ? 'bg-green-900/50 border-green-500 text-green-300'
+      : elim
+        ? 'bg-red-900/50 border-red-600 text-red-300 line-through decoration-red-400/70'
+        : 'bg-gray-800/70 border-f1light text-gray-300'
     return (
       <span
-        title={`${tag === '🏆' ? 'Champion' : 'Finalist'}: ${t.name}${elim ? ' — eliminated' : ''}`}
-        className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full border text-[9px] font-bold ${
-          elim ? 'bg-red-900/50 border-red-600 text-red-300 line-through decoration-red-400/70'
-               : 'bg-gray-800/70 border-f1light text-gray-300'
-        }`}
+        title={`${tag === '🏆' ? 'Champion' : 'Finalist'}: ${t.name}${achieved ? ' — correct!' : elim ? ' — eliminated' : ''}`}
+        className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full border text-[9px] font-bold ${cls}`}
       >
         <span className="no-underline">{tag}</span>
         <CountryFlag cc={t.cc} size={10} alt={t.name} />
@@ -1120,6 +1136,7 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
               const wp = winPicture?.[pkey]
               const canExpand = wp && (wp.status === 'win' || wp.status === 'podium')
               const isExpanded = expandedRow === pkey
+              const isWinner = tournamentComplete && idx === 0
               return (
                 <div key={pkey}>
                 <div
@@ -1137,11 +1154,15 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-sm ${isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                      <span className={`text-sm inline-flex items-center gap-1 ${
+                        isWinner ? 'px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-400 text-yellow-200 font-bold'
+                          : isMe ? 'text-white font-semibold' : 'text-gray-300'}`}>
+                        {isWinner && <span aria-hidden="true">🏆</span>}
                         {player.displayName}
-                        {showEntry && <span className="text-gray-500 font-normal"> — {player.entryName}</span>}
+                        {showEntry && <span className={isWinner ? 'font-normal opacity-80' : 'text-gray-500 font-normal'}> — {player.entryName}</span>}
                       </span>
                       {isMe && <span className="text-xs text-yellow-400">(You)</span>}
+                      {isWinner && <span className="text-[10px] font-bold text-yellow-400">Champion</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {(() => {
@@ -1149,8 +1170,8 @@ function GroupViewer({ groups, currentUserId, players, allPicks, resultsByMatchI
                         if (!f || (!f.champion && !f.runnerUp)) return null
                         return (
                           <span className="inline-flex items-center gap-1 mr-0.5">
-                            {finalBubble(f.champion, '🏆')}
-                            {finalBubble(f.runnerUp, '🥈')}
+                            {finalBubble(f.champion, '🏆', !!f.champion && f.champion === actualChampion)}
+                            {finalBubble(f.runnerUp, '🥈', !!f.runnerUp && actualFinalists.has(f.runnerUp))}
                           </span>
                         )
                       })()}
