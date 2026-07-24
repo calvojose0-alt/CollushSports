@@ -3,12 +3,12 @@ import { useOutletContext, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Settings, ListChecks, Sliders, Users, Search, ClipboardList, Trophy,
-  ChevronDown, ChevronUp, KeyRound, ShieldAlert,
+  ChevronDown, ChevronUp, KeyRound, ShieldAlert, Dices,
 } from 'lucide-react'
 import { updateLeagueSettings, updateScoringProfile } from '@/services/nflManager/leagueService'
 import { searchPlayers, updatePlayer, getLeagueRoster } from '@/services/nflManager/rosterService'
 import { adjustBalance } from '@/services/nflManager/adminService'
-import { recordPlayerWeekStats, finalizeWeek } from '@/services/nflManager/scoringService'
+import { recordPlayerWeekStats, finalizeWeek, simulateWeekStats } from '@/services/nflManager/scoringService'
 import { lockLineupsForWeek } from '@/services/nflManager/lineupService'
 import { formatMoney } from '@/components/NflManager/NflManagerLayout'
 
@@ -347,6 +347,15 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [results, setResults] = useState(null)
+  const [savedNotice, setSavedNotice] = useState(null)
+  const [simNotice, setSimNotice] = useState(null)
+
+  // Reset the stat form whenever the selected player (or week) changes —
+  // otherwise stale field values from the previous player silently carry over.
+  useEffect(() => {
+    setStats({})
+    setSavedNotice(null)
+  }, [selectedPlayer?.id, week])
 
   const searchForStats = async () => {
     setError(null)
@@ -356,12 +365,13 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
 
   const submitStats = async () => {
     if (!selectedPlayer) return
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setSavedNotice(null)
     try {
       await recordPlayerWeekStats({
         playerId: selectedPlayer.id, nflWeek: week, seasonYear: league.seasonYear,
         stats, enteredByUserId: actorUserId,
       })
+      setSavedNotice(`Saved ${selectedPlayer.displayName}'s Week ${week} stat line.`)
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
@@ -369,6 +379,14 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
     setBusy(true); setError(null)
     try { await lockLineupsForWeek({ leagueId: league.id, nflWeek: week }) }
     catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
+  const simulateWeek = async () => {
+    setBusy(true); setError(null); setSimNotice(null); setResults(null)
+    try {
+      const { count } = await simulateWeekStats({ leagueId: league.id, nflWeek: week, seasonYear: league.seasonYear, actorUserId })
+      setSimNotice(`Generated random stats for ${count} rostered player${count === 1 ? '' : 's'} in Week ${week}. Ready to Finalize.`)
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
   const finalize = async () => {
@@ -386,13 +404,20 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Field label="Week"><input type="number" className="input-field py-1.5 text-sm w-20" value={week} onChange={(e) => setWeek(Number(e.target.value))} /></Field>
+        <button className="btn-secondary text-xs px-3 py-1.5 self-end flex items-center gap-1.5" disabled={busy} onClick={simulateWeek}>
+          <Dices className="w-3.5 h-3.5" /> Simulate Week {week}
+        </button>
         <button className="btn-secondary text-xs px-3 py-1.5 self-end" disabled={busy} onClick={lockWeek}>Lock Lineups</button>
         <button className="btn-primary text-xs px-3 py-1.5 self-end" disabled={busy} onClick={finalize}>{busy ? 'Working...' : `Finalize Week ${week}`}</button>
       </div>
+      <p className="text-[11px] text-gray-500">
+        "Simulate" generates random stats for every rostered player that week — use it for testing instead of entering stat lines by hand. It overwrites any existing stats (manual or simulated) for that week.
+      </p>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
+      {simNotice && <p className="text-xs text-green-400">{simNotice}</p>}
 
       {results && (
         <div className="bg-f1dark border border-f1light rounded-lg p-3 text-xs space-y-1 max-h-40 overflow-y-auto">
@@ -421,7 +446,7 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
         )}
 
         {selectedPlayer && (
-          <div className="space-y-3">
+          <div className="space-y-3" key={`${selectedPlayer.id}_${week}`}>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Offense</p>
             <div className="grid grid-cols-4 gap-2">
               <Field label="Pass Yds"><input type="number" className="input-field py-1 text-xs" onChange={num('passing_yards')} /></Field>
@@ -457,6 +482,7 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
             </div>
 
             <button className="btn-primary text-sm px-4 py-1.5" disabled={busy} onClick={submitStats}>{busy ? 'Saving...' : 'Save Stat Line'}</button>
+            {savedNotice && <p className="text-xs text-green-400">{savedNotice}</p>}
           </div>
         )}
       </div>
@@ -471,14 +497,14 @@ const SITE_ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 export default function CommissionerPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { league, members, isCommissioner, scoringProfile, refreshScoringProfile, refreshLeaderboard } = useOutletContext()
+  const { league, members, isCommissioner, scoringProfile, refreshScoringProfile, refreshLeaderboard, refreshMembers } = useOutletContext()
 
   const isSiteAdmin = user?.email?.toLowerCase() === SITE_ADMIN_EMAIL
   const canManage = isCommissioner || isSiteAdmin
 
   const reload = useCallback(async () => {
-    await Promise.all([refreshScoringProfile(), refreshLeaderboard()])
-  }, [refreshScoringProfile, refreshLeaderboard])
+    await Promise.all([refreshScoringProfile(), refreshLeaderboard(), refreshMembers()])
+  }, [refreshScoringProfile, refreshLeaderboard, refreshMembers])
 
   if (!canManage) {
     return (

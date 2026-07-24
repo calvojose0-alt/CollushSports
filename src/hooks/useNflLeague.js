@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  getLeague, subscribeToLeague, subscribeToLeagueMembers, getScoringProfile,
+  getLeague, subscribeToLeague, subscribeToLeagueMembers, getLeagueMembers, getScoringProfile,
 } from '@/services/nflManager/leagueService'
 import { getRosterForManager, buildRandomRoster, initEmptyRoster } from '@/services/nflManager/rosterService'
 import { buildLeaderboard } from '@/services/nflManager/leaderboardService'
@@ -40,6 +40,19 @@ export function useNflLeague(leagueId) {
     setScoringProfile(profile)
   }, [leagueId])
 
+  // Explicit re-fetch (not just the realtime subscription below) so balances/
+  // season points reliably update right after an action, even if Supabase
+  // Realtime isn't enabled for these tables in this project.
+  const refreshMembers = useCallback(async () => {
+    if (!leagueId) return
+    try {
+      const rows = await getLeagueMembers(leagueId)
+      setMembers(rows)
+    } catch (err) {
+      console.error('[NflLeague] members refresh error:', err.message)
+    }
+  }, [leagueId])
+
   useEffect(() => {
     if (!leagueId) return
     let cancelled = false
@@ -70,6 +83,7 @@ export function useNflLeague(leagueId) {
       : await initEmptyRoster()
     const roster = await getRosterForManager(myMember.id)
     setMyRoster(roster)
+    await refreshMembers() // balance changed
     return result
   }
 
@@ -85,6 +99,7 @@ export function useNflLeague(leagueId) {
     error,
     buildStartingRoster,
     refreshLeaderboard,
+    refreshMembers,
     refreshScoringProfile: loadScoringProfile,
   }
 }

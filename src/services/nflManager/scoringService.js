@@ -5,7 +5,9 @@
 import { requireSupabase, writeAuditLog } from './shared'
 import { getScoringProfile, getLeagueMembers } from './leagueService'
 import { getWeeklyLineup } from './lineupService'
+import { getLeagueRoster } from './rosterService'
 import { calculatePlayerScore, computeLineupTotal, calculateWeeklyBonus } from '@/services/gameEngine/nflScoringEngine'
+import { generateRandomStatLine } from '@/services/gameEngine/nflStatSimulator'
 
 function mapStats(row) {
   if (!row) return null
@@ -93,6 +95,43 @@ export async function recordPlayerWeekStats({ playerId, nflWeek, seasonYear, sta
   })
 
   return mapStats(data)
+}
+
+/**
+ * Generate a random (bounded, position-aware) stat line for every player
+ * currently rostered in this league and upsert them all in one batch —
+ * a stand-in for real stat imports so the scoring pipeline can be
+ * exercised without hand-entering every player's numbers. Overwrites any
+ * existing stat lines for these players/week/season, manual or simulated.
+ */
+export async function simulateWeekStats({ leagueId, nflWeek, seasonYear, actorUserId }) {
+  const supabase = requireSupabase()
+  const roster = await getLeagueRoster(leagueId)
+
+  const rows = roster
+    .filter((slot) => slot.player)
+    .map((slot) => ({
+      player_id: slot.playerId,
+      nfl_week: nflWeek,
+      season_year: seasonYear,
+      ...generateRandomStatLine(slot.player.position),
+      source: 'simulated',
+      entered_by_user_id: actorUserId,
+      updated_at: new Date().toISOString(),
+    }))
+
+  if (rows.length === 0) return { count: 0 }
+
+  const { error } = await supabase
+    .from('nfl_player_week_stats').upsert(rows, { onConflict: 'player_id,nfl_week,season_year' })
+  if (error) throw new Error(error.message)
+
+  await writeAuditLog({
+    actorUserId, leagueId, actionType: 'simulate_week_stats', entityType: 'league', entityId: leagueId,
+    before: null, after: { nflWeek, seasonYear, playerCount: rows.length },
+  })
+
+  return { count: rows.length }
 }
 
 /**
