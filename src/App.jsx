@@ -49,6 +49,16 @@ import MyTeamsPage from '@/components/WinLeague/Teams/MyTeamsPage'
 import WLLeaderboardPage from '@/components/WinLeague/Leaderboard/WLLeaderboardPage'
 import WLAdminPage from '@/components/WinLeague/Admin/WLAdminPage'
 
+// NFL Fantasy Manager League
+import NflManagerLayout from '@/components/NflManager/NflManagerLayout'
+import LeagueHubPage from '@/components/NflManager/Hub/LeagueHubPage'
+import CreateLeaguePage from '@/components/NflManager/Hub/CreateLeaguePage'
+import JoinLeaguePage from '@/components/NflManager/Hub/JoinLeaguePage'
+import MyTeamPage from '@/components/NflManager/Team/MyTeamPage'
+import SetLineupPage from '@/components/NflManager/Lineup/SetLineupPage'
+import NflStandingsPage from '@/components/NflManager/Standings/StandingsPage'
+import CommissionerPage from '@/components/NflManager/Admin/CommissionerPage'
+
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 function ProtectedRoute({ children }) {
@@ -173,6 +183,53 @@ function AppRoutes() {
           <Route path="my-teams" element={<MyTeamsPage />} />
           <Route path="leaderboard" element={<WLLeaderboardPage />} />
           <Route path="admin" element={<AdminRoute fallback="/win-league"><WLAdminPage /></AdminRoute>} />
+        </Route>
+
+        {/* NFL Fantasy Manager League */}
+        <Route
+          path="/nfl-manager"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <LeagueHubPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nfl-manager/create"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <CreateLeaguePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nfl-manager/join/:code"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <JoinLeaguePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nfl-manager/:leagueId"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <NflManagerLayout />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<MyTeamPage />} />
+          <Route path="lineup" element={<SetLineupPage />} />
+          <Route path="standings" element={<NflStandingsPage />} />
+          <Route path="commissioner" element={<CommissionerPage />} />
         </Route>
 
         {/* Site Admin dashboard */}

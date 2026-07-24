@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Lock,
   Zap,
+  Shield,
 } from 'lucide-react'
 
 const GAMES = [
@@ -40,6 +41,21 @@ const GAMES = [
     status: 'live',
     path: '/win-league',
     features: ['10-Player Draft', '3 Teams Each', 'Live Scoring', 'Advancement Bonus'],
+  },
+  {
+    id: 'nfl-fantasy-manager',
+    title: 'NFL Fantasy Manager League',
+    subtitle: '2026 Season — Build & Manage',
+    description:
+      'Draft your NFL roster, set a weekly lineup, and manage your team through the season. Auction drafts, market cycles, and release clauses roll out in future updates.',
+    icon: Shield,
+    color: 'from-blue-900/50 to-blue-800/10',
+    borderColor: 'border-blue-700/40',
+    accentColor: 'text-blue-400',
+    badgeColor: 'bg-blue-600',
+    status: 'live',
+    path: '/nfl-manager',
+    features: ['Custom Leagues', 'Weekly Lineups', 'ESPN-Style Scoring', 'Commissioner Tools'],
   },
   {
     id: 'f1-survivor',
