@@ -29,18 +29,18 @@ function calculateOffensePoints(stats, profile) {
   const breakdown = {}
   let points = 0
 
-  breakdown.passingYards = (stats.passing_yards || 0) * profile.passing_yard_rate
-  breakdown.passingTds = (stats.passing_tds || 0) * profile.passing_td_points
-  breakdown.interceptions = (stats.interceptions || 0) * profile.interception_points
-  breakdown.rushingYards = (stats.rushing_yards || 0) * profile.rushing_yard_rate
-  breakdown.receivingYards = (stats.receiving_yards || 0) * profile.receiving_yard_rate
-  breakdown.rushingReceivingTds = ((stats.rushing_tds || 0) + (stats.receiving_tds || 0)) * profile.touchdown_points
-  breakdown.receptions = (stats.receptions || 0) * profile.ppr_value
-  breakdown.fumblesLost = (stats.fumbles_lost || 0) * profile.fumble_lost_points
-  breakdown.twoPointConversions = (stats.two_point_conversions || 0) * profile.two_point_points
+  breakdown.passingYards = (stats.passing_yards || 0) * profile.passingYardRate
+  breakdown.passingTds = (stats.passing_tds || 0) * profile.passingTdPoints
+  breakdown.interceptions = (stats.interceptions || 0) * profile.interceptionPoints
+  breakdown.rushingYards = (stats.rushing_yards || 0) * profile.rushingYardRate
+  breakdown.receivingYards = (stats.receiving_yards || 0) * profile.receivingYardRate
+  breakdown.rushingReceivingTds = ((stats.rushing_tds || 0) + (stats.receiving_tds || 0)) * profile.touchdownPoints
+  breakdown.receptions = (stats.receptions || 0) * profile.pprValue
+  breakdown.fumblesLost = (stats.fumbles_lost || 0) * profile.fumbleLostPoints
+  breakdown.twoPointConversions = (stats.two_point_conversions || 0) * profile.twoPointPoints
 
   // Optional bonuses computable from aggregate yardage (no per-play data for 40+ yd TDs in Phase 1).
-  const bonusRules = profile.bonus_rules || {}
+  const bonusRules = profile.bonusRules || {}
   breakdown.rushRec100Bonus = 0
   if (bonusRules.rush_rec_100) {
     if ((stats.rushing_yards || 0) >= 100) breakdown.rushRec100Bonus += bonusRules.rush_rec_100
@@ -56,7 +56,7 @@ function calculateOffensePoints(stats, profile) {
 
 function calculateKickerPoints(stats, profile) {
   const kicking = stats.kicking || {}
-  const rules = profile.kicker_rules || {}
+  const rules = profile.kickerRules || {}
   const breakdown = {
     fg0_39: (kicking.fg_0_39 || 0) * (rules.fg_0_39 ?? 0),
     fg40_49: (kicking.fg_40_49 || 0) * (rules.fg_40_49 ?? 0),
@@ -79,7 +79,7 @@ function pointsAllowedTierValue(pointsAllowed, tiers) {
 
 function calculateDstPoints(stats, profile) {
   const dst = stats.dst || {}
-  const rules = profile.dst_rules || {}
+  const rules = profile.dstRules || {}
   const breakdown = {
     sacks: (dst.sacks || 0) * (rules.sack ?? 0),
     interceptions: (dst.interceptions || 0) * (rules.interception ?? 0),
