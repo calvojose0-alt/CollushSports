@@ -56,6 +56,7 @@ import CreateLeaguePage from '@/components/NflManager/Hub/CreateLeaguePage'
 import JoinLeaguePage from '@/components/NflManager/Hub/JoinLeaguePage'
 import MyTeamPage from '@/components/NflManager/Team/MyTeamPage'
 import SetLineupPage from '@/components/NflManager/Lineup/SetLineupPage'
+import MarketPage from '@/components/NflManager/Market/MarketPage'
 import NflStandingsPage from '@/components/NflManager/Standings/StandingsPage'
 import CommissionerPage from '@/components/NflManager/Admin/CommissionerPage'
 
@@ -228,6 +229,7 @@ function AppRoutes() {
         >
           <Route index element={<MyTeamPage />} />
           <Route path="lineup" element={<SetLineupPage />} />
+          <Route path="market" element={<MarketPage />} />
           <Route path="standings" element={<NflStandingsPage />} />
           <Route path="commissioner" element={<CommissionerPage />} />
         </Route>

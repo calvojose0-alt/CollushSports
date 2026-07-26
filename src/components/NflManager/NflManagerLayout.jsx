@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
-import { Shield, Users, ListChecks, Trophy, Settings, ChevronLeft } from 'lucide-react'
+import { Shield, Users, ListChecks, Trophy, Settings, ChevronLeft, Gavel } from 'lucide-react'
 import { useNflLeague } from '@/hooks/useNflLeague'
 
 export function formatMoney(amount) {
@@ -18,6 +18,7 @@ export default function NflManagerLayout() {
   const NAV = [
     { to: `/nfl-manager/${leagueId}`, label: 'My Team', icon: Users, exact: true },
     { to: `/nfl-manager/${leagueId}/lineup`, label: 'Lineup', icon: ListChecks },
+    { to: `/nfl-manager/${leagueId}/market`, label: 'Market', icon: Gavel },
     { to: `/nfl-manager/${leagueId}/standings`, label: 'Standings', icon: Trophy },
     { to: `/nfl-manager/${leagueId}/commissioner`, label: 'Commissioner', icon: Settings, commissionerOnly: true },
   ].filter((item) => !item.commissionerOnly || isCommissioner)

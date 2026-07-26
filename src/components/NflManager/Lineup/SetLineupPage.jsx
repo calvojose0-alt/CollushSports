@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Lock, Unlock, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Lock, Unlock, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
 import { getOrCreateWeeklyLineup, setLineupSlot, clearLineupSlot } from '@/services/nflManager/lineupService'
 import { SLOT_ELIGIBILITY } from '@/services/gameEngine/nflScoringEngine'
 
@@ -30,6 +30,25 @@ function StatusPill({ lineup }) {
   )
 }
 
+function PlayerBadges({ player, week }) {
+  if (!player) return null
+  const onBye = player.byeWeek === week
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {onBye && (
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-900/50 text-orange-300 border border-orange-700">
+          BYE WEEK
+        </span>
+      )}
+      {player.injuryStatus && (
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-900/50 text-red-300 border border-red-700">
+          {player.injuryStatus}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function SetLineupPage() {
   const { league, myMember, myRoster } = useOutletContext()
   const [week, setWeek] = useState(league.startWeek)
@@ -53,6 +72,7 @@ export default function SetLineupPage() {
   useEffect(() => { loadLineup() }, [loadLineup])
 
   const usedPlayerIds = new Set((lineup?.slots || []).filter((s) => !s.isEmpty).map((s) => s.playerId))
+  const rosterByPlayerId = Object.fromEntries(myRoster.map((r) => [r.playerId, r]))
 
   const eligibleFor = (slotType) => {
     const allowedPositions = SLOT_ELIGIBILITY[slotType] || []
@@ -77,6 +97,8 @@ export default function SetLineupPage() {
 
   const weekOptions = []
   for (let w = league.startWeek; w <= league.endWeek; w++) weekOptions.push(w)
+
+  const benchSlots = myRoster.filter((r) => !usedPlayerIds.has(r.playerId))
 
   return (
     <div className="space-y-5">
@@ -111,11 +133,15 @@ export default function SetLineupPage() {
               const options = eligibleFor(slot.slotType).filter(
                 (r) => r.playerId === slot.playerId || !usedPlayerIds.has(r.playerId)
               )
+              const selectedPlayer = slot.playerId ? rosterByPlayerId[slot.playerId]?.player : null
               return (
-                <div key={slot.slotType} className="px-4 py-3 flex items-center gap-3">
+                <div
+                  key={slot.slotType}
+                  className={`px-4 py-3 flex items-center gap-3 flex-wrap ${slot.isEmpty ? 'bg-red-950/20' : ''}`}
+                >
                   <span className="text-xs font-bold text-gray-400 w-28 flex-shrink-0">{SLOT_LABELS[slot.slotType] || slot.slotType}</span>
                   <select
-                    className="input-field py-1.5 text-sm flex-1"
+                    className="input-field py-1.5 text-sm flex-1 min-w-[10rem]"
                     value={slot.playerId || ''}
                     disabled={busySlot === slot.slotType || lineup.lineupStatus === 'scored'}
                     onChange={(e) => assign(slot.slotType, e.target.value || null)}
@@ -123,10 +149,11 @@ export default function SetLineupPage() {
                     <option value="">— Empty (−4 pts) —</option>
                     {options.map((r) => (
                       <option key={r.playerId} value={r.playerId}>
-                        {r.player?.displayName} ({r.player?.nflTeam}{r.player?.byeWeek === week ? ' · BYE' : ''})
+                        {r.player?.displayName} ({r.player?.nflTeam}{r.player?.byeWeek === week ? ' · BYE' : ''}{r.player?.injuryStatus ? ` · ${r.player.injuryStatus}` : ''})
                       </option>
                     ))}
                   </select>
+                  <PlayerBadges player={selectedPlayer} week={week} />
                   {slot.wasSubstituted && <span className="text-[10px] text-yellow-400 flex-shrink-0">SWAPPED</span>}
                   {lineup.lineupStatus === 'scored' && !slot.isEmpty && (
                     <span className="text-sm font-bold text-blue-300 flex-shrink-0 w-14 text-right">{slot.slotPoints.toFixed(1)}</span>
@@ -134,6 +161,27 @@ export default function SetLineupPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {!loading && lineup && (
+        <div>
+          <h2 className="section-title flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Bench ({benchSlots.length})</h2>
+          <div className="card p-0 overflow-hidden mt-2">
+            <div className="divide-y divide-f1light">
+              {benchSlots.map((r) => (
+                <div key={r.id} className="px-4 py-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-300 truncate">
+                      {r.player?.displayName} <span className="text-xs text-gray-500">({r.player?.position} · {r.player?.nflTeam})</span>
+                    </p>
+                  </div>
+                  <PlayerBadges player={r.player} week={week} />
+                </div>
+              ))}
+              {benchSlots.length === 0 && <p className="px-4 py-4 text-center text-gray-500 italic text-xs">Your entire roster is in the starting lineup.</p>}
+            </div>
           </div>
         </div>
       )}

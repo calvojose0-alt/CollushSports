@@ -4,7 +4,7 @@
 // will extend nfl_roster_slots the same way admin overrides do today.
 import { requireSupabase } from './shared'
 
-const POSITION_WEIGHT = { QB: 1.4, RB: 1.2, WR: 1.1, TE: 0.9, K: 0.4, DST: 0.5 }
+export const POSITION_WEIGHT = { QB: 1.4, RB: 1.2, WR: 1.1, TE: 0.9, K: 0.4, DST: 0.5 }
 
 // ── Row mappers ───────────────────────────────────────────────────────────
 

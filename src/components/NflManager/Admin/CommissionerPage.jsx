@@ -3,13 +3,16 @@ import { useOutletContext, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Settings, ListChecks, Sliders, Users, Search, ClipboardList, Trophy,
-  ChevronDown, ChevronUp, KeyRound, ShieldAlert, Dices,
+  ChevronDown, ChevronUp, KeyRound, ShieldAlert, Dices, Gavel,
 } from 'lucide-react'
 import { updateLeagueSettings, updateScoringProfile } from '@/services/nflManager/leagueService'
 import { searchPlayers, updatePlayer, getLeagueRoster } from '@/services/nflManager/rosterService'
 import { adjustBalance } from '@/services/nflManager/adminService'
 import { recordPlayerWeekStats, finalizeWeek, simulateWeekStats } from '@/services/nflManager/scoringService'
 import { lockLineupsForWeek } from '@/services/nflManager/lineupService'
+import {
+  getActiveCycle, getCycleListings, getListingBidCounts, openMarketCycle, executeCycle,
+} from '@/services/nflManager/marketService'
 import { formatMoney } from '@/components/NflManager/NflManagerLayout'
 
 function SectionCard({ title, icon: Icon, children, defaultOpen = false }) {
@@ -234,6 +237,97 @@ function ManagersSection({ members, actorUserId, reload }) {
           </div>
         ))}
       </div>
+    </>
+  )
+}
+
+// ── Market Cycles ─────────────────────────────────────────────────────────
+
+function MarketCyclesSection({ league, actorUserId, reload }) {
+  const [cycle, setCycle] = useState(null)
+  const [listings, setListings] = useState([])
+  const [bidCounts, setBidCounts] = useState({})
+  const [listingCount, setListingCount] = useState(10)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [results, setResults] = useState(null)
+
+  const load = useCallback(async () => {
+    setError(null)
+    try {
+      const active = await getActiveCycle(league.id)
+      setCycle(active)
+      if (active) {
+        const rows = await getCycleListings(active.id)
+        setListings(rows)
+        setBidCounts(await getListingBidCounts(rows.map((l) => l.id)))
+      } else {
+        setListings([]); setBidCounts({})
+      }
+    } catch (err) { setError(err.message) }
+  }, [league.id])
+
+  useEffect(() => { load() }, [load])
+
+  const open = async () => {
+    setBusy(true); setError(null); setResults(null)
+    try {
+      await openMarketCycle({ league, actorUserId, listingCount: Number(listingCount) })
+      await load()
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
+  const execute = async () => {
+    if (!cycle) return
+    setBusy(true); setError(null)
+    try {
+      const res = await executeCycle({ league, cycleId: cycle.id, actorUserId })
+      setResults(res)
+      await load()
+      await reload()
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {!cycle && (
+        <div className="flex items-center gap-2">
+          <Field label="Listings"><input type="number" min={1} max={40} className="input-field py-1.5 text-sm w-20" value={listingCount} onChange={(e) => setListingCount(e.target.value)} /></Field>
+          <button className="btn-primary text-sm px-4 py-1.5 self-end" disabled={busy} onClick={open}>{busy ? 'Opening...' : 'Open New Cycle'}</button>
+        </div>
+      )}
+
+      {cycle && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-300">Cycle #{cycle.cycleNumber} — {listings.filter((l) => l.status === 'open').length} open listing(s)</p>
+            <button className="btn-primary text-sm px-4 py-1.5" disabled={busy} onClick={execute}>{busy ? 'Executing...' : 'Execute Cycle'}</button>
+          </div>
+          <div className="divide-y divide-f1light -mx-4 max-h-72 overflow-y-auto">
+            {listings.map((l) => (
+              <div key={l.id} className="px-4 py-2 flex items-center justify-between text-sm">
+                <span className="text-gray-300">{l.player?.displayName} <span className="text-gray-500">({l.player?.position})</span></span>
+                <span className="text-xs text-gray-500">Min {formatMoney(l.startingValue)} · {bidCounts[l.id] || 0} bid(s)</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {results && (
+        <div className="bg-f1dark border border-f1light rounded-lg p-3 text-xs space-y-1 max-h-48 overflow-y-auto">
+          {results.map((r) => (
+            <div key={r.listing.id} className="flex justify-between">
+              <span className="text-gray-300">{r.listing.player?.displayName}</span>
+              <span className={r.winnerManagerId ? 'text-blue-300' : 'text-gray-500'}>
+                {r.winnerManagerId ? `${r.teamName} — ${formatMoney(r.amount)}` : 'Unsold'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   )
 }
@@ -535,6 +629,10 @@ export default function CommissionerPage() {
 
       <SectionCard title="Managers" icon={Users}>
         <ManagersSection members={members} actorUserId={user?.uid} reload={reload} />
+      </SectionCard>
+
+      <SectionCard title="Market Cycles" icon={Gavel}>
+        <MarketCyclesSection league={league} actorUserId={user?.uid} reload={reload} />
       </SectionCard>
 
       <SectionCard title="Players" icon={Search}>

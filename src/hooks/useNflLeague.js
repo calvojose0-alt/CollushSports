@@ -76,13 +76,24 @@ export function useNflLeague(leagueId) {
     getRosterForManager(myMember.id).then(setMyRoster).catch((err) => setError(err.message))
   }, [myMember?.id])
 
+  // Explicit re-fetch for the same reason as refreshMembers — roster changes
+  // (market wins, sales) shouldn't depend on Realtime being enabled.
+  const refreshRoster = useCallback(async () => {
+    if (!myMember) return
+    try {
+      const roster = await getRosterForManager(myMember.id)
+      setMyRoster(roster)
+    } catch (err) {
+      console.error('[NflLeague] roster refresh error:', err.message)
+    }
+  }, [myMember?.id])
+
   const buildStartingRoster = async () => {
     if (!league || !myMember) throw new Error('League not loaded.')
     const result = league.rosterMode === 'random'
       ? await buildRandomRoster({ league, member: myMember })
       : await initEmptyRoster()
-    const roster = await getRosterForManager(myMember.id)
-    setMyRoster(roster)
+    await refreshRoster()
     await refreshMembers() // balance changed
     return result
   }
@@ -100,6 +111,7 @@ export function useNflLeague(leagueId) {
     buildStartingRoster,
     refreshLeaderboard,
     refreshMembers,
+    refreshRoster,
     refreshScoringProfile: loadScoringProfile,
   }
 }
