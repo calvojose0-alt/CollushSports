@@ -6,10 +6,12 @@ import {
   getMySaleOffers, listPlayerForSale, listPlayerForAuction, acceptSaleOffer, cancelSaleOffer,
   getListingBidCounts,
 } from '@/services/nflManager/marketService'
+import { getPlayerScoringSummaries } from '@/services/nflManager/scoringService'
 import { formatMoney } from '@/components/NflManager/NflManagerLayout'
 import MoneyInput from '@/components/shared/MoneyInput'
+import PlayerStatsInline from '@/components/NflManager/PlayerStatsInline'
 
-function ListingRow({ listing, myBid, onBid }) {
+function ListingRow({ listing, myBid, onBid, currentWeek, summary }) {
   const [amount, setAmount] = useState(myBid?.bidAmount ?? listing.startingValue)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -35,6 +37,7 @@ function ListingRow({ listing, myBid, onBid }) {
           {listing.player?.injuryStatus ? ` · ${listing.player.injuryStatus}` : ''}
         </p>
       </div>
+      <PlayerStatsInline nflTeam={listing.player?.nflTeam} currentWeek={currentWeek} summary={summary} />
       <span className="text-xs text-gray-400 flex-shrink-0">Min {formatMoney(listing.startingValue)}</span>
       <MoneyInput className="input-field py-1.5 text-sm w-32 flex-shrink-0" value={amount} onChange={setAmount} />
       <button className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0" disabled={busy} onClick={submit}>
@@ -46,7 +49,7 @@ function ListingRow({ listing, myBid, onBid }) {
   )
 }
 
-function SellRow({ slot, offer, bidCount, cycleOpen, onInstantSale, onAuction, onAccept, onCancel }) {
+function SellRow({ slot, offer, bidCount, cycleOpen, currentWeek, summary, onInstantSale, onAuction, onAccept, onCancel }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -61,6 +64,7 @@ function SellRow({ slot, offer, bidCount, cycleOpen, onInstantSale, onAuction, o
         <p className="text-sm font-semibold text-white truncate">{slot.player?.displayName}</p>
         <p className="text-xs text-gray-500">{slot.player?.position} · {slot.player?.nflTeam}</p>
       </div>
+      <PlayerStatsInline nflTeam={slot.player?.nflTeam} currentWeek={currentWeek} summary={summary} />
 
       {offer?.listingType === 'manager_sale' && (
         <>
@@ -95,12 +99,13 @@ function SellRow({ slot, offer, bidCount, cycleOpen, onInstantSale, onAuction, o
 }
 
 export default function MarketPage() {
-  const { league, myMember, myRoster, refreshMembers, refreshRoster } = useOutletContext()
+  const { league, myMember, myRoster, scoringProfile, currentWeek, refreshMembers, refreshRoster } = useOutletContext()
   const [cycle, setCycle] = useState(null)
   const [listings, setListings] = useState([])
   const [myBids, setMyBids] = useState({})
   const [saleOffers, setSaleOffers] = useState([])
   const [myListingBidCounts, setMyListingBidCounts] = useState({})
+  const [summaries, setSummaries] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -109,12 +114,14 @@ export default function MarketPage() {
     try {
       const activeCycle = await getActiveCycle(league.id)
       setCycle(activeCycle)
+      let listingRows = []
       if (activeCycle) {
-        const [listingRows, bidMap] = await Promise.all([
+        const [rows, bidMap] = await Promise.all([
           getCycleListings(activeCycle.id),
           getMyBidsForCycle(activeCycle.id, myMember.id),
         ])
-        setListings(listingRows.filter((l) => l.status === 'open'))
+        listingRows = rows.filter((l) => l.status === 'open')
+        setListings(listingRows)
         setMyBids(bidMap)
       } else {
         setListings([]); setMyBids({})
@@ -123,12 +130,17 @@ export default function MarketPage() {
       setSaleOffers(offers)
       const auctionIds = offers.filter((o) => o.listingType === 'manager_auction').map((o) => o.id)
       setMyListingBidCounts(await getListingBidCounts(auctionIds))
+
+      if (scoringProfile) {
+        const playerIds = [...new Set([...listingRows.map((l) => l.playerId), ...myRoster.map((s) => s.playerId)])]
+        setSummaries(await getPlayerScoringSummaries(playerIds, league.seasonYear, scoringProfile))
+      }
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [league.id, myMember.id])
+  }, [league.id, league.seasonYear, myMember.id, myRoster, scoringProfile])
 
   useEffect(() => { load() }, [load])
 
@@ -188,7 +200,10 @@ export default function MarketPage() {
         <div className="card p-0 overflow-hidden">
           <div className="divide-y divide-f1light">
             {biddableListings.map((listing) => (
-              <ListingRow key={listing.id} listing={listing} myBid={myBids[listing.id]} onBid={placeBid} />
+              <ListingRow
+                key={listing.id} listing={listing} myBid={myBids[listing.id]} onBid={placeBid}
+                currentWeek={currentWeek} summary={summaries[listing.playerId]}
+              />
             ))}
             {biddableListings.length === 0 && <p className="px-4 py-6 text-center text-gray-500 italic text-sm">No open listings.</p>}
           </div>
@@ -210,6 +225,7 @@ export default function MarketPage() {
               key={slot.id} slot={slot} offer={offersByPlayerId[slot.playerId]}
               bidCount={myListingBidCounts[offersByPlayerId[slot.playerId]?.id]}
               cycleOpen={!!cycle}
+              currentWeek={currentWeek} summary={summaries[slot.playerId]}
               onInstantSale={listForSale} onAuction={listForAuction} onAccept={accept} onCancel={cancel}
             />
           ))}

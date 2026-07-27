@@ -1,14 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Shield, Sparkles, AlertTriangle } from 'lucide-react'
 import { formatMoney } from '@/components/NflManager/NflManagerLayout'
+import { getPlayerScoringSummaries } from '@/services/nflManager/scoringService'
+import PlayerStatsInline from '@/components/NflManager/PlayerStatsInline'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DST']
 
 export default function MyTeamPage() {
-  const { league, myMember, myRoster, buildStartingRoster, refreshLeaderboard } = useOutletContext()
+  const { league, myMember, myRoster, scoringProfile, currentWeek, buildStartingRoster, refreshLeaderboard } = useOutletContext()
   const [building, setBuilding] = useState(false)
   const [error, setError] = useState(null)
+  const [summaries, setSummaries] = useState({})
+
+  useEffect(() => {
+    if (!scoringProfile || myRoster.length === 0) { setSummaries({}); return }
+    getPlayerScoringSummaries(myRoster.map((s) => s.playerId), league.seasonYear, scoringProfile)
+      .then(setSummaries)
+      .catch((err) => console.error('[MyTeamPage] summary error:', err.message))
+  }, [myRoster, scoringProfile, league.seasonYear])
 
   const rosterValue = myRoster.reduce((sum, slot) => sum + (slot.purchasePrice || 0), 0)
   const grouped = POSITION_ORDER.map((pos) => ({
@@ -80,18 +90,24 @@ export default function MyTeamPage() {
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{group.position} ({group.players.length})</span>
               </div>
               <div className="divide-y divide-f1light">
-                {group.players.map((slot) => (
-                  <div key={slot.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{slot.player?.displayName}</p>
-                      <p className="text-xs text-gray-500">
-                        {slot.player?.nflTeam} · Bye {slot.player?.byeWeek}
-                        {slot.player?.injuryStatus ? ` · ${slot.player.injuryStatus}` : ''}
-                      </p>
+                {group.players.map((slot) => {
+                  const summary = summaries[slot.playerId]
+                  return (
+                    <div key={slot.id} className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-white truncate">{slot.player?.displayName}</p>
+                        <p className="text-xs text-gray-500">
+                          {slot.player?.nflTeam} · Bye {slot.player?.byeWeek}
+                          {slot.player?.injuryStatus ? ` · ${slot.player.injuryStatus}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <PlayerStatsInline nflTeam={slot.player?.nflTeam} currentWeek={currentWeek} summary={summary} />
+                        <span className="text-sm font-bold text-gray-300">{formatMoney(slot.purchasePrice)}</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-300 flex-shrink-0">{formatMoney(slot.purchasePrice)}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ))}

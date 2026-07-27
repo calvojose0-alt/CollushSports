@@ -607,14 +607,14 @@ const SITE_ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 export default function CommissionerPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { league, members, isCommissioner, scoringProfile, refreshScoringProfile, refreshLeaderboard, refreshMembers } = useOutletContext()
+  const { league, members, isCommissioner, scoringProfile, refreshScoringProfile, refreshLeaderboard, refreshMembers, refreshCurrentWeek } = useOutletContext()
 
   const isSiteAdmin = user?.email?.toLowerCase() === SITE_ADMIN_EMAIL
   const canManage = isCommissioner || isSiteAdmin
 
   const reload = useCallback(async () => {
-    await Promise.all([refreshScoringProfile(), refreshLeaderboard(), refreshMembers()])
-  }, [refreshScoringProfile, refreshLeaderboard, refreshMembers])
+    await Promise.all([refreshScoringProfile(), refreshLeaderboard(), refreshMembers(), refreshCurrentWeek()])
+  }, [refreshScoringProfile, refreshLeaderboard, refreshMembers, refreshCurrentWeek])
 
   if (!canManage) {
     return (

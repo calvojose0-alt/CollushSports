@@ -9,6 +9,7 @@ import {
 } from '@/services/nflManager/leagueService'
 import { getRosterForManager, buildRandomRoster, initEmptyRoster } from '@/services/nflManager/rosterService'
 import { buildLeaderboard } from '@/services/nflManager/leaderboardService'
+import { getCurrentWeek } from '@/services/nflManager/lineupService'
 
 export function useNflLeague(leagueId) {
   const { user } = useAuth()
@@ -18,6 +19,7 @@ export function useNflLeague(leagueId) {
   const [scoringProfile, setScoringProfile] = useState(null)
   const [myRoster, setMyRoster] = useState([])
   const [leaderboard, setLeaderboard] = useState([])
+  const [currentWeek, setCurrentWeek] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -88,6 +90,23 @@ export function useNflLeague(leagueId) {
     }
   }, [myMember?.id])
 
+  // Best-effort "what week is it" for opponent lookups — see getCurrentWeek's
+  // own doc comment for why this isn't an authoritative clock.
+  const refreshCurrentWeek = useCallback(async () => {
+    if (!league) return
+    try {
+      setCurrentWeek(await getCurrentWeek(league))
+    } catch (err) {
+      console.error('[NflLeague] currentWeek error:', err.message)
+    }
+  }, [league])
+
+  useEffect(() => {
+    if (!league) return
+    refreshCurrentWeek()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [league?.id])
+
   const buildStartingRoster = async () => {
     if (!league || !myMember) throw new Error('League not loaded.')
     const result = league.rosterMode === 'random'
@@ -106,12 +125,14 @@ export function useNflLeague(leagueId) {
     scoringProfile,
     myRoster,
     leaderboard,
+    currentWeek,
     loading,
     error,
     buildStartingRoster,
     refreshLeaderboard,
     refreshMembers,
     refreshRoster,
+    refreshCurrentWeek,
     refreshScoringProfile: loadScoringProfile,
   }
 }

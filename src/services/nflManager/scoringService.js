@@ -32,6 +32,46 @@ function mapStats(row) {
   }
 }
 
+/**
+ * Season average + recent-form projection for a set of players, computed
+ * from real nfl_player_week_stats rows under a league's own scoring
+ * profile (not a predictive model — just this player's own history).
+ * Returns { [playerId]: { seasonAvg, projected, weeksPlayed } }, both
+ * null when no stat lines exist yet for that player/season.
+ */
+export async function getPlayerScoringSummaries(playerIds, seasonYear, scoringProfile) {
+  if (playerIds.length === 0) return {}
+  const supabase = requireSupabase()
+
+  const [{ data: statsRows, error: statsErr }, { data: playerRows, error: playerErr }] = await Promise.all([
+    supabase.from('nfl_player_week_stats').select('*').in('player_id', playerIds).eq('season_year', seasonYear),
+    supabase.from('nfl_players').select('id, position').in('id', playerIds),
+  ])
+  if (statsErr) throw new Error(statsErr.message)
+  if (playerErr) throw new Error(playerErr.message)
+
+  const positionById = Object.fromEntries((playerRows || []).map((p) => [p.id, p.position]))
+  const rowsByPlayer = {}
+  for (const row of statsRows || []) {
+    ;(rowsByPlayer[row.player_id] ||= []).push(row)
+  }
+
+  const summaries = {}
+  for (const playerId of playerIds) {
+    const rows = (rowsByPlayer[playerId] || []).sort((a, b) => a.nfl_week - b.nfl_week)
+    const weeklyPoints = rows.map((row) => calculatePlayerScore(positionById[playerId], mapStats(row), scoringProfile).points)
+
+    const avg = (nums) => nums.length ? nums.reduce((s, v) => s + v, 0) / nums.length : null
+
+    summaries[playerId] = {
+      seasonAvg: avg(weeklyPoints),
+      projected: avg(weeklyPoints.slice(-3)),
+      weeksPlayed: weeklyPoints.length,
+    }
+  }
+  return summaries
+}
+
 export async function getPlayerWeekStats(playerId, nflWeek, seasonYear) {
   const supabase = requireSupabase()
   const { data, error } = await supabase

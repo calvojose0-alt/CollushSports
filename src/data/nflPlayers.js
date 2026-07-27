@@ -82,14 +82,20 @@ const STARTERS = {
 
 const POSITION_COUNTS = { QB: 2, RB: 4, WR: 5, TE: 2, K: 1 }
 
+// Shared with src/data/nflSchedule.js so the placeholder schedule's bye
+// weeks always match each player's bye_week field.
+export const TEAM_BYE_WEEKS = Object.fromEntries(
+  NFL_TEAMS.map((team, i) => [team.abbr, 5 + (i % 10)])
+)
+
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 }
 
 function buildCatalog() {
   const players = []
-  NFL_TEAMS.forEach((team, teamIdx) => {
-    const byeWeek = 5 + (teamIdx % 10) // placeholder round-robin, weeks 5-14
+  NFL_TEAMS.forEach((team) => {
+    const byeWeek = TEAM_BYE_WEEKS[team.abbr]
 
     for (const [position, count] of Object.entries(POSITION_COUNTS)) {
       const starter = STARTERS[team.abbr]?.[position]

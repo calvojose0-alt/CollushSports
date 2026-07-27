@@ -127,6 +127,25 @@ export async function lockLineupsForWeek({ leagueId, nflWeek }) {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Best-effort "current week" for a league — one past the highest week
+ * that's actually been scored, clamped to the league's configured
+ * start/end week. There's no authoritative advancing clock in this app
+ * (weeks are finalized manually), so this is just a reasonable default
+ * for "what week should I show next-opponent info for," not a source of
+ * truth anything else depends on.
+ */
+export async function getCurrentWeek(league) {
+  const supabase = requireSupabase()
+  const { data, error } = await supabase
+    .from('nfl_weekly_lineups').select('nfl_week')
+    .eq('league_id', league.id).eq('lineup_status', 'scored')
+    .order('nfl_week', { ascending: false }).limit(1).maybeSingle()
+  if (error) throw new Error(error.message)
+  const nextWeek = (data?.nfl_week ?? (league.startWeek - 1)) + 1
+  return Math.min(Math.max(nextWeek, league.startWeek), league.endWeek)
+}
+
 export async function getLineupHistory(leagueId, managerId) {
   const supabase = requireSupabase()
   const { data, error } = await supabase
