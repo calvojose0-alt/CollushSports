@@ -212,3 +212,49 @@ export async function finalizeWeek({ league, nflWeek, actorUserId }) {
 
   return results
 }
+
+/**
+ * Commissioner action: undo a week's finalize/lock so it can be re-tested.
+ * Reverses each manager's season-points/bonus contribution from a prior
+ * finalize (safe to call even if that manager scored 0 or was skipped for
+ * negative balance — both net to a zero-effect reversal), clears the
+ * lineup's scored totals, and reopens it for editing. Player assignments
+ * in each lineup slot are left untouched — only lock/score state resets.
+ */
+export async function resetWeek({ league, nflWeek, actorUserId }) {
+  const supabase = requireSupabase()
+  const members = await getLeagueMembers(league.id)
+
+  const results = []
+
+  for (const member of members) {
+    const lineup = await getWeeklyLineup(league.id, member.id, nflWeek)
+    if (!lineup) continue
+
+    if (lineup.lineupStatus === 'scored') {
+      const bonus = calculateWeeklyBonus(lineup.totalPoints, league.moneyPerPoint)
+      const newBalance = member.balance - bonus
+      const newSeasonPoints = member.seasonPoints - lineup.totalPoints
+      await supabase.from('nfl_league_members').update({
+        balance: newBalance, season_points: newSeasonPoints,
+      }).eq('id', member.id)
+    }
+
+    await supabase.from('nfl_weekly_lineups').update({
+      lineup_status: 'open', locked_at: null, total_points: 0, empty_slot_penalty: 0, no_score_reason: null,
+    }).eq('id', lineup.id)
+
+    await supabase.from('nfl_lineup_slots').update({
+      slot_points: 0, calculation_breakdown: null, was_substituted: false,
+    }).eq('weekly_lineup_id', lineup.id)
+
+    results.push({ managerId: member.id, teamName: member.teamName })
+  }
+
+  await writeAuditLog({
+    actorUserId, leagueId: league.id, actionType: 'reset_week', entityType: 'league', entityId: league.id,
+    before: null, after: { nflWeek, resetCount: results.length },
+  })
+
+  return results
+}

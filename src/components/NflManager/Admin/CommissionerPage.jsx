@@ -3,17 +3,18 @@ import { useOutletContext, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Settings, ListChecks, Sliders, Users, Search, ClipboardList, Trophy,
-  ChevronDown, ChevronUp, KeyRound, ShieldAlert, Dices, Gavel,
+  ChevronDown, ChevronUp, KeyRound, ShieldAlert, Dices, Gavel, RotateCcw,
 } from 'lucide-react'
 import { updateLeagueSettings, updateScoringProfile } from '@/services/nflManager/leagueService'
 import { searchPlayers, updatePlayer, getLeagueRoster } from '@/services/nflManager/rosterService'
 import { adjustBalance } from '@/services/nflManager/adminService'
-import { recordPlayerWeekStats, finalizeWeek, simulateWeekStats } from '@/services/nflManager/scoringService'
+import { recordPlayerWeekStats, finalizeWeek, simulateWeekStats, resetWeek } from '@/services/nflManager/scoringService'
 import { lockLineupsForWeek } from '@/services/nflManager/lineupService'
 import {
   getActiveCycle, getCycleListings, getListingBidCounts, openMarketCycle, executeCycle,
 } from '@/services/nflManager/marketService'
 import { formatMoney } from '@/components/NflManager/NflManagerLayout'
+import MoneyInput from '@/components/shared/MoneyInput'
 
 function SectionCard({ title, icon: Icon, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -76,11 +77,11 @@ function LeagueSetupSection({ league, reload }) {
             <option value="complete">Complete</option>
           </select>
         </Field>
-        <Field label="Budget"><input type="number" className="input-field py-1.5 text-sm" value={form.budgetAmount} onChange={(e) => setForm({ ...form, budgetAmount: e.target.value })} /></Field>
+        <Field label="Budget"><MoneyInput className="input-field py-1.5 text-sm" value={form.budgetAmount} onChange={(v) => setForm({ ...form, budgetAmount: v })} /></Field>
         <Field label="Max Managers"><input type="number" className="input-field py-1.5 text-sm" value={form.maxMembers} onChange={(e) => setForm({ ...form, maxMembers: e.target.value })} /></Field>
         <Field label="Start Week"><input type="number" className="input-field py-1.5 text-sm" value={form.startWeek} onChange={(e) => setForm({ ...form, startWeek: e.target.value })} /></Field>
         <Field label="End Week"><input type="number" className="input-field py-1.5 text-sm" value={form.endWeek} onChange={(e) => setForm({ ...form, endWeek: e.target.value })} /></Field>
-        <Field label="$ per Fantasy Point"><input type="number" className="input-field py-1.5 text-sm" value={form.moneyPerPoint} onChange={(e) => setForm({ ...form, moneyPerPoint: e.target.value })} /></Field>
+        <Field label="$ per Fantasy Point"><MoneyInput className="input-field py-1.5 text-sm" value={form.moneyPerPoint} onChange={(v) => setForm({ ...form, moneyPerPoint: v })} /></Field>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
       <button className="btn-primary text-sm px-4 py-1.5" disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save League Settings'}</button>
@@ -226,10 +227,10 @@ function ManagersSection({ members, actorUserId, reload }) {
               <p className="text-sm font-semibold text-white">{m.teamName} {m.role === 'commissioner' && <span className="text-[10px] text-blue-400">(Commissioner)</span>}</p>
               <p className="text-xs text-gray-500">Season pts {m.seasonPoints.toFixed(1)}</p>
             </div>
-            <input
-              type="number" className="input-field py-1.5 text-sm w-32"
-              defaultValue={m.balance}
-              onChange={(e) => setEdits((prev) => ({ ...prev, [m.id]: e.target.value }))}
+            <MoneyInput
+              className="input-field py-1.5 text-sm w-32"
+              value={edits[m.id] ?? m.balance}
+              onChange={(v) => setEdits((prev) => ({ ...prev, [m.id]: v }))}
             />
             <button className="btn-secondary text-xs px-3 py-1.5" disabled={busyId === m.id} onClick={() => save(m)}>
               {busyId === m.id ? '...' : 'Set Balance'}
@@ -492,6 +493,15 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
+  const resetTheWeek = async () => {
+    setBusy(true); setError(null); setResults(null); setSimNotice(null)
+    try {
+      await resetWeek({ league, nflWeek: week, actorUserId })
+      await reload()
+      setSimNotice(`Week ${week} reset — lineups reopened, any prior points/bonus undone. Ready to simulate + finalize again.`)
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+
   const num = (field) => (e) => setStats({ ...stats, [field]: Number(e.target.value) })
   const kickNum = (field) => (e) => setStats({ ...stats, kicking: { ...stats.kicking, [field]: Number(e.target.value) } })
   const dstNum = (field) => (e) => setStats({ ...stats, dst: { ...stats.dst, [field]: Number(e.target.value) } })
@@ -505,7 +515,13 @@ function StatsScoringSection({ league, members, actorUserId, reload }) {
         </button>
         <button className="btn-secondary text-xs px-3 py-1.5 self-end" disabled={busy} onClick={lockWeek}>Lock Lineups</button>
         <button className="btn-primary text-xs px-3 py-1.5 self-end" disabled={busy} onClick={finalize}>{busy ? 'Working...' : `Finalize Week ${week}`}</button>
+        <button className="btn-secondary text-xs px-3 py-1.5 self-end flex items-center gap-1.5" disabled={busy} onClick={resetTheWeek}>
+          <RotateCcw className="w-3.5 h-3.5" /> Reset Week {week}
+        </button>
       </div>
+      <p className="text-[11px] text-gray-500">
+        "Reset" reopens this week's lineups for editing and undoes any points/bonus a prior Finalize applied — use it to re-run Simulate + Finalize on the same week as many times as you want during testing.
+      </p>
       <p className="text-[11px] text-gray-500">
         "Simulate" generates random stats for every rostered player that week — use it for testing instead of entering stat lines by hand. It overwrites any existing stats (manual or simulated) for that week.
       </p>

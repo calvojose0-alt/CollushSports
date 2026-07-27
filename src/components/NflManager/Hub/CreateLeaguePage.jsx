@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { useNflLeagues } from '@/hooks/useNflLeagues'
+import MoneyInput from '@/components/shared/MoneyInput'
 
 const DEFAULT_ROSTER_TEMPLATE = { QB: 2, RB: 4, WR: 4, TE: 2, K: 1, DST: 2 }
 
@@ -103,7 +104,7 @@ export default function CreateLeaguePage() {
             <input type="number" min={2} max={32} className="input-field" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
           </Field>
           <Field label="Team Budget">
-            <input type="number" step={1000000} className="input-field" value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} />
+            <MoneyInput className="input-field" value={budgetAmount} onChange={setBudgetAmount} />
           </Field>
         </div>
 
@@ -157,7 +158,7 @@ export default function CreateLeaguePage() {
         </div>
 
         <Field label="Weekly Bonus ($ per fantasy point)">
-          <input type="number" step={100000} className="input-field" value={moneyPerPoint} onChange={(e) => setMoneyPerPoint(e.target.value)} />
+          <MoneyInput className="input-field" value={moneyPerPoint} onChange={setMoneyPerPoint} />
         </Field>
 
         <p className="text-xs text-gray-500">

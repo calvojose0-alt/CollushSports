@@ -1,9 +1,13 @@
 // NFL Fantasy Manager League — Market Service (Phase 2)
-// Two distinct mechanics:
+// Three mechanics, all sharing nfl_market_listings:
 //   1. Free-agent market: commissioner opens a cycle of random unrostered
 //      players, managers submit secret bids, commissioner executes the
 //      cycle (highest bid wins, ties go to the earliest submission).
-//   2. Manager sale: a manager sells their own rostered player for a
+//   2. Manager auction: a manager puts one of THEIR OWN rostered players
+//      into the currently open cycle instead of an instant sale — it's
+//      bid on exactly like a free-agent listing, and a winning bid pays
+//      the seller (not the league) and moves the player to the winner.
+//   3. Manager sale: a manager sells their own rostered player for a
 //      system-generated instant offer (95-105% of market value) — no
 //      rival bidder, no cycle, executes the moment it's accepted.
 import { requireSupabase, writeAuditLog } from './shared'
@@ -158,9 +162,48 @@ export async function openMarketCycle({ league, actorUserId, listingCount = 10 }
   return mapCycle(cycle)
 }
 
+/**
+ * Manager action: put one of your own rostered players into the currently
+ * open cycle for rival secret bidding, instead of an instant system sale.
+ * Requires an open cycle (it resolves alongside the free-agent listings
+ * when the commissioner executes it). Starting ask defaults to the
+ * player's current market value; a winning bid pays the seller directly.
+ */
+export async function listPlayerForAuction({ league, cycleId, member, playerId, actorUserId }) {
+  const supabase = requireSupabase()
+
+  const { data: rosterSlot, error: rosterErr } = await supabase
+    .from('nfl_roster_slots').select('id').eq('league_id', league.id).eq('player_id', playerId).eq('manager_id', member.id).maybeSingle()
+  if (rosterErr) throw new Error(rosterErr.message)
+  if (!rosterSlot) throw new Error('You do not own this player.')
+
+  const { data: existing } = await supabase
+    .from('nfl_market_listings').select('id').eq('league_id', league.id).eq('player_id', playerId).eq('status', 'open').maybeSingle()
+  if (existing) throw new Error('This player already has an open listing.')
+
+  const { data: valueRow, error: valueErr } = await supabase
+    .from('nfl_league_player_values').select('market_value, purchase_price').eq('league_id', league.id).eq('player_id', playerId).maybeSingle()
+  if (valueErr) throw new Error(valueErr.message)
+  const startingValue = valueRow?.market_value ?? valueRow?.purchase_price ?? 500000
+
+  const { data, error } = await supabase.from('nfl_market_listings').insert({
+    league_id: league.id, market_cycle_id: cycleId, player_id: playerId,
+    listing_type: 'manager_auction', starting_value: startingValue, seller_manager_id: member.id,
+  }).select('*, nfl_players(*)').single()
+  if (error) throw new Error(error.message)
+
+  await writeAuditLog({
+    actorUserId, leagueId: league.id, actionType: 'list_player_for_auction', entityType: 'market_listing', entityId: data.id,
+    before: null, after: { startingValue },
+  })
+
+  return mapListing(data)
+}
+
 export async function submitBid({ listing, bidderMemberId, bidAmount }) {
   const supabase = requireSupabase()
   if (listing.status !== 'open') throw new Error('This listing is no longer open.')
+  if (listing.sellerManagerId === bidderMemberId) throw new Error('You cannot bid on your own listed player.')
   if (bidAmount < listing.startingValue) throw new Error(`Bid must be at least ${listing.startingValue}.`)
 
   const { data: member, error: memberErr } = await supabase
@@ -235,7 +278,16 @@ export async function executeCycle({ league, cycleId, actorUserId }) {
       continue
     }
 
+    const isManagerAuction = !!listing.sellerManagerId
     runningBalance[winner.bidder_manager_id] -= winner.bid_amount
+
+    // Manager-auctioned player: the seller currently owns the roster slot —
+    // it has to be removed before the winner's insert, or the unique
+    // (league_id, player_id) constraint on nfl_roster_slots would reject it.
+    if (isManagerAuction) {
+      runningBalance[listing.sellerManagerId] = (runningBalance[listing.sellerManagerId] ?? 0) + winner.bid_amount
+      await supabase.from('nfl_roster_slots').delete().eq('league_id', league.id).eq('player_id', listing.playerId)
+    }
 
     const { error: rosterErr } = await supabase.from('nfl_roster_slots').insert({
       league_id: league.id, manager_id: winner.bidder_manager_id, player_id: listing.playerId,
@@ -245,6 +297,13 @@ export async function executeCycle({ league, cycleId, actorUserId }) {
       // Player was somehow already rostered (e.g. concurrent admin override) — skip this listing.
       await supabase.from('nfl_market_listings').update({ status: 'unsold', resolved_at: new Date().toISOString() }).eq('id', listing.id)
       runningBalance[winner.bidder_manager_id] += winner.bid_amount
+      if (isManagerAuction) {
+        runningBalance[listing.sellerManagerId] -= winner.bid_amount
+        await supabase.from('nfl_roster_slots').insert({
+          league_id: league.id, manager_id: listing.sellerManagerId, player_id: listing.playerId,
+          acquisition_type: 'admin_assign', purchase_price: 0,
+        })
+      }
       results.push({ listing, winnerManagerId: null, amount: null, error: rosterErr.message })
       continue
     }
@@ -254,7 +313,9 @@ export async function executeCycle({ league, cycleId, actorUserId }) {
     }, { onConflict: 'league_id,player_id' })
 
     await supabase.from('nfl_transactions').insert({
-      league_id: league.id, transaction_type: 'market_win', to_manager_id: winner.bidder_manager_id,
+      league_id: league.id, transaction_type: 'market_win',
+      from_manager_id: isManagerAuction ? listing.sellerManagerId : null,
+      to_manager_id: winner.bidder_manager_id,
       player_id: listing.playerId, amount: winner.bid_amount, notes: `Market cycle — ${listing.player?.displayName ?? listing.playerId}`,
     })
 
@@ -266,10 +327,16 @@ export async function executeCycle({ league, cycleId, actorUserId }) {
     results.push({
       listing, winnerManagerId: winner.bidder_manager_id, amount: winner.bid_amount,
       teamName: memberById[winner.bidder_manager_id]?.teamName,
+      sellerManagerId: isManagerAuction ? listing.sellerManagerId : null,
+      sellerTeamName: isManagerAuction ? memberById[listing.sellerManagerId]?.teamName : null,
     })
   }
 
-  const changedManagerIds = [...new Set(results.filter((r) => r.winnerManagerId).map((r) => r.winnerManagerId))]
+  const changedManagerIds = new Set()
+  for (const r of results) {
+    if (r.winnerManagerId) changedManagerIds.add(r.winnerManagerId)
+    if (r.sellerManagerId) changedManagerIds.add(r.sellerManagerId)
+  }
   for (const managerId of changedManagerIds) {
     await supabase.from('nfl_league_members').update({ balance: runningBalance[managerId] }).eq('id', managerId)
   }
