@@ -49,6 +49,13 @@ import MyTeamsPage from '@/components/WinLeague/Teams/MyTeamsPage'
 import WLLeaderboardPage from '@/components/WinLeague/Leaderboard/WLLeaderboardPage'
 import WLAdminPage from '@/components/WinLeague/Admin/WLAdminPage'
 
+// Pro Football Win League
+import FootballWinLeagueLayout from '@/components/FootballWinLeague/FootballWinLeagueLayout'
+import FWLDraftPage from '@/components/FootballWinLeague/Draft/DraftPage'
+import FWLMyTeamsPage from '@/components/FootballWinLeague/Teams/MyTeamsPage'
+import FWLLeaderboardPage from '@/components/FootballWinLeague/Leaderboard/LeaderboardPage'
+import FWLAdminPage from '@/components/FootballWinLeague/Admin/AdminPage'
+
 // NFL Fantasy Manager League
 import NflManagerLayout from '@/components/NflManager/NflManagerLayout'
 import LeagueHubPage from '@/components/NflManager/Hub/LeagueHubPage'
@@ -184,6 +191,23 @@ function AppRoutes() {
           <Route path="my-teams" element={<MyTeamsPage />} />
           <Route path="leaderboard" element={<WLLeaderboardPage />} />
           <Route path="admin" element={<AdminRoute fallback="/win-league"><WLAdminPage /></AdminRoute>} />
+        </Route>
+
+        {/* Pro Football Win League nested routes */}
+        <Route
+          path="/football-win-league"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FootballWinLeagueLayout />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<FWLDraftPage />} />
+          <Route path="my-teams" element={<FWLMyTeamsPage />} />
+          <Route path="leaderboard" element={<FWLLeaderboardPage />} />
+          <Route path="admin" element={<AdminRoute fallback="/football-win-league"><FWLAdminPage /></AdminRoute>} />
         </Route>
 
         {/* NFL Fantasy Manager League */}
