@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { useFootballWinLeague } from '@/hooks/useFootballWinLeague'
-import { Trophy, ChevronDown, ChevronUp, Users, CalendarDays } from 'lucide-react'
+import { Trophy, Users, CalendarDays } from 'lucide-react'
 import TeamLogo from '@/components/FootballWinLeague/TeamLogo'
 import { fmtPts } from '@/components/FootballWinLeague/format'
 
@@ -14,7 +13,7 @@ function RankBadge({ rank }) {
 // One icon per recorded week: green ✓ = win, grey – = tie, red ✗ = loss
 function WeekIcons({ weeks }) {
   if (!weeks || weeks.length === 0) {
-    return <span className="text-[9px] text-gray-600 italic">No games yet</span>
+    return <span className="text-[10px] text-gray-600 italic">No games yet</span>
   }
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -28,107 +27,65 @@ function WeekIcons({ weeks }) {
   )
 }
 
-// Compact team chip: badge · record · pts
-function TeamChip({ team }) {
+// Full-name team row: logo · team name · record · week icons · points
+function TeamLine({ team }) {
   const info = team.teamInfo
   if (!info) return null
   return (
-    <span
-      title={`${info.name}: ${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ''} · ${fmtPts(team.points)} pts`}
-      className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md border bg-gray-800/60 border-f1light text-gray-300"
-    >
-      <TeamLogo team={info} size="xs" />
-      <span className="text-gray-400 tabular-nums">{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ''}</span>
-      <span className="text-green-400 font-bold">{fmtPts(team.points)}</span>
-    </span>
-  )
-}
-
-// Detailed per-team card (expanded view)
-function TeamDetailCard({ team }) {
-  const info = team.teamInfo
-  if (!info) return null
-  return (
-    <div className="bg-f1dark rounded-lg px-3 py-2 flex-1 min-w-[150px] space-y-1.5">
-      <div className="flex items-center gap-2">
-        <TeamLogo team={info} size="sm" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-white truncate">{info.name}</p>
-          <p className="text-[10px] text-gray-500">{team.wins}W · {team.ties}T · {team.losses}L</p>
+    <div className="flex items-center gap-3 bg-f1dark rounded-lg px-3 py-2">
+      <TeamLogo team={info} size="sm" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white truncate">{info.name}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[11px] text-gray-500">{team.wins}W · {team.ties}T · {team.losses}L</span>
+          <WeekIcons weeks={team.weeks} />
         </div>
-        <p className="text-xs font-black" style={{ color: info.color !== '#000000' ? info.color : '#9ca3af' }}>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <p className="text-base font-black" style={{ color: info.color !== '#000000' ? info.color : '#9ca3af' }}>
           {fmtPts(team.points)}
         </p>
+        <p className="text-[9px] text-gray-500 -mt-0.5">pts</p>
       </div>
-      <WeekIcons weeks={team.weeks} />
     </div>
   )
 }
 
-function ManagerRow({ row, rank, expanded, onToggle, isChampion }) {
+function ManagerRow({ row, rank, isChampion }) {
   return (
-    <div className={isChampion ? 'bg-yellow-900/10' : ''}>
-      <div className="px-4 py-3 space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-7 flex-shrink-0 flex items-center justify-center">
-            <RankBadge rank={rank} />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-sm text-gray-100 truncate">{row.manager}</span>
-              {isChampion && <Trophy className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
-              <span className="text-green-400">{row.totalWins}W</span>
-              <span>·</span>
-              <span className="text-gray-400">{row.totalTies}T</span>
-              <span>·</span>
-              <span className="text-gray-500">{row.totalLosses}L</span>
-            </div>
-          </div>
-
-          <div className="text-right flex-shrink-0">
-            <div className={`font-black text-lg leading-none ${row.totalPoints > 0 ? 'text-green-400' : 'text-gray-600'}`}>
-              {fmtPts(row.totalPoints)}
-            </div>
-            <div className="text-[10px] text-gray-500">pts</div>
-          </div>
-
-          <button
-            onClick={onToggle}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-f1light bg-f1dark hover:bg-f1light text-gray-300 hover:text-white text-xs font-semibold transition-colors flex-shrink-0"
-          >
-            Teams
-            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
+    <div className={`px-4 py-3.5 space-y-3 ${isChampion ? 'bg-yellow-900/10' : ''}`}>
+      {/* Header: rank · manager · total */}
+      <div className="flex items-center gap-3">
+        <div className="w-7 flex-shrink-0 flex items-center justify-center">
+          <RankBadge rank={rank} />
         </div>
-
-        {/* Team chips with record + points */}
-        <div className="flex items-center gap-1.5 pl-10 flex-wrap">
-          {row.teams.map((t) => <TeamChip key={t.teamId} team={t} />)}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-base text-white truncate">{row.manager}</span>
+            {isChampion && <Trophy className="w-4 h-4 text-yellow-400 flex-shrink-0" />}
+          </div>
+          <p className="text-[11px] text-gray-500">
+            <span className="text-green-400">{row.totalWins}W</span> · {row.totalTies}T · {row.totalLosses}L
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className={`font-black text-xl leading-none ${row.totalPoints > 0 ? 'text-green-400' : 'text-gray-600'}`}>
+            {fmtPts(row.totalPoints)}
+          </div>
+          <div className="text-[10px] text-gray-500">pts</div>
         </div>
       </div>
 
-      {/* Expanded per-team detail */}
-      {expanded && (
-        <div className="mx-4 mb-3 rounded-xl border border-f1light bg-f1dark overflow-hidden">
-          <div className="px-4 py-2 border-b border-f1light">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Team Breakdown — {row.manager}</p>
-          </div>
-          <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {row.teams.map((t) => <TeamDetailCard key={t.teamId} team={t} />)}
-          </div>
-        </div>
-      )}
+      {/* The three teams, full names + results, always shown */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pl-10">
+        {row.teams.map((t) => <TeamLine key={t.teamId} team={t} />)}
+      </div>
     </div>
   )
 }
 
 export default function LeaderboardPage() {
   const { standings, weeksScored, isComplete } = useFootballWinLeague()
-  const [expanded, setExpanded] = useState(null)
-  const toggle = (id) => setExpanded((prev) => (prev === id ? null : id))
 
   const champion = isComplete && standings[0]
   const topScore = standings[0]?.totalPoints ?? 0
@@ -184,8 +141,6 @@ export default function LeaderboardPage() {
               key={row.id}
               row={row}
               rank={idx + 1}
-              expanded={expanded === row.id}
-              onToggle={() => toggle(row.id)}
               isChampion={isComplete && idx === 0}
             />
           ))}
@@ -201,7 +156,7 @@ export default function LeaderboardPage() {
           <span>🤝 Tie: <strong className="text-yellow-400">+0.5</strong></span>
           <span>❌ Loss: <strong className="text-gray-600">0</strong></span>
         </div>
-        <p className="text-gray-600">Team chips show <span className="tabular-nums">W-L</span> (or W-L-T) record and points. Tiebreakers: total wins, then fewest losses.</p>
+        <p className="text-gray-600">Tiebreakers: total wins, then fewest losses.</p>
       </div>
     </div>
   )
