@@ -4,7 +4,7 @@ import { useFootballWinLeague } from '@/hooks/useFootballWinLeague'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Settings, Users, Trophy, ChevronDown, ChevronUp,
-  AlertTriangle, CalendarDays, RotateCcw,
+  AlertTriangle, CalendarDays, RotateCcw, Plus, X,
 } from 'lucide-react'
 import TeamLogo from '@/components/FootballWinLeague/TeamLogo'
 import { NFL_WL_TEAMS, FWL_RANKED_TEAMS, FWL_WEEKS } from '@/data/nflWinLeagueTeams'
@@ -39,9 +39,27 @@ const OUTCOMES = [
   { id: 'loss', label: 'L', cls: 'bg-red-600 border-red-500' },
 ]
 
+// Small colored pill for a recorded outcome.
+function OutcomeBadge({ outcome }) {
+  const map = {
+    win:  ['W', 'bg-green-600'],
+    tie:  ['T', 'bg-yellow-600'],
+    loss: ['L', 'bg-red-600'],
+  }
+  const [label, bg] = map[outcome] || ['?', 'bg-gray-600']
+  return <span className={`${bg} text-white text-[10px] font-black w-5 h-5 rounded flex items-center justify-center flex-shrink-0`}>{label}</span>
+}
+
+// Enter results one GAME at a time: pick the two teams and it sets both
+// (winner + loser, or a tie). A single-team fallback handles the rare game
+// against a non-rostered team.
 function WeeklyResults({ rosterTeams, results, reload }) {
-  const [saving, setSaving] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [week,   setWeek]   = useState(1)
+  const [winner, setWinner] = useState('')
+  const [loser,  setLoser]  = useState('')
+  const [isTie,  setIsTie]  = useState(false)
+  const [single, setSingle] = useState('')
 
   // Rostered teams in draft-board order
   const teams = [...rosterTeams]
@@ -49,34 +67,60 @@ function WeeklyResults({ rosterTeams, results, reload }) {
     .filter(Boolean)
     .sort((a, b) => FWL_RANKED_TEAMS.indexOf(a.id) - FWL_RANKED_TEAMS.indexOf(b.id))
 
-  const byKey = {}
-  for (const r of results) byKey[`${r.teamId}_${r.week}`] = r.outcome
+  const rankIdx = (id) => FWL_RANKED_TEAMS.indexOf(id)
+  const weekResults = results
+    .filter((r) => r.week === week)
+    .sort((a, b) => rankIdx(a.teamId) - rankIdx(b.teamId))
+  const recordedIds = new Set(weekResults.map((r) => r.teamId))
+  const remaining = teams.filter((t) => !recordedIds.has(t.id))
 
-  const weekCount = results.filter((r) => r.week === week).length
-
-  const setOutcome = async (teamId, outcome) => {
-    const key = `${teamId}_${week}`
-    setSaving(key)
+  const save = async (entries) => {
+    setSaving(true)
     try {
-      if (byKey[key] === outcome) await removeResult({ teamId, week })   // tap active → clear
-      else                        await recordResult({ teamId, week, outcome })
+      for (const e of entries) await recordResult({ teamId: e.teamId, week, outcome: e.outcome })
       await reload()
     } catch (e) { alert(e.message) }
-    finally { setSaving(null) }
+    finally { setSaving(false) }
   }
+
+  const addGame = async () => {
+    if (!winner || !loser || winner === loser) return
+    await save(isTie
+      ? [{ teamId: winner, outcome: 'tie' }, { teamId: loser, outcome: 'tie' }]
+      : [{ teamId: winner, outcome: 'win' }, { teamId: loser, outcome: 'loss' }])
+    setWinner(''); setLoser('')
+  }
+
+  const addSingle = async (outcome) => {
+    if (!single) return
+    await save([{ teamId: single, outcome }])
+    setSingle('')
+  }
+
+  const remove = async (teamId) => {
+    setSaving(true)
+    try { await removeResult({ teamId, week }); await reload() }
+    catch (e) { alert(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const selectCls = 'bg-f1dark border border-f1light rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-green-500 disabled:opacity-40'
+  const teamOptions = (exclude) => remaining
+    .filter((t) => t.id !== exclude)
+    .map((t) => <option key={t.id} value={t.id}>{t.shortName} — {t.name}</option>)
 
   return (
     <div className="space-y-4">
       {/* Week selector */}
       <div>
-        <p className="text-xs text-gray-400 mb-2">Select week to record:</p>
+        <p className="text-xs text-gray-400 mb-2">Select week:</p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: FWL_WEEKS }, (_, i) => i + 1).map((w) => {
             const recorded = results.some((r) => r.week === w)
             return (
               <button
                 key={w}
-                onClick={() => setWeek(w)}
+                onClick={() => { setWeek(w); setWinner(''); setLoser(''); setSingle('') }}
                 className={`w-9 h-9 rounded-lg text-xs font-bold border transition-colors relative ${
                   week === w
                     ? 'border-green-500 bg-green-900/40 text-green-300'
@@ -92,44 +136,98 @@ function WeeklyResults({ rosterTeams, results, reload }) {
       </div>
 
       <p className="text-xs text-gray-500">
-        Set each team's result for <strong className="text-white">Week {week}</strong>{' '}
-        ({weekCount}/{teams.length} recorded — tap the active one again to clear):
+        <strong className="text-white">Week {week}</strong> — {weekResults.length}/{teams.length} teams recorded, {remaining.length} left.
       </p>
 
-      <div className="space-y-2">
-        {teams.map((team) => {
-          const key     = `${team.id}_${week}`
-          const current = byKey[key]
-          const isSaving = saving === key
-          return (
-            <div key={team.id} className="flex items-center gap-3 bg-f1dark border border-f1light rounded-xl px-3 py-2">
-              <TeamLogo team={team} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-white truncate">{team.shortName}</p>
-                <p className="text-[10px] text-gray-500 truncate">{team.name}</p>
-              </div>
-              {isSaving ? (
-                <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-              ) : (
-                <div className="flex gap-1 flex-shrink-0">
-                  {OUTCOMES.map((o) => (
-                    <button
-                      key={o.id}
-                      onClick={() => setOutcome(team.id, o.id)}
-                      disabled={!!saving}
-                      className={`w-8 h-8 rounded-lg border text-xs font-black transition-all ${
-                        current === o.id ? `${o.cls} text-white` : 'border-f1light bg-f1dark text-gray-500 hover:text-white'
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+      {/* Record a game (two rostered teams) */}
+      {remaining.length >= 2 ? (
+        <div className="bg-f1dark border border-f1light rounded-xl p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-white">Record a game</p>
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={isTie} onChange={(e) => setIsTie(e.target.checked)} className="accent-yellow-500" />
+              Tie game
+            </label>
+          </div>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <select value={winner} onChange={(e) => setWinner(e.target.value)} disabled={saving} className={selectCls}>
+              <option value="">{isTie ? 'Team…' : 'Winner…'}</option>
+              {teamOptions(loser)}
+            </select>
+            <span className="text-[11px] font-bold text-gray-500 px-1">{isTie ? 'ties' : 'beat'}</span>
+            <select value={loser} onChange={(e) => setLoser(e.target.value)} disabled={saving} className={selectCls}>
+              <option value="">{isTie ? 'Team…' : 'Loser…'}</option>
+              {teamOptions(winner)}
+            </select>
+          </div>
+          <button
+            onClick={addGame}
+            disabled={saving || !winner || !loser || winner === loser}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white text-xs font-semibold transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add game
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-600 italic bg-f1dark border border-f1light rounded-xl px-3 py-2.5">
+          {remaining.length === 0 ? 'All rostered teams have a result for this week.' : 'Only one team left — use the single-team option below (bye or non-roster opponent).'}
+        </p>
+      )}
+
+      {/* Single-team fallback (played a non-rostered opponent) */}
+      {remaining.length >= 1 && (
+        <div className="bg-f1dark border border-f1light rounded-xl p-3 space-y-2">
+          <p className="text-[11px] text-gray-400">Played a non-roster team? Set one team directly:</p>
+          <div className="flex items-center gap-2">
+            <select value={single} onChange={(e) => setSingle(e.target.value)} disabled={saving} className={`${selectCls} flex-1`}>
+              <option value="">Team…</option>
+              {remaining.map((t) => <option key={t.id} value={t.id}>{t.shortName} — {t.name}</option>)}
+            </select>
+            <div className="flex gap-1 flex-shrink-0">
+              {OUTCOMES.map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => addSingle(o.id)}
+                  disabled={saving || !single}
+                  className={`w-8 h-8 rounded-lg border text-xs font-black transition-all disabled:opacity-40 ${o.cls} text-white`}
+                >
+                  {o.label}
+                </button>
+              ))}
             </div>
-          )
-        })}
-      </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recorded this week */}
+      {weekResults.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Recorded — Week {week}</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {weekResults.map((r) => {
+              const team = NFL_WL_TEAMS[r.teamId]
+              if (!team) return null
+              return (
+                <div key={r.teamId} className="flex items-center gap-2 bg-f1dark border border-f1light rounded-lg px-2 py-1.5">
+                  <OutcomeBadge outcome={r.outcome} />
+                  <TeamLogo team={team} size="xs" />
+                  <span className="text-xs text-gray-200 font-semibold truncate flex-1">{team.shortName}</span>
+                  <button onClick={() => remove(r.teamId)} disabled={saving} className="text-gray-500 hover:text-red-400 flex-shrink-0" title="Remove">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Remaining (bye or not yet entered) */}
+      {remaining.length > 0 && weekResults.length > 0 && (
+        <p className="text-[10px] text-gray-600">
+          Not yet recorded: {remaining.map((t) => t.shortName).join(', ')} (leave teams on a bye unrecorded).
+        </p>
+      )}
     </div>
   )
 }
