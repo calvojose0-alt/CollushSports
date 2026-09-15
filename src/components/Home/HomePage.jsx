@@ -17,7 +17,7 @@ const GAMES = [
     title: 'Pro Football Win-League',
     subtitle: '2025–26 Season',
     description:
-      'Draft 3 NFL teams and rack up points as they win. 1 point per win, 0.5 per tie, across all 18 regular-season weeks.',
+      'Each manager holds 3 NFL teams and scores their combined results — 1 point per win, 0.5 per tie — across all 18 regular-season weeks.',
     icon: Zap,
     color: 'from-green-900/40 to-green-800/10',
     borderColor: 'border-green-700/30',
@@ -25,7 +25,7 @@ const GAMES = [
     badgeColor: 'bg-green-600',
     status: 'live',
     path: '/football-win-league',
-    features: ['Draft 3 Teams', 'Win = 1 / Tie = 0.5', '18 Weeks', 'Live Leaderboard'],
+    features: ['11 Managers', 'Win = 1 / Tie = 0.5', '18 Weeks', 'Live Standings'],
   },
   {
     id: 'football-survivor',

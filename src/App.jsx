@@ -51,8 +51,6 @@ import WLAdminPage from '@/components/WinLeague/Admin/WLAdminPage'
 
 // Pro Football Win League
 import FootballWinLeagueLayout from '@/components/FootballWinLeague/FootballWinLeagueLayout'
-import FWLDraftPage from '@/components/FootballWinLeague/Draft/DraftPage'
-import FWLMyTeamsPage from '@/components/FootballWinLeague/Teams/MyTeamsPage'
 import FWLLeaderboardPage from '@/components/FootballWinLeague/Leaderboard/LeaderboardPage'
 import FWLAdminPage from '@/components/FootballWinLeague/Admin/AdminPage'
 
@@ -204,9 +202,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<FWLDraftPage />} />
-          <Route path="my-teams" element={<FWLMyTeamsPage />} />
-          <Route path="leaderboard" element={<FWLLeaderboardPage />} />
+          <Route index element={<FWLLeaderboardPage />} />
           <Route path="admin" element={<AdminRoute fallback="/football-win-league"><FWLAdminPage /></AdminRoute>} />
         </Route>
 

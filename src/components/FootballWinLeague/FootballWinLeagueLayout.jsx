@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Zap, Users, Trophy, Settings, ChevronLeft } from 'lucide-react'
+import { Zap, Trophy, Settings, ChevronLeft } from 'lucide-react'
 import { useFootballWinLeague } from '@/hooks/useFootballWinLeague'
 import { useAuth } from '@/hooks/useAuth'
 import PullToRefresh from '@/components/shared/PullToRefresh'
@@ -8,76 +8,19 @@ import { fmtPts } from '@/components/FootballWinLeague/format'
 const ADMIN_EMAIL = 'jcalvo87@hotmail.com'
 
 const ALL_NAV = [
-  { to: '/football-win-league',             label: 'Draft',       icon: Zap,      exact: true },
-  { to: '/football-win-league/my-teams',    label: 'My Teams',    icon: Users                },
-  { to: '/football-win-league/leaderboard', label: 'Leaderboard', icon: Trophy               },
-  { to: '/football-win-league/admin',       label: 'Admin',       icon: Settings, adminOnly: true },
+  { to: '/football-win-league',       label: 'Standings', icon: Trophy,   exact: true },
+  { to: '/football-win-league/admin', label: 'Admin',     icon: Settings, adminOnly: true },
 ]
-
-function StatusBanner({ session, isMyTurn, currentDrafter, myPlayer, players }) {
-  if (!session) return null
-  const status = session.status
-
-  if (status === 'setup') {
-    return (
-      <div className="bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-gray-400 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
-        Draft setup in progress — waiting for admin to open registration.
-      </div>
-    )
-  }
-  if (status === 'open') {
-    return (
-      <div className="bg-blue-900/30 border border-blue-700 rounded-xl px-4 py-2.5 text-xs text-blue-300 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse flex-shrink-0" />
-        <span><strong>Registration open</strong> — {players.length} / {session.maxPlayers} players joined.{' '}
-        {!myPlayer && <span className="text-white font-semibold">Go to Draft tab to join!</span>}
-        </span>
-      </div>
-    )
-  }
-  if (status === 'drafting') {
-    if (isMyTurn) {
-      return (
-        <div className="bg-green-900/40 border border-green-600 rounded-xl px-4 py-2.5 text-xs text-green-300 flex items-center gap-2 animate-pulse">
-          <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-          <strong>It's your pick!</strong>&nbsp;Go to the Draft tab and choose your team.
-        </div>
-      )
-    }
-    return (
-      <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl px-4 py-2.5 text-xs text-yellow-300 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
-        Draft in progress — <strong>{currentDrafter?.displayName || 'Someone'}</strong> is on the clock.
-      </div>
-    )
-  }
-  if (status === 'locked' || status === 'active') {
-    return (
-      <div className="bg-green-900/30 border border-green-700 rounded-xl px-4 py-2.5 text-xs text-green-300 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-        Draft locked — scoring live as weekly results are recorded.
-      </div>
-    )
-  }
-  if (status === 'complete') {
-    return (
-      <div className="bg-yellow-900/40 border border-yellow-600 rounded-xl px-4 py-2.5 text-xs text-yellow-300 flex items-center gap-2">
-        🏆 Season complete — final standings are set!
-      </div>
-    )
-  }
-  return null
-}
 
 export default function FootballWinLeagueLayout() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { session, players, myPlayer, isMyTurn, currentDrafter, leaderboard, loading, error, refreshResults, reload } = useFootballWinLeague()
+  const { standings, weeksScored, session, roster, loading, error, refreshResults, reload } = useFootballWinLeague()
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
   const NAV = ALL_NAV.filter((item) => !item.adminOnly || isAdmin)
-  const myScore = leaderboard.find((p) => p.userId === user?.uid)?.totalPoints ?? 0
+  const topScore = standings[0]?.totalPoints ?? 0
+  const lastWeek = weeksScored.length ? Math.max(...weeksScored) : 0
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -101,13 +44,18 @@ export default function FootballWinLeagueLayout() {
 
       {/* Status banner */}
       <div className="mb-4">
-        <StatusBanner
-          session={session}
-          isMyTurn={isMyTurn}
-          currentDrafter={currentDrafter}
-          myPlayer={myPlayer}
-          players={players}
-        />
+        {session?.status === 'complete' ? (
+          <div className="bg-yellow-900/40 border border-yellow-600 rounded-xl px-4 py-2.5 text-xs text-yellow-300 flex items-center gap-2">
+            🏆 Season complete — final standings are set!
+          </div>
+        ) : (
+          <div className="bg-green-900/30 border border-green-700 rounded-xl px-4 py-2.5 text-xs text-green-300 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+            {lastWeek > 0
+              ? <span>Scoring live — results recorded through <strong>Week {lastWeek}</strong>.</span>
+              : <span>Rosters are set — standings update as weekly results are recorded.</span>}
+          </div>
+        )}
       </div>
 
       {/* Mobile tab strip */}
@@ -160,27 +108,23 @@ export default function FootballWinLeagueLayout() {
           <div className="mt-6 card text-sm space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Win League</p>
             <div className="flex justify-between">
-              <span className="text-gray-400">Players</span>
-              <span className="font-bold text-white">{players.length} / {session?.maxPlayers ?? 10}</span>
+              <span className="text-gray-400">Managers</span>
+              <span className="font-bold text-white">{roster.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Status</span>
-              <span className={`font-bold capitalize ${
-                session?.status === 'drafting' ? 'text-yellow-400' :
-                session?.status === 'locked'   ? 'text-green-400'  :
-                session?.status === 'open'     ? 'text-blue-400'   :
-                session?.status === 'complete' ? 'text-yellow-300' :
-                'text-gray-500'
-              }`}>
-                {session?.status ?? 'setup'}
-              </span>
+              <span className="text-gray-400">Weeks scored</span>
+              <span className="font-bold text-white">{weeksScored.length}</span>
             </div>
-            {myPlayer && (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Top score</span>
+              <span className="font-bold text-green-400">{fmtPts(topScore)}</span>
+            </div>
+            {standings[0] && (
               <>
                 <div className="border-t border-f1light pt-2" />
                 <div className="flex justify-between">
-                  <span className="text-gray-400">My points</span>
-                  <span className="font-bold text-green-400">{fmtPts(myScore)}</span>
+                  <span className="text-gray-400">Leader</span>
+                  <span className="font-bold text-f1gold truncate max-w-[110px]">{standings[0].manager}</span>
                 </div>
               </>
             )}

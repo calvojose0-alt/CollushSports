@@ -1,90 +1,73 @@
 // useFootballWinLeague — central state hook for Pro Football Win League 2025–26
+//
+// This is a FIXED-ROSTER pool (see nflWinLeagueRoster.js): managers and their
+// teams are baked in, teams may be shared, and there is no in-app draft. The
+// admin records weekly Win/Tie/Loss per team (fwl_results) and standings are
+// computed from the roster + those results. Win = 1, Tie = 0.5, Loss = 0.
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/hooks/useAuth'
 import {
   getSession, updateSession, subscribeToSession,
-  joinFootballWinLeague, subscribeToFWLPlayers,
-  getAllFWLPicks, subscribeToFWLPicks,
   getAllResults, subscribeToResults,
-  draftTeam as _draftTeam,
 } from '@/services/footballWinLeague/footballWinLeagueService'
-import { NFL_WL_TEAMS, FWL_RANKED_TEAMS, FWL_MATCH_POINTS } from '@/data/nflWinLeagueTeams'
+import { NFL_WL_TEAMS, FWL_MATCH_POINTS } from '@/data/nflWinLeagueTeams'
+import { FWL_ROSTER, FWL_ROSTER_TEAMS } from '@/data/nflWinLeagueRoster'
 
 // ── Scoring engine ────────────────────────────────────────────────────────────
 
 /**
- * Compute regular-season points for a team from all weekly results.
- * Win = 1, Tie = 0.5, Loss = 0. No advancement bonuses.
- * Returns { matchPoints, wins, ties, losses, weeks }
- * `weeks` is an ordered list of per-week outcomes for the icon row:
- *   [{ week, outcome: 'win'|'tie'|'loss' }]
+ * Per-team record & points from all weekly results.
+ * Returns { wins, ties, losses, points, weeks }
+ * `weeks` is an ordered list of { week, outcome } for the icon row.
  */
-function computeTeamPoints(teamId, results) {
-  let matchPoints = 0, wins = 0, ties = 0, losses = 0
+function computeTeamRecord(teamId, results) {
+  let wins = 0, ties = 0, losses = 0
   const weeks = results
     .filter((r) => r.teamId === teamId)
     .sort((a, b) => (a.week ?? 0) - (b.week ?? 0))
     .map((r) => {
-      if (r.outcome === 'win')      { matchPoints += FWL_MATCH_POINTS.win;  wins++ }
-      else if (r.outcome === 'tie') { matchPoints += FWL_MATCH_POINTS.tie;  ties++ }
-      else                          { losses++ }
+      if (r.outcome === 'win')      wins++
+      else if (r.outcome === 'tie') ties++
+      else                          losses++
       return { week: r.week, outcome: r.outcome }
     })
-  return { matchPoints, wins, ties, losses, weeks }
+  const points = wins * FWL_MATCH_POINTS.win + ties * FWL_MATCH_POINTS.tie
+  return { wins, ties, losses, points, weeks }
 }
 
 /**
- * Build full leaderboard from raw data.
- * Returns sorted array of player objects with computed scores.
+ * Build the manager standings from the fixed roster + weekly results.
+ * Returns a sorted array of manager rows with per-team breakdowns.
  */
-function buildLeaderboard(players, picks, results) {
-  const picksByUser = {}
-  for (const p of picks) {
-    if (!picksByUser[p.userId]) picksByUser[p.userId] = []
-    picksByUser[p.userId].push(p)
-  }
+function buildStandings(results) {
+  const rows = FWL_ROSTER.map((entry) => {
+    let totalPoints = 0, totalWins = 0, totalTies = 0, totalLosses = 0
 
-  const rows = players.map((player) => {
-    const myPicks = picksByUser[player.userId] || []
-    let totalMatchPoints = 0
-    let totalWins = 0
-    let totalTies = 0
-    let totalLosses = 0
-
-    const teams = myPicks.map((pick) => {
-      const { matchPoints, wins, ties, losses, weeks } = computeTeamPoints(pick.teamId, results)
-      totalMatchPoints += matchPoints
-      totalWins        += wins
-      totalTies        += ties
-      totalLosses      += losses
-      return {
-        teamId:     pick.teamId,
-        pickNumber: pick.pickNumber,
-        matchPoints,
-        wins,
-        ties,
-        losses,
-        weeks,
-        teamInfo:   NFL_WL_TEAMS[pick.teamId] || null,
-      }
+    const teams = entry.teams.map((teamId) => {
+      const rec = computeTeamRecord(teamId, results)
+      totalPoints  += rec.points
+      totalWins    += rec.wins
+      totalTies    += rec.ties
+      totalLosses  += rec.losses
+      return { teamId, teamInfo: NFL_WL_TEAMS[teamId] || null, ...rec }
     })
 
     return {
-      ...player,
+      id: entry.id,
+      manager: entry.manager,
       teams,
-      matchPoints: totalMatchPoints,
-      totalPoints: totalMatchPoints,
+      totalPoints,
       totalWins,
       totalTies,
       totalLosses,
     }
   })
 
-  // Sort: totalPoints → totalWins → fewest losses
+  // Sort: totalPoints → totalWins → fewest losses → manager name
   rows.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
     if (b.totalWins !== a.totalWins)     return b.totalWins - a.totalWins
-    return a.totalLosses - b.totalLosses
+    if (a.totalLosses !== b.totalLosses) return a.totalLosses - b.totalLosses
+    return a.manager.localeCompare(b.manager)
   })
 
   return rows
@@ -93,28 +76,17 @@ function buildLeaderboard(players, picks, results) {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useFootballWinLeague() {
-  const { user } = useAuth()
+  const [session, setSession] = useState(null)
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
 
-  const [session,  setSession]  = useState(null)
-  const [players,  setPlayers]  = useState([])
-  const [myPlayer, setMyPlayer] = useState(null)
-  const [picks,    setPicks]    = useState([])
-  const [results,  setResults]  = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState(null)
-
-  // Load one-time data
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const [sess, allPicks, allResults] = await Promise.all([
-        getSession(),
-        getAllFWLPicks(),
-        getAllResults(),
-      ])
+      const [sess, allResults] = await Promise.all([getSession(), getAllResults()])
       setSession(sess)
-      setPicks(allPicks)
       setResults(allResults)
     } catch (err) {
       console.error('[FootballWinLeague] loadData error:', err.message)
@@ -126,96 +98,28 @@ export function useFootballWinLeague() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Real-time subscriptions
   useEffect(() => {
     const unsubSession = subscribeToSession((s) => setSession(s))
-    const unsubPlayers = subscribeToFWLPlayers((p) => {
-      setPlayers(p)
-      if (user) setMyPlayer(p.find((x) => x.userId === user.uid) || null)
-    })
-    const unsubPicks   = subscribeToFWLPicks((p) => setPicks(p))
     const unsubResults = subscribeToResults((r) => setResults(r))
-    return () => { unsubSession(); unsubPlayers(); unsubPicks(); unsubResults() }
-  }, [user])
+    return () => { unsubSession(); unsubResults() }
+  }, [])
 
-  const refreshResults = async () => {
-    const r = await getAllResults()
-    setResults(r)
+  const refreshResults = async () => setResults(await getAllResults())
+
+  const setStatus = async (status) => {
+    await updateSession({ status })
   }
 
-  // Join the game (register as a player)
-  const joinGame = async () => {
-    if (!user) throw new Error('You must be signed in.')
-    const session_ = session || await getSession()
-    if (session_.status === 'locked' || session_.status === 'complete') {
-      throw new Error('The draft has already been locked. No new players can join.')
-    }
-    if (players.length >= (session_?.maxPlayers ?? 10)) {
-      throw new Error(`This game is full (max ${session_?.maxPlayers ?? 10} players).`)
-    }
-    await joinFootballWinLeague({
-      userId: user.uid,
-      displayName: user.displayName || user.profile?.display_name || user.email || 'Player',
-    })
-  }
-
-  // Draft a team (only valid when it's your turn)
-  const draftTeam = async (teamId) => {
-    if (!user) throw new Error('Not authenticated.')
-    if (!session) throw new Error('Session not loaded.')
-    if (session.status !== 'drafting') throw new Error('Draft is not currently active.')
-    const currentPickIndex = session.currentPick
-    if (session.draftOrder[currentPickIndex] !== user.uid) {
-      throw new Error("It's not your turn to pick.")
-    }
-    if (picks.some((p) => p.teamId === teamId)) {
-      throw new Error('This team has already been drafted.')
-    }
-    await _draftTeam({ userId: user.uid, teamId, pickNumber: currentPickIndex })
-    const nextPick = currentPickIndex + 1
-    const totalPicks = session.draftOrder.length
-    const newStatus = nextPick >= totalPicks ? 'locked' : 'drafting'
-    await updateSession({ currentPick: nextPick, status: newStatus })
-  }
-
-  // Derived data
-  const myPicks      = picks.filter((p) => p.userId === user?.uid)
-  const draftedTeams = new Set(picks.map((p) => p.teamId))
-
-  const rankedTeams = FWL_RANKED_TEAMS.map((teamId, rankIdx) => ({
-    ...(NFL_WL_TEAMS[teamId] || { id: teamId, name: teamId }),
-    rank:      rankIdx + 1,
-    drafted:   draftedTeams.has(teamId),
-    draftedBy: picks.find((p) => p.teamId === teamId) || null,
-  }))
-
-  const currentPickIndex = session?.currentPick ?? 0
-  const currentDrafterId = session?.draftOrder?.[currentPickIndex] ?? null
-  const isMyTurn = currentDrafterId === user?.uid && session?.status === 'drafting'
-  const currentDrafter = players.find((p) => p.userId === currentDrafterId) || null
-
-  const rosterByUserId = {}
-  for (const pick of picks) {
-    if (!rosterByUserId[pick.userId]) rosterByUserId[pick.userId] = []
-    rosterByUserId[pick.userId].push(pick)
-  }
-
-  const leaderboard = buildLeaderboard(players, picks, results)
-
-  const picksPerPlayer  = session?.picksPerPlayer ?? 3
-  const myPicksComplete = myPicks.length >= picksPerPlayer
-  const draftComplete   = session?.status === 'locked' || session?.status === 'complete'
-  const draftInProgress = session?.status === 'drafting'
-  const draftOpen       = session?.status === 'open'
+  const standings   = buildStandings(results)
+  const weeksScored  = [...new Set(results.map((r) => r.week))].sort((a, b) => a - b)
+  const isComplete   = session?.status === 'complete'
 
   return {
     // State
-    session, players, myPlayer, picks, myPicks, results, loading, error,
+    session, results, loading, error, isComplete,
     // Computed
-    rankedTeams, leaderboard, currentPickIndex, currentDrafterId, currentDrafter,
-    isMyTurn, rosterByUserId, draftedTeams, myPicksComplete,
-    draftComplete, draftInProgress, draftOpen,
+    standings, roster: FWL_ROSTER, rosterTeams: FWL_ROSTER_TEAMS, weeksScored,
     // Actions
-    joinGame, draftTeam, refreshResults, reload: loadData,
+    refreshResults, setStatus, reload: loadData,
   }
 }
