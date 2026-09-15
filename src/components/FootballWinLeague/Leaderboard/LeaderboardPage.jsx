@@ -42,7 +42,7 @@ function TeamLine({ team }) {
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <p className="text-base font-black" style={{ color: info.color !== '#000000' ? info.color : '#9ca3af' }}>
+        <p className="text-base font-black text-white">
           {fmtPts(team.points)}
         </p>
         <p className="text-[9px] text-gray-500 -mt-0.5">pts</p>
