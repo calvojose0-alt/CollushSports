@@ -60,19 +60,17 @@ function ManagerRow({ row, rank, isChampion }) {
           <RankBadge rank={rank} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="font-bold text-base text-white truncate">{row.manager}</span>
-            {isChampion && <Trophy className="w-4 h-4 text-yellow-400 flex-shrink-0" />}
+            <span className={`font-black text-xl leading-none ${row.totalPoints > 0 ? 'text-green-400' : 'text-gray-600'}`}>
+              {fmtPts(row.totalPoints)}
+            </span>
+            <span className="text-[10px] text-gray-500">pts</span>
+            {isChampion && <Trophy className="w-4 h-4 text-yellow-400 flex-shrink-0 self-center" />}
           </div>
           <p className="text-[11px] text-gray-500">
             <span className="text-green-400">{row.totalWins}W</span> · {row.totalTies}T · {row.totalLosses}L
           </p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className={`font-black text-xl leading-none ${row.totalPoints > 0 ? 'text-green-400' : 'text-gray-600'}`}>
-            {fmtPts(row.totalPoints)}
-          </div>
-          <div className="text-[10px] text-gray-500">pts</div>
         </div>
       </div>
 
