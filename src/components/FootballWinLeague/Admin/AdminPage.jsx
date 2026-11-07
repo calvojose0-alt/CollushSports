@@ -39,8 +39,10 @@ function WeeklyResults({ rosterTeams, results, reload }) {
   const [week,   setWeek]   = useState(1)
   const rosterSet = new Set(rosterTeams)
 
-  // Only games involving at least one rostered team matter for scoring.
-  const games = (NFL_2026_SCHEDULE[week] || []).filter(([a, h]) => rosterSet.has(a) || rosterSet.has(h))
+  // Full weekly slate. Games with at least one rostered team are scoreable;
+  // games between two undrafted teams are shown for reference only.
+  const games = NFL_2026_SCHEDULE[week] || []
+  const isScoring = (a, h) => rosterSet.has(a) || rosterSet.has(h)
 
   const byTeam = {}
   for (const r of results) if (r.week === week) byTeam[r.teamId] = r.outcome
@@ -55,7 +57,8 @@ function WeeklyResults({ rosterTeams, results, reload }) {
     return null
   }
 
-  const decidedCount = games.filter(([a, h]) => decide(a, h) !== null).length
+  const scoringGames = games.filter(([a, h]) => isScoring(a, h))
+  const decidedCount = scoringGames.filter(([a, h]) => decide(a, h) !== null).length
 
   // choice: 'away' | 'home' | 'tie' | null(clear). Records only rostered teams.
   const setGame = async (a, h, choice) => {
@@ -125,7 +128,7 @@ function WeeklyResults({ rosterTeams, results, reload }) {
       </div>
 
       <p className="text-xs text-gray-500">
-        <strong className="text-white">Week {week}</strong> — tap each game's winner ({decidedCount}/{games.length} decided).
+        <strong className="text-white">Week {week}</strong> — tap each game's winner ({decidedCount}/{scoringGames.length} decided).
         Tap the winner again to clear; use <span className="text-yellow-300 font-bold">T</span> for a tie.
       </p>
 
@@ -133,6 +136,26 @@ function WeeklyResults({ rosterTeams, results, reload }) {
       <div className="space-y-2">
         {games.map(([a, h]) => {
           const key = `${a}@${h}`
+
+          // Reference-only game: neither team is on a roster, so nothing to score.
+          if (!isScoring(a, h)) {
+            const away = NFL_WL_TEAMS[a], home = NFL_WL_TEAMS[h]
+            return (
+              <div key={key} className="flex items-center gap-2 opacity-60">
+                <div className="flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-f1light bg-f1dark text-xs text-gray-400">
+                  <TeamLogo team={away} size="sm" />
+                  <span className="truncate">{away?.shortName}</span>
+                </div>
+                <span className="text-[10px] text-gray-600 flex-shrink-0">@</span>
+                <div className="flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-f1light bg-f1dark text-xs text-gray-400">
+                  <TeamLogo team={home} size="sm" />
+                  <span className="truncate">{home?.shortName}</span>
+                  <span className="ml-auto text-[9px] text-gray-600 italic flex-shrink-0">not scored</span>
+                </div>
+              </div>
+            )
+          }
+
           const dec = decide(a, h)
           const isSaving = saving === key
           const pick = (choice) => setGame(a, h, choice)
